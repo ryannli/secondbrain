@@ -8,7 +8,7 @@ import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType,
  */
 export interface UserConfig {
   accentColor?: string;  // Hex color like "#3b6044"
-  fontFamily?: string;   // Font name
+  fontFamily?: string;   // Font ID like "outfit", "inter", etc.
 }
 
 /**

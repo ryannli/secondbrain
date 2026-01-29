@@ -99,6 +99,8 @@ function HomeContent() {
   // Settings state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [accentColor, setAccentColor] = useState("#3b6044");
+  const [fontFamily, setFontFamily] = useState("outfit");
+  const [rootPath, setRootPath] = useState("");
 
   // Generate palette based on accent color
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
@@ -158,22 +160,28 @@ function HomeContent() {
         if (data.config.accentColor) {
           setAccentColor(data.config.accentColor);
         }
+        if (data.config.fontFamily) {
+          setFontFamily(data.config.fontFamily);
+        }
+        if (data.config.rootPath) {
+          setRootPath(data.config.rootPath);
+        }
       }
     } catch (err) {
       console.error("Failed to load config:", err);
     }
   };
 
-  const saveConfig = async (newAccentColor: string) => {
+  const saveFont = async (newFont: string) => {
     try {
       const res = await fetch("/api/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accentColor: newAccentColor }),
+        body: JSON.stringify({ fontFamily: newFont }),
       });
       const data = await res.json();
       if (data.success) {
-        setAccentColor(newAccentColor);
+        setFontFamily(newFont);
       }
     } catch (err) {
       console.error("Failed to save config:", err);
@@ -525,8 +533,8 @@ function HomeContent() {
 
   return (
     <div
-      className="h-screen overflow-hidden font-[family-name:var(--font-outfit)] flex flex-col"
-      style={{ backgroundColor: theme.bg, color: theme.text }}
+      className="h-screen overflow-hidden flex flex-col"
+      style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: `var(--font-${fontFamily})` }}
     >
       {/* Top Header */}
       <header
@@ -562,29 +570,31 @@ function HomeContent() {
           >
             <h2 className="text-lg font-semibold mb-4">Settings</h2>
 
-            {/* Accent Color */}
+            {/* Font Family */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Accent Color</label>
-              <div className="flex gap-2 flex-wrap">
+              <label className="block text-sm font-medium mb-2">Font</label>
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { color: "#3b6044", name: "Forest" },
-                  { color: "#2563eb", name: "Blue" },
-                  { color: "#7c3aed", name: "Purple" },
-                  { color: "#db2777", name: "Pink" },
-                  { color: "#ea580c", name: "Orange" },
-                  { color: "#0d9488", name: "Teal" },
+                  { id: "outfit", name: "Outfit" },
+                  { id: "inter", name: "Inter" },
+                  { id: "dm-sans", name: "DM Sans" },
+                  { id: "space-grotesk", name: "Space Grotesk" },
+                  { id: "sora", name: "Sora" },
+                  { id: "plus-jakarta-sans", name: "Plus Jakarta Sans" },
                 ].map((option) => (
                   <button
-                    key={option.color}
-                    onClick={() => saveConfig(option.color)}
-                    className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
+                    key={option.id}
+                    onClick={() => saveFont(option.id)}
+                    className="px-3 py-2 rounded-lg border text-center transition-all hover:border-gray-300"
                     style={{
-                      backgroundColor: option.color,
-                      borderColor: accentColor === option.color ? option.color : "transparent",
-                      boxShadow: accentColor === option.color ? `0 0 0 2px white, 0 0 0 4px ${option.color}` : "none",
+                      fontFamily: `var(--font-${option.id})`,
+                      borderColor: fontFamily === option.id ? palette[500] : theme.border,
+                      backgroundColor: fontFamily === option.id ? `${palette[500]}10` : "transparent",
                     }}
-                    title={option.name}
-                  />
+                  >
+                    <div className="font-medium text-sm">Second Brain</div>
+                    <div className="text-xs text-gray-400">{option.name}</div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -592,14 +602,14 @@ function HomeContent() {
             {/* Data Path */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Data Location</label>
-              <p className="text-sm text-gray-500 break-all">{libraryPath}</p>
+              <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
             </div>
 
             {/* Close Button */}
             <button
               onClick={() => setIsSettingsOpen(false)}
               className="w-full mt-4 px-4 py-2 rounded-lg text-white font-medium transition-opacity hover:opacity-90"
-              style={{ backgroundColor: accentColor }}
+              style={{ backgroundColor: palette[600] }}
             >
               Done
             </button>
@@ -777,14 +787,6 @@ function HomeContent() {
                 )}
               </div>
 
-              {/* Library Path */}
-              <div
-                className="px-3 py-2 border-t text-xs truncate"
-                style={{ borderColor: theme.border, color: theme.textLight }}
-                title={libraryPath}
-              >
-                {libraryPath}
-              </div>
             </>
           )}
         </aside>
@@ -1468,11 +1470,11 @@ function HighlightsSection({
               <div className="flex gap-1 flex-shrink-0">
                 <button
                   onClick={() => onReaction("highlight", h.id, isStarred ? "" : "star")}
-                  className="p-1 rounded transition-all hover:scale-110"
+                  className="p-2 rounded transition-all hover:scale-110 hover:bg-black/5"
                   title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
-                    className="w-4 h-4"
+                    className="w-5 h-5"
                     style={{
                       color: isStarred ? "#eab308" : theme.textLight,
                       fill: isStarred ? "#eab308" : "none",
@@ -1481,11 +1483,11 @@ function HighlightsSection({
                 </button>
                 <button
                   onClick={() => onReaction("highlight", h.id, isDismissed ? "" : "dismiss")}
-                  className="p-1 rounded transition-all hover:scale-110"
+                  className="p-2 rounded transition-all hover:scale-110 hover:bg-black/5"
                   title={isDismissed ? "Restore" : "Dismiss"}
                   style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
                 >
-                  <span className="text-xs">✕</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </li>

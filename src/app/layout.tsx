@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, DM_Sans, Space_Grotesk, Outfit, Sora } from "next/font/google";
+import { Inter, DM_Sans, Space_Grotesk, Outfit, Sora, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -27,6 +27,11 @@ const sora = Sora({
   subsets: ["latin"],
 });
 
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "Second Brain - UI Playground",
   description: "UI Style Selection",
@@ -40,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${outfit.variable} ${sora.variable} antialiased`}
+        className={`${inter.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${outfit.variable} ${sora.variable} ${plusJakarta.variable} antialiased`}
       >
         {children}
       </body>
