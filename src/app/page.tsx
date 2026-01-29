@@ -490,11 +490,15 @@ function HomeContent() {
       }
     }
 
-    // Sort: folders first, then sources; alphabetically within each group
+    // Sort: folders first (alphabetically), then sources by time (newest first)
     const sortNodes = (nodes: TreeNode[]) => {
       nodes.sort((a, b) => {
         if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
-        return a.name.localeCompare(b.name);
+        if (a.type === "folder") return a.name.localeCompare(b.name);
+        // Sources: sort by createdAt descending (newest first)
+        const timeA = new Date(a.source?.meta.createdAt || 0).getTime();
+        const timeB = new Date(b.source?.meta.createdAt || 0).getTime();
+        return timeB - timeA;
       });
       for (const node of nodes) {
         if (node.children) sortNodes(node.children);
@@ -586,7 +590,7 @@ function HomeContent() {
       >
         <button
           onClick={() => router.push("/")}
-          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
         >
           <Logo className="w-5 h-5" color={palette[600]} />
           <span className="font-semibold">Second Brain</span>
