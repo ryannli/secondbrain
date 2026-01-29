@@ -76,19 +76,14 @@ export async function POST(
       source.meta.sourceUrl
     );
 
-    // Update source.md with new title
-    const sourceMd = `---
+    // Write content.md (derived content, can be regenerated)
+    const contentMd = `---
 title: "${newTitle.replace(/"/g, '\\"')}"
-type: ${source.meta.type}
-${source.meta.sourceUrl ? `source_url: "${source.meta.sourceUrl}"` : ""}
-created_at: "${source.meta.createdAt}"
 ---
 
-<!-- PROCESSED_CONTENT_START -->
 ${newContent}
-<!-- PROCESSED_CONTENT_END -->
 `;
-    await fs.writeFile(path.join(sourceDir, "source.md"), sourceMd, "utf-8");
+    await fs.writeFile(path.join(sourceDir, "content.md"), contentMd, "utf-8");
 
     // Save updated analysis
     await fs.writeFile(
@@ -97,11 +92,19 @@ ${newContent}
       "utf-8"
     );
 
+    // Remove error.txt if it exists (source is now ready)
+    try {
+      await fs.unlink(path.join(sourceDir, "error.txt"));
+    } catch {
+      // error.txt didn't exist, that's fine
+    }
+
     const updatedSource = {
       ...source,
       meta: {
         ...source.meta,
         title: newTitle,
+        processingStatus: "ready" as const,
       },
       originalContent: newOriginalContent,
       content: newContent,

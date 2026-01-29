@@ -2,16 +2,34 @@
 
 export type SourceType = "article" | "youtube" | "podcast" | "pdf" | "note" | "twitter";
 
-export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
+/**
+ * Original data captured at source creation time.
+ * Stored in original.json - IMMUTABLE after creation.
+ */
+export interface OriginalData {
+  id: string;
+  source_url?: string;
+  created_at: string;
+  type: SourceType;
+  original_title: string; // Title at capture time (before AI processing)
+}
+
+/**
+ * Processing status derived from file existence:
+ * - processing: only original.json exists
+ * - ready: original.json + content.md + analysis.json exist
+ * - failed: original.json + error.txt exist
+ */
+export type ProcessingStatus = "processing" | "ready" | "failed";
 
 export interface SourceMeta {
   id: string;
-  title: string;
+  title: string; // Display title (from content.md or original_title as fallback)
   type: SourceType;
   sourceUrl?: string;
   createdAt: string;
   folder?: string; // relative path within library/
-  // Processing status
+  // Processing status (derived from file existence)
   processingStatus?: ProcessingStatus;
   processingError?: string;
   // Reading tracking

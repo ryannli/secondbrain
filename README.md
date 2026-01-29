@@ -34,13 +34,14 @@ Each source lives in its own folder:
 
 ```
 library/{id}/
-├── original.html    # Raw capture (immutable - never overwritten)
-├── source.md        # Processed content (regeneratable)
+├── original.json    # Metadata at capture (immutable)
+├── original.html    # Raw HTML capture (immutable)
+├── content.md       # Processed content (regeneratable, editable)
 ├── analysis.json    # AI analysis (regeneratable)
 └── README.md        # Human-readable triage card
 ```
 
-**Original vs Derived**: The `original.html` is captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from it. This means you can always re-analyze with improved AI without losing the source material.
+**Original vs Derived**: `original.json` and `original.html` are captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from them. This means you can always re-analyze with improved AI without losing the source material.
 
 ## Tech Stack
 

@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -69,7 +69,13 @@ export async function ensureLibraryExists(libraryPath = getLibraryPath()): Promi
 
 /**
  * Create a pending source immediately (before processing)
- * This allows the UI to show the source right away with a loading state
+ * This allows the UI to show the source right away with a loading state.
+ *
+ * Creates:
+ * - original.json (immutable metadata)
+ * - original.html or original.txt (raw content)
+ *
+ * Status "processing" is inferred from original.json existing without content.md
  */
 export async function createPendingSource(
   meta: Omit<SourceMeta, "id" | "createdAt" | "processingStatus">,
@@ -79,15 +85,22 @@ export async function createPendingSource(
   const id = uuidv4().slice(0, 8);
   const createdAt = new Date().toISOString();
 
-  const sourceMeta: SourceMeta = {
-    ...meta,
-    id,
-    createdAt,
-    processingStatus: "processing",
-  };
-
   const sourceDir = path.join(libraryPath, id);
   await fs.mkdir(sourceDir, { recursive: true });
+
+  // Save original.json (immutable metadata)
+  const originalData: OriginalData = {
+    id,
+    source_url: meta.sourceUrl,
+    created_at: createdAt,
+    type: meta.type,
+    original_title: meta.title,
+  };
+  await fs.writeFile(
+    path.join(sourceDir, "original.json"),
+    JSON.stringify(originalData, null, 2),
+    "utf-8"
+  );
 
   // Save original content for reprocessing later
   const isHtml = originalContent.includes("<!DOCTYPE") || originalContent.includes("<html");
@@ -97,24 +110,23 @@ export async function createPendingSource(
     await fs.writeFile(path.join(sourceDir, "original.txt"), originalContent, "utf-8");
   }
 
-  // Save minimal source.md with pending status
-  const frontmatter = `---
-title: "${sourceMeta.title.replace(/"/g, '\\"')}"
-type: ${sourceMeta.type}
-${sourceMeta.sourceUrl ? `source_url: "${sourceMeta.sourceUrl}"` : ""}
-created_at: "${createdAt}"
-processing_status: processing
----
-
-Processing content...
-`;
-  await fs.writeFile(path.join(sourceDir, "source.md"), frontmatter, "utf-8");
+  const sourceMeta: SourceMeta = {
+    ...meta,
+    id,
+    createdAt,
+    processingStatus: "processing",
+  };
 
   return { id, meta: sourceMeta };
 }
 
 /**
  * Complete a pending source with processed content and analysis
+ *
+ * Creates:
+ * - content.md (derived, editable content with title in frontmatter)
+ * - analysis.json
+ * - README.md (triage card)
  */
 export async function completeSource(
   id: string,
@@ -125,15 +137,19 @@ export async function completeSource(
 ): Promise<Source> {
   const sourceDir = path.join(libraryPath, id);
 
-  // Load existing meta
-  const sourceMd = await fs.readFile(path.join(sourceDir, "source.md"), "utf-8");
-  const { meta } = parseSourceMd(sourceMd, id);
+  // Load original.json
+  const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
+  const originalData: OriginalData = JSON.parse(originalJson);
 
-  // Update title if provided
-  const finalTitle = title || meta.title;
+  // Use provided title or fall back to original_title
+  const finalTitle = title || originalData.original_title;
+
   const updatedMeta: SourceMeta = {
-    ...meta,
+    id: originalData.id,
     title: finalTitle,
+    type: originalData.type,
+    sourceUrl: originalData.source_url,
+    createdAt: originalData.created_at,
     processingStatus: "ready",
   };
 
@@ -149,22 +165,14 @@ export async function completeSource(
     }
   }
 
-  // Update source.md with processed content
-  const frontmatter = `---
+  // Write content.md with title in frontmatter
+  const contentMd = `---
 title: "${finalTitle.replace(/"/g, '\\"')}"
-type: ${updatedMeta.type}
-${updatedMeta.sourceUrl ? `source_url: "${updatedMeta.sourceUrl}"` : ""}
-created_at: "${updatedMeta.createdAt}"
-processing_status: ready
----`;
+---
 
-  const newSourceMd = `${frontmatter}
-
-<!-- PROCESSED_CONTENT_START -->
 ${content}
-<!-- PROCESSED_CONTENT_END -->
 `;
-  await fs.writeFile(path.join(sourceDir, "source.md"), newSourceMd, "utf-8");
+  await fs.writeFile(path.join(sourceDir, "content.md"), contentMd, "utf-8");
 
   // Save analysis.json
   await fs.writeFile(
@@ -186,7 +194,7 @@ ${content}
 }
 
 /**
- * Mark a source as failed
+ * Mark a source as failed by writing error.txt
  */
 export async function failSource(
   id: string,
@@ -194,25 +202,19 @@ export async function failSource(
   libraryPath = getLibraryPath()
 ): Promise<void> {
   const sourceDir = path.join(libraryPath, id);
-
-  // Load and update source.md
-  const sourceMd = await fs.readFile(path.join(sourceDir, "source.md"), "utf-8");
-  const { meta } = parseSourceMd(sourceMd, id);
-
-  const frontmatter = `---
-title: "${meta.title.replace(/"/g, '\\"')}"
-type: ${meta.type}
-${meta.sourceUrl ? `source_url: "${meta.sourceUrl}"` : ""}
-created_at: "${meta.createdAt}"
-processing_status: failed
-processing_error: "${error.replace(/"/g, '\\"')}"
----
-
-Processing failed: ${error}
-`;
-  await fs.writeFile(path.join(sourceDir, "source.md"), frontmatter, "utf-8");
+  await fs.writeFile(path.join(sourceDir, "error.txt"), error, "utf-8");
 }
 
+/**
+ * Save a fully processed source (one-shot, no pending state)
+ *
+ * Creates:
+ * - original.json (immutable metadata)
+ * - original.html or original.txt (raw content)
+ * - content.md (derived content)
+ * - analysis.json
+ * - README.md (triage card)
+ */
 export async function saveSource(
   meta: Omit<SourceMeta, "id" | "createdAt">,
   originalContent: string,
@@ -223,48 +225,55 @@ export async function saveSource(
   const id = uuidv4().slice(0, 8);
   const createdAt = new Date().toISOString();
 
-  const sourceMeta: SourceMeta = {
-    ...meta,
-    id,
-    createdAt,
-  };
-
   const sourceDir = path.join(libraryPath, id);
   await fs.mkdir(sourceDir, { recursive: true });
 
-  // 1. Save original content for reprocessing later
+  // 1. Save original.json (immutable metadata)
+  const originalData: OriginalData = {
+    id,
+    source_url: meta.sourceUrl,
+    created_at: createdAt,
+    type: meta.type,
+    original_title: meta.title,
+  };
+  await fs.writeFile(
+    path.join(sourceDir, "original.json"),
+    JSON.stringify(originalData, null, 2),
+    "utf-8"
+  );
+
+  // 2. Save original content for reprocessing later
   const isHtml = originalContent.includes("<!DOCTYPE") || originalContent.includes("<html");
   if (isHtml) {
     await fs.writeFile(path.join(sourceDir, "original.html"), originalContent, "utf-8");
   } else {
-    // Plain text - save as original.txt
     await fs.writeFile(path.join(sourceDir, "original.txt"), originalContent, "utf-8");
   }
 
-  // 2. Save source.md with frontmatter and processed content
-  const frontmatter = `---
-title: "${sourceMeta.title.replace(/"/g, '\\"')}"
-type: ${sourceMeta.type}
-${sourceMeta.sourceUrl ? `source_url: "${sourceMeta.sourceUrl}"` : ""}
-created_at: "${createdAt}"
----`;
+  // 3. Save content.md with title in frontmatter
+  const contentMd = `---
+title: "${meta.title.replace(/"/g, '\\"')}"
+---
 
-  const sourceMd = `${frontmatter}
-
-<!-- PROCESSED_CONTENT_START -->
 ${content}
-<!-- PROCESSED_CONTENT_END -->
 `;
-  await fs.writeFile(path.join(sourceDir, "source.md"), sourceMd, "utf-8");
+  await fs.writeFile(path.join(sourceDir, "content.md"), contentMd, "utf-8");
 
-  // 3. Save analysis.json
+  // 4. Save analysis.json
   await fs.writeFile(
     path.join(sourceDir, "analysis.json"),
     JSON.stringify(analysis, null, 2),
     "utf-8"
   );
 
-  // 4. Generate and save README.md (Triage Card)
+  const sourceMeta: SourceMeta = {
+    ...meta,
+    id,
+    createdAt,
+    processingStatus: "ready",
+  };
+
+  // 5. Generate and save README.md (Triage Card)
   const readme = generateReadme(sourceMeta, analysis);
   await fs.writeFile(path.join(sourceDir, "README.md"), readme, "utf-8");
 
@@ -322,10 +331,10 @@ export async function loadSource(
   id: string,
   libraryPath = getLibraryPath()
 ): Promise<Source | null> {
-  // First try direct path (for backward compatibility)
+  // First try direct path
   const directPath = path.join(libraryPath, id);
   try {
-    await fs.access(path.join(directPath, "source.md"));
+    await fs.access(path.join(directPath, "original.json"));
     return loadSourceFromPath(directPath, id);
   } catch {
     // Not at direct path, search recursively
@@ -351,49 +360,48 @@ export async function updateAnalysis(
   );
 }
 
-function parseSourceMd(fileContent: string, id: string): { meta: SourceMeta; content: string } {
+/**
+ * Parse content.md frontmatter to extract title
+ */
+function parseContentMd(fileContent: string): { title: string; content: string } {
   const frontmatterMatch = fileContent.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
   if (!frontmatterMatch) {
-    return {
-      meta: { id, title: "Untitled", type: "note", createdAt: new Date().toISOString() },
-      content: fileContent,
-    };
+    return { title: "Untitled", content: fileContent.trim() };
   }
 
   const frontmatter = frontmatterMatch[1];
   const body = frontmatterMatch[2];
 
-  // Simple YAML parsing
-  const meta: SourceMeta = {
-    id,
-    title: extractYamlValue(frontmatter, "title") || "Untitled",
-    type: (extractYamlValue(frontmatter, "type") as SourceMeta["type"]) || "note",
-    sourceUrl: extractYamlValue(frontmatter, "source_url"),
-    createdAt: extractYamlValue(frontmatter, "created_at") || new Date().toISOString(),
-    processingStatus: (extractYamlValue(frontmatter, "processing_status") as ProcessingStatus) || "ready",
-    processingError: extractYamlValue(frontmatter, "processing_error"),
-  };
-
-  // Try new format first (HTML comment markers)
-  let contentMatch = body.match(/<!-- PROCESSED_CONTENT_START -->\n([\s\S]*?)\n<!-- PROCESSED_CONTENT_END -->/);
-
-  // Fallback to old format (## headers)
-  if (!contentMatch) {
-    const oldContentMatch = body.match(/## Content\n\n([\s\S]*)$/);
-    if (oldContentMatch) {
-      contentMatch = oldContentMatch;
-    }
-  }
-
-  const content = contentMatch ? contentMatch[1].trim() : body.trim();
-
-  return { meta, content };
+  const title = extractYamlValue(frontmatter, "title") || "Untitled";
+  return { title, content: body.trim() };
 }
 
 function extractYamlValue(yaml: string, key: string): string | undefined {
   const match = yaml.match(new RegExp(`^${key}:\\s*"?([^"\\n]*)"?`, "m"));
   return match ? match[1] : undefined;
+}
+
+/**
+ * Determine processing status based on file existence
+ */
+async function getProcessingStatus(sourceDir: string): Promise<{ status: ProcessingStatus; error?: string }> {
+  // Check for error.txt (failed)
+  try {
+    const error = await fs.readFile(path.join(sourceDir, "error.txt"), "utf-8");
+    return { status: "failed", error };
+  } catch {
+    // No error.txt
+  }
+
+  // Check for content.md (ready)
+  try {
+    await fs.access(path.join(sourceDir, "content.md"));
+    return { status: "ready" };
+  } catch {
+    // No content.md = still processing
+    return { status: "processing" };
+  }
 }
 
 export async function listSources(libraryPath = getLibraryPath()): Promise<SourceMeta[]> {
@@ -431,9 +439,9 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
       const fullPath = path.join(dir, entry.name);
       const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-      // Check if this directory is a source (has source.md)
+      // Check if this directory is a source (has original.json)
       try {
-        await fs.access(path.join(fullPath, "source.md"));
+        await fs.access(path.join(fullPath, "original.json"));
         // It's a source directory - load it
         const source = await loadSourceFromPath(fullPath, entry.name);
         if (source) {
@@ -463,15 +471,33 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
 
 /**
  * Load source from a specific directory path
+ * Reads original.json for metadata and content.md for processed content
  */
 async function loadSourceFromPath(
   sourceDir: string,
   id: string
 ): Promise<Source | null> {
   try {
-    const sourceMd = await fs.readFile(path.join(sourceDir, "source.md"), "utf-8");
-    const { meta, content } = parseSourceMd(sourceMd, id);
+    // Read original.json (required)
+    const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
+    const originalData: OriginalData = JSON.parse(originalJson);
 
+    // Get processing status from file existence
+    const { status, error } = await getProcessingStatus(sourceDir);
+
+    // Read content.md if it exists
+    let title = originalData.original_title;
+    let content = "";
+    try {
+      const contentMd = await fs.readFile(path.join(sourceDir, "content.md"), "utf-8");
+      const parsed = parseContentMd(contentMd);
+      title = parsed.title;
+      content = parsed.content;
+    } catch {
+      // Content not ready yet (processing state)
+    }
+
+    // Read original content
     let originalContent = "";
     try {
       originalContent = await fs.readFile(path.join(sourceDir, "original.html"), "utf-8");
@@ -479,10 +505,11 @@ async function loadSourceFromPath(
       try {
         originalContent = await fs.readFile(path.join(sourceDir, "original.txt"), "utf-8");
       } catch {
-        // Fallback for old sources
+        // No original content found
       }
     }
 
+    // Read analysis if it exists
     let analysis: Analysis | undefined;
     try {
       const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
@@ -490,6 +517,16 @@ async function loadSourceFromPath(
     } catch {
       // Analysis might not exist yet
     }
+
+    const meta: SourceMeta = {
+      id: originalData.id,
+      title,
+      type: originalData.type,
+      sourceUrl: originalData.source_url,
+      createdAt: originalData.created_at,
+      processingStatus: status,
+      processingError: error,
+    };
 
     return { meta, originalContent, content, analysis };
   } catch {
@@ -499,6 +536,7 @@ async function loadSourceFromPath(
 
 /**
  * Update source content (title and/or body)
+ * Only modifies content.md (derived data), never touches original.json
  */
 export async function updateSourceContent(
   id: string,
@@ -506,10 +544,10 @@ export async function updateSourceContent(
   libraryPath = getLibraryPath()
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Find source directory (same logic as loadSource)
+    // Find source directory
     let sourceDir = path.join(libraryPath, id);
     try {
-      await fs.access(path.join(sourceDir, "source.md"));
+      await fs.access(path.join(sourceDir, "original.json"));
     } catch {
       // Not at direct path, search recursively
       const foundPath = await findSourcePath(id, libraryPath);
@@ -519,31 +557,34 @@ export async function updateSourceContent(
       sourceDir = foundPath;
     }
 
-    // Read current source.md
-    const sourceMdPath = path.join(sourceDir, "source.md");
-    const sourceMd = await fs.readFile(sourceMdPath, "utf-8");
-    const { meta, content: currentContent } = parseSourceMd(sourceMd, id);
+    // Read current content.md
+    const contentMdPath = path.join(sourceDir, "content.md");
+    let currentTitle = "Untitled";
+    let currentContent = "";
+    try {
+      const contentMd = await fs.readFile(contentMdPath, "utf-8");
+      const parsed = parseContentMd(contentMd);
+      currentTitle = parsed.title;
+      currentContent = parsed.content;
+    } catch {
+      // content.md doesn't exist yet, use original.json title
+      const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
+      const originalData: OriginalData = JSON.parse(originalJson);
+      currentTitle = originalData.original_title;
+    }
 
     // Apply updates
-    const newTitle = updates.title ?? meta.title;
+    const newTitle = updates.title ?? currentTitle;
     const newContent = updates.content ?? currentContent;
 
-    // Write updated source.md
-    const frontmatter = `---
+    // Write updated content.md
+    const newContentMd = `---
 title: "${newTitle.replace(/"/g, '\\"')}"
-type: ${meta.type}
-${meta.sourceUrl ? `source_url: "${meta.sourceUrl}"` : ""}
-created_at: "${meta.createdAt}"
-processing_status: ${meta.processingStatus || "ready"}
----`;
+---
 
-    const newSourceMd = `${frontmatter}
-
-<!-- PROCESSED_CONTENT_START -->
 ${newContent}
-<!-- PROCESSED_CONTENT_END -->
 `;
-    await fs.writeFile(sourceMdPath, newSourceMd, "utf-8");
+    await fs.writeFile(contentMdPath, newContentMd, "utf-8");
 
     return { success: true };
   } catch (error) {
@@ -567,9 +608,9 @@ export async function listFolders(libraryPath = getLibraryPath()): Promise<strin
       const fullPath = path.join(dir, entry.name);
       const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-      // Check if this is a source directory
+      // Check if this is a source directory (has original.json)
       try {
-        await fs.access(path.join(fullPath, "source.md"));
+        await fs.access(path.join(fullPath, "original.json"));
         // It's a source, not a folder - skip
       } catch {
         // It's a folder
@@ -602,7 +643,7 @@ export async function findSourcePath(
       // Check if this is the source we're looking for
       if (entry.name === id) {
         try {
-          await fs.access(path.join(fullPath, "source.md"));
+          await fs.access(path.join(fullPath, "original.json"));
           return fullPath;
         } catch {
           // Not a source, continue

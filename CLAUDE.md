@@ -52,10 +52,12 @@ Every source gets a quick assessment:
 ├── library/
 │   ├── {folder}/               # User-created folders (optional)
 │   │   └── {id}/
-│   │       ├── README.md       # Human-readable Triage Card
-│   │       ├── source.md       # Original content (frontmatter + markdown)
-│   │       ├── analysis.json   # AI analysis (editable by user)
-│   │       └── artifacts/      # Co-learning outputs
+│   │       ├── original.json   # IMMUTABLE: metadata captured at creation
+│   │       ├── original.html   # IMMUTABLE: raw HTML from capture
+│   │       ├── content.md      # DERIVED: processed content (editable)
+│   │       ├── analysis.json   # DERIVED: AI analysis (editable)
+│   │       ├── README.md       # DERIVED: human-readable Triage Card
+│   │       └── error.txt       # Only present if processing failed
 │   └── {id}/                   # Sources can also be at top level
 ├── .index/                     # Global indices (claims, graph)
 └── .cache/
@@ -64,22 +66,42 @@ Every source gets a quick assessment:
 ### Organization Rules
 - **System default**: New content goes to `library/` top level
 - **User freedom**: Users can create folders, move sources freely
-- **Detection**: Any directory containing `source.md` = a source entry
+- **Detection**: Any directory containing `original.json` = a source entry
 - **UI options**: Tree view (show hierarchy) or Flat view (ignore hierarchy)
 
-### source.md Format
+### original.json (Immutable)
 
+Written once at capture time, **never modified**:
+```json
+{
+  "id": "abc123",
+  "source_url": "https://...",
+  "created_at": "2024-01-28T...",
+  "type": "article",
+  "original_title": "Page title at capture time"
+}
+```
+
+### content.md (Derived)
+
+Processed content with editable title in frontmatter:
 ```markdown
 ---
-title: "..."
-type: article | video | pdf | note
-source_url: "..."
-created_at: "..."
+title: "AI-improved or user-edited title"
 ---
 
-[Content body - markdown formatted]
-[For videos: transcript with timestamps]
+[Processed content here - markdown formatted]
 ```
+
+### Processing Status (File-based)
+
+Status is **inferred from file existence**, not stored:
+
+| State | Files Present |
+|-------|---------------|
+| Processing | `original.json` only |
+| Ready | `original.json` + `content.md` + `analysis.json` |
+| Failed | `original.json` + `error.txt` |
 
 ### Data Model: Original vs Derived
 
@@ -87,20 +109,18 @@ created_at: "..."
 
 | File | Type | Description |
 |------|------|-------------|
+| `original.json` | **ORIGINAL** | Metadata at capture time. **NEVER modify.** |
 | `original.html` / `original.txt` | **ORIGINAL** | Raw content from first capture. **NEVER overwrite.** |
-| `source_url` | **ORIGINAL** | Where the content came from. |
-| `created_at` | **ORIGINAL** | When the source was captured. |
-| `type` | **ORIGINAL** | Content type (article, twitter, pdf, etc.) |
-| `source.md` (content body) | **DERIVED** | Processed/extracted from original. Can regenerate. |
-| `title` | **DERIVED** | Extracted from original. Can regenerate. |
+| `content.md` | **DERIVED** | Processed/extracted content. Can regenerate. |
 | `analysis.json` | **DERIVED** | AI analysis. Can regenerate. |
 | `README.md` (triage card) | **DERIVED** | Human-readable summary. Can regenerate. |
 
 **Reanalyze operation**:
-1. Read from `original.html` / `original.txt` (the immutable source)
-2. Re-extract content → update `source.md`
-3. Re-run AI analysis → update `analysis.json`
-4. **NEVER** overwrite `original.html` / `original.txt`
+1. Read metadata from `original.json`
+2. Read raw content from `original.html` / `original.txt`
+3. Re-extract content → update `content.md`
+4. Re-run AI analysis → update `analysis.json`
+5. **NEVER** modify `original.json` or `original.html`
 
 **Why this matters**: Browser extension captures rendered HTML that server-side fetch cannot reproduce (SPAs like Twitter). Overwriting original with server-fetched content destroys irreplaceable data.
 
