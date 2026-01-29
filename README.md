@@ -29,67 +29,6 @@ A persistent cognitive workspace that manages information flow for knowledge wor
 - **AI Integration**: Claude Code CLI (subprocess, no API key needed)
 - **Storage**: Local filesystem (markdown + JSON)
 
-## Architecture
-
-### File System Structure
-
-```
-{library}/
-├── {id}/
-│   ├── source.md       # Frontmatter + processed content
-│   ├── original.html   # Original HTML (for re-processing)
-│   ├── analysis.json   # AI analysis results
-│   └── README.md       # Human-readable triage card
-```
-
-### API Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/capture` | POST | Capture URL/HTML/text and analyze |
-| `/api/sources` | GET | List all sources |
-| `/api/sources/[id]` | GET/DELETE | Get or delete a source |
-| `/api/sources/[id]/reanalyze` | POST | Re-process and re-analyze |
-
-### Key Modules
-
-- `src/lib/content.ts` - Content extraction (Readability, HTML parsing)
-- `src/lib/claude.ts` - AI integration (Claude CLI subprocess)
-- `src/lib/storage.ts` - File system operations
-- `src/lib/types.ts` - TypeScript type definitions
-
-## Design Decisions
-
-### Layout & Scrolling
-
-The SourceView uses a split-scroll pattern:
-- **Content panel** (left): Independent scroll with `max-h-[calc(100vh-140px)]` and `sticky top-0`. Long articles scroll within this container.
-- **Analysis panel** (right): Natural height, scrolls with the page. When analysis is long, scrolling on this panel scrolls the entire page.
-- **Sidebar**: Fixed position, does not scroll with content.
-
-This design ensures the analysis panel feels spacious (not boxed in) while keeping long content manageable.
-
-### Title Handling
-
-- **Metadata title**: Extracted from HTML (`og:title` or `<title>` tag), displayed in the header
-- **Processed content**: Claude extracts article body WITHOUT the H1 title (to avoid duplication)
-
-### Content Processing Pipeline
-
-1. **Extract**: URL → fetch HTML → Readability extracts article
-2. **Process**: Claude converts to clean Markdown (no title, preserves structure)
-3. **Analyze**: Claude generates triage score, digest, and critique
-4. **Store**: Save to filesystem as `source.md` + `analysis.json`
-
-### Claude Integration
-
-Uses Claude Code CLI directly via subprocess:
-```typescript
-spawn("claude", ["--print", "--tools", "", "--output-format", "text"])
-```
-- Leverages existing Claude Code subscription (no API key needed)
-- Non-blocking async execution
-
 ## Getting Started
 
 ### Prerequisites
@@ -110,9 +49,22 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Set library path in `config.json` or via the app settings.
 
-## Browser Extension
+## Chrome Extension
 
-A companion Chrome extension is available in `/extension` for one-click capture from any webpage.
+A companion Chrome extension for one-click capture from any webpage.
+
+### Installation
+
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top right)
+3. Click **Load unpacked**
+4. Select the `/extension` folder from this repository
+
+### Usage
+
+- Click the extension icon on any webpage to capture it
+- Or right-click and select "Save to Second Brain"
+- The page will be sent to your local Second Brain for AI analysis
 
 ## License
 
