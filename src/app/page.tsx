@@ -27,6 +27,9 @@ import {
   Trash2,
   Copy,
   FolderPlus,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { Source, SourceSummary, SourceType, ActionType, ACTION_CONFIG, Highlight, TreeNode } from "@/lib/types";
 import { getBrandFromUrl } from "@/lib/brandLogos";
@@ -700,6 +703,15 @@ function HomeContent() {
                 onClose={() => setSelectedSource(null)}
                 onReanalyze={() => handleReanalyze(selectedSource.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(selectedSource.meta.id, type, itemId, reaction)}
+                onSourceUpdated={async () => {
+                  // Reload the source after edit
+                  const res = await fetch(`/api/sources/${selectedSource.meta.id}`);
+                  const data = await res.json();
+                  if (data.success && data.source) {
+                    setSelectedSource(data.source);
+                    loadSources(); // Also refresh sidebar
+                  }
+                }}
                 isReanalyzing={reanalyzingId === selectedSource.meta.id}
                 palette={palette}
                 theme={theme}
@@ -936,6 +948,7 @@ function SourceView({
   setActiveTab,
   onReanalyze,
   onReaction,
+  onSourceUpdated,
   isReanalyzing,
   palette,
   theme,
@@ -948,6 +961,7 @@ function SourceView({
   onClose: () => void;
   onReanalyze: () => void;
   onReaction: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
+  onSourceUpdated: () => void;
   isReanalyzing: boolean;
   palette: Record<number, string>;
   theme: Record<string, string>;
@@ -955,6 +969,46 @@ function SourceView({
   getScoreColor: (score: number) => string;
 }) {
   const { meta, content, analysis } = source;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(content);
+  const [editedTitle, setEditedTitle] = useState(meta.title);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset edit state when source changes
+  useEffect(() => {
+    setEditedContent(content);
+    setEditedTitle(meta.title);
+    setIsEditing(false);
+  }, [source.meta.id, content, meta.title]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/sources/${meta.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editedTitle !== meta.title ? editedTitle : undefined,
+          content: editedContent !== content ? editedContent : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsEditing(false);
+        onSourceUpdated();
+      }
+    } catch (err) {
+      console.error("Failed to save:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedContent(content);
+    setEditedTitle(meta.title);
+    setIsEditing(false);
+  };
 
   return (
     <div className="flex gap-6 items-start">
@@ -962,22 +1016,70 @@ function SourceView({
       <div className="flex-1 min-w-0 max-w-2xl max-h-[calc(100vh-140px)] overflow-y-auto sticky top-0">
         <div className="bg-white border rounded-xl p-6" style={{ borderColor: theme.border }}>
           <div className="flex items-start justify-between mb-2">
-            <h1 className="text-2xl font-semibold leading-tight">{meta.title}</h1>
-            <div className="relative group">
-              <button
-                onClick={onReanalyze}
-                disabled={isReanalyzing}
-                className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
-                style={{ borderColor: theme.border, color: theme.textMuted }}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`}
-                />
-              </button>
-              <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <p className="font-medium mb-1">Re-process this source</p>
-                <p className="text-gray-300">Re-fetch content from the original input, then re-run AI analysis to generate new scores and highlights.</p>
-              </div>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                className="text-2xl font-semibold leading-tight w-full border-b-2 outline-none bg-transparent"
+                style={{ borderColor: palette[500] }}
+              />
+            ) : (
+              <h1 className="text-2xl font-semibold leading-tight">{meta.title}</h1>
+            )}
+            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="p-2 rounded-lg border hover:bg-green-50 transition-colors disabled:opacity-50"
+                    style={{ borderColor: theme.border, color: "#22c55e" }}
+                    title="Save changes"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                    className="p-2 rounded-lg border hover:bg-red-50 transition-colors disabled:opacity-50"
+                    style={{ borderColor: theme.border, color: "#ef4444" }}
+                    title="Cancel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="relative group">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors"
+                      style={{ borderColor: theme.border, color: theme.textMuted }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                      <p className="font-medium mb-1">Edit source</p>
+                      <p className="text-gray-300">Edit the title and content directly.</p>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <button
+                      onClick={onReanalyze}
+                      disabled={isReanalyzing}
+                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
+                      style={{ borderColor: theme.border, color: theme.textMuted }}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`} />
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                      <p className="font-medium mb-1">Re-process this source</p>
+                      <p className="text-gray-300">Re-fetch content from the original input, then re-run AI analysis.</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           {meta.sourceUrl && (
@@ -993,10 +1095,22 @@ function SourceView({
           )}
 
           {/* Content */}
-          <div className="mt-6 prose prose-sm prose-neutral max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
+          <div className="mt-6">
+            {isEditing ? (
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="w-full h-96 p-3 border rounded-lg font-mono text-sm resize-y outline-none focus:border-green-600"
+                style={{ borderColor: theme.border }}
+                placeholder="Markdown content..."
+              />
+            ) : (
+              <div className="prose prose-sm prose-neutral max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {content}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         </div>
       </div>

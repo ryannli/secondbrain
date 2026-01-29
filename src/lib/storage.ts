@@ -446,6 +446,60 @@ async function loadSourceFromPath(
 }
 
 /**
+ * Update source content (title and/or body)
+ */
+export async function updateSourceContent(
+  id: string,
+  updates: { title?: string; content?: string },
+  libraryPath = getLibraryPath()
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Find source directory (same logic as loadSource)
+    let sourceDir = path.join(libraryPath, id);
+    try {
+      await fs.access(path.join(sourceDir, "source.md"));
+    } catch {
+      // Not at direct path, search recursively
+      const foundPath = await findSourcePath(id, libraryPath);
+      if (!foundPath) {
+        return { success: false, error: "Source not found" };
+      }
+      sourceDir = foundPath;
+    }
+
+    // Read current source.md
+    const sourceMdPath = path.join(sourceDir, "source.md");
+    const sourceMd = await fs.readFile(sourceMdPath, "utf-8");
+    const { meta, content: currentContent } = parseSourceMd(sourceMd, id);
+
+    // Apply updates
+    const newTitle = updates.title ?? meta.title;
+    const newContent = updates.content ?? currentContent;
+
+    // Write updated source.md
+    const frontmatter = `---
+title: "${newTitle.replace(/"/g, '\\"')}"
+type: ${meta.type}
+${meta.sourceUrl ? `source_url: "${meta.sourceUrl}"` : ""}
+created_at: "${meta.createdAt}"
+processing_status: ${meta.processingStatus || "ready"}
+---`;
+
+    const newSourceMd = `${frontmatter}
+
+<!-- PROCESSED_CONTENT_START -->
+${newContent}
+<!-- PROCESSED_CONTENT_END -->
+`;
+    await fs.writeFile(sourceMdPath, newSourceMd, "utf-8");
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+/**
  * List all folders in the library
  */
 export async function listFolders(libraryPath = getLibraryPath()): Promise<string[]> {
