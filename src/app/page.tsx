@@ -941,7 +941,7 @@ function Dashboard({
     </div>
   );
 
-  // Rotating taglines for empty state
+  // Taglines for demo
   const taglines = [
     "You can't read everything. You don't have to.",
     "The art of knowing what to ignore.",
@@ -952,25 +952,26 @@ function Dashboard({
   const [taglineIndex, setTaglineIndex] = useState(0);
 
   useEffect(() => {
-    if (sources.length > 0) return;
     const interval = setInterval(() => {
       setTaglineIndex((prev) => (prev + 1) % taglines.length);
-    }, 4000);
+    }, 15000); // 15 seconds to match animation duration
     return () => clearInterval(interval);
-  }, [sources.length, taglines.length]);
+  }, [taglines.length]);
 
   if (sources.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
         <Logo className="w-12 h-12 mb-4" color={theme.textLight} />
         <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
-        <p
-          className="text-sm mb-6 h-5 animate-fade-in"
-          style={{ color: theme.textMuted }}
-          key={taglineIndex}
-        >
-          {taglines[taglineIndex]}
-        </p>
+        <div className="mb-6 h-6">
+          <p
+            key={`tagline-${taglineIndex}`}
+            className="text-base text-center font-medium animate-gentle-fade"
+            style={{ color: theme.text }}
+          >
+            {taglines[taglineIndex]}
+          </p>
+        </div>
         <CaptureInput />
       </div>
     );
@@ -978,7 +979,16 @@ function Dashboard({
 
   return (
     <div>
-      {/* Capture Input */}
+      {/* Tagline + Capture Input */}
+      <div className="mt-4 mb-2 h-6">
+        <p
+          key={`tagline-${taglineIndex}`}
+          className="text-base text-center font-medium animate-gentle-fade"
+          style={{ color: theme.text }}
+        >
+          {taglines[taglineIndex]}
+        </p>
+      </div>
       <CaptureInput />
 
       <div className="flex items-center gap-2 mb-6">
