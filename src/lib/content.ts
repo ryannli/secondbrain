@@ -74,10 +74,14 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   console.log(`Fetching from: ${fetchUrl}`);
 
   // User-Agent header is required - many websites reject requests without it.
-  // This is a generic identifier, not environment-specific.
+  // fxtwitter only returns og:description for social media bots (Telegram, Discord, etc.)
+  const userAgent = fetchUrl.includes("fxtwitter.com")
+    ? "TelegramBot (like TwitterBot)"
+    : "Mozilla/5.0 (compatible; SecondBrain/1.0)";
+
   const response = await fetch(fetchUrl, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SecondBrain/1.0)",
+      "User-Agent": userAgent,
     },
   });
 

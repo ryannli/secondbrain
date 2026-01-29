@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -33,11 +33,15 @@ import {
 } from "lucide-react";
 import { Source, SourceSummary, SourceType, ActionType, ACTION_CONFIG, Highlight, TreeNode } from "@/lib/types";
 import { getBrandFromUrl } from "@/lib/brandLogos";
-import { theme, palette, getScoreColor } from "@/lib/theme";
+import { theme, generatePalette } from "@/lib/theme";
 import { Logo, getFallbackIcon } from "@/components/Icons";
 
 // Get icon component and color for a source (brand logo > fallback icon)
-function getSourceIcon(sourceUrl?: string, type: SourceType = "article"): {
+function getSourceIcon(
+  sourceUrl: string | undefined,
+  type: SourceType = "article",
+  accentColor: string
+): {
   Icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
   color: string;
   isBrand: boolean;
@@ -46,7 +50,7 @@ function getSourceIcon(sourceUrl?: string, type: SourceType = "article"): {
   if (brand) {
     return { Icon: brand.Logo, color: brand.color, isBrand: true };
   }
-  return { Icon: getFallbackIcon(type), color: palette[500], isBrand: false };
+  return { Icon: getFallbackIcon(type), color: accentColor, isBrand: false };
 }
 
 export default function Home() {
@@ -92,6 +96,22 @@ function HomeContent() {
   const [draggedSourceId, setDraggedSourceId] = useState<string | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
+  // Settings state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [accentColor, setAccentColor] = useState("#3b6044");
+
+  // Generate palette based on accent color
+  const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
+
+  // Get score color based on current palette
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return palette[600];
+    if (score >= 60) return palette[500];
+    if (score >= 40) return "#eab308";
+    if (score >= 20) return "#f97316";
+    return "#ef4444";
+  };
+
   // Load config and sources on mount
   useEffect(() => {
     loadConfig();
@@ -135,9 +155,28 @@ function HomeContent() {
       const data = await res.json();
       if (data.success) {
         setLibraryPath(data.config.libraryPath);
+        if (data.config.accentColor) {
+          setAccentColor(data.config.accentColor);
+        }
       }
     } catch (err) {
       console.error("Failed to load config:", err);
+    }
+  };
+
+  const saveConfig = async (newAccentColor: string) => {
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accentColor: newAccentColor }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccentColor(newAccentColor);
+      }
+    } catch (err) {
+      console.error("Failed to save config:", err);
     }
   };
 
@@ -502,12 +541,71 @@ function HomeContent() {
           <span className="font-semibold">Second Brain</span>
         </button>
         <button
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors"
+          onClick={() => setIsSettingsOpen(true)}
+          className="p-2 rounded-lg hover:bg-black/5 transition-colors cursor-pointer"
           title="Settings"
         >
           <Settings className="w-4 h-4" style={{ color: theme.textMuted }} />
         </button>
       </header>
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setIsSettingsOpen(false)}
+          />
+          <div
+            className="relative bg-white rounded-xl shadow-xl p-6 w-96 max-w-[90vw]"
+            style={{ borderColor: theme.border }}
+          >
+            <h2 className="text-lg font-semibold mb-4">Settings</h2>
+
+            {/* Accent Color */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Accent Color</label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { color: "#3b6044", name: "Forest" },
+                  { color: "#2563eb", name: "Blue" },
+                  { color: "#7c3aed", name: "Purple" },
+                  { color: "#db2777", name: "Pink" },
+                  { color: "#ea580c", name: "Orange" },
+                  { color: "#0d9488", name: "Teal" },
+                ].map((option) => (
+                  <button
+                    key={option.color}
+                    onClick={() => saveConfig(option.color)}
+                    className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: option.color,
+                      borderColor: accentColor === option.color ? option.color : "transparent",
+                      boxShadow: accentColor === option.color ? `0 0 0 2px white, 0 0 0 4px ${option.color}` : "none",
+                    }}
+                    title={option.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Data Path */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Data Location</label>
+              <p className="text-sm text-gray-500 break-all">{libraryPath}</p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="w-full mt-4 px-4 py-2 rounded-lg text-white font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: accentColor }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Area: Sidebar + Content */}
       <div className="flex-1 flex min-h-0">
@@ -729,6 +827,7 @@ function HomeContent() {
                 error={error}
                 palette={palette}
                 theme={theme}
+                getScoreColor={getScoreColor}
               />
             )}
           </div>
@@ -777,6 +876,7 @@ function Dashboard({
   error,
   palette,
   theme,
+  getScoreColor,
 }: {
   sources: SourceSummary[];
   onSelect: (id: string) => void;
@@ -787,6 +887,7 @@ function Dashboard({
   error: string | null;
   palette: Record<number, string>;
   theme: Record<string, string>;
+  getScoreColor: (score: number) => string;
 }) {
   // Capture input component
   const CaptureInput = () => (
@@ -862,7 +963,7 @@ function Dashboard({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {sources.map((source) => {
-          const { Icon: SourceIcon, color: iconColor } = getSourceIcon(source.meta.sourceUrl, source.meta.type);
+          const { Icon: SourceIcon, color: iconColor } = getSourceIcon(source.meta.sourceUrl, source.meta.type, palette[500]);
           const isProcessing = source.meta.processingStatus === "processing";
           const isFailed = source.meta.processingStatus === "failed";
 
@@ -1622,7 +1723,7 @@ function TreeItem({
   const source = node.source!;
   const isSelected = selectedSourceId === source.meta.id;
   const isProcessing = source.meta.processingStatus === "processing";
-  const { Icon: SourceIcon, color: iconColor, isBrand } = getSourceIcon(source.meta.sourceUrl, source.meta.type);
+  const { Icon: SourceIcon, color: iconColor, isBrand } = getSourceIcon(source.meta.sourceUrl, source.meta.type, palette[500]);
 
   return (
     <div

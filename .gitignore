@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # user data
-/library/
+/user_data/
 
 # claude code local settings
 .claude/settings.local.json

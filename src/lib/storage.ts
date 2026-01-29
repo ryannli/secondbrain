@@ -4,11 +4,63 @@ import { v4 as uuidv4 } from "uuid";
 import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus } from "./types";
 
 /**
- * Get library path from environment or use default
- * Configure via SECONDBRAIN_LIBRARY env var
+ * User configuration stored in config.json
+ */
+export interface UserConfig {
+  accentColor?: string;  // Hex color like "#3b6044"
+  fontFamily?: string;   // Font name
+}
+
+/**
+ * Get the root path for Second Brain user data
+ * Default: ./user_data (inside project, for easy debugging)
+ */
+function getRootPath(): string {
+  return process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
+}
+
+/**
+ * Get library path (inside root)
  */
 function getLibraryPath(): string {
-  return process.env.SECONDBRAIN_LIBRARY || path.join(process.cwd(), "library");
+  return process.env.SECONDBRAIN_LIBRARY || path.join(getRootPath(), "library");
+}
+
+/**
+ * Get config file path
+ */
+function getConfigPath(): string {
+  return path.join(getRootPath(), "config.json");
+}
+
+/**
+ * Load user configuration
+ */
+export async function loadUserConfig(): Promise<UserConfig> {
+  try {
+    const configPath = getConfigPath();
+    const content = await fs.readFile(configPath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return {}; // Return defaults if config doesn't exist
+  }
+}
+
+/**
+ * Save user configuration
+ */
+export async function saveUserConfig(config: UserConfig): Promise<void> {
+  const rootPath = getRootPath();
+  await fs.mkdir(rootPath, { recursive: true });
+  const configPath = getConfigPath();
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+}
+
+/**
+ * Get the current root path (for display in UI)
+ */
+export function getCurrentRootPath(): string {
+  return getRootPath();
 }
 
 export async function ensureLibraryExists(libraryPath = getLibraryPath()): Promise<void> {

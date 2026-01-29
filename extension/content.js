@@ -88,12 +88,31 @@ function createFloatingButton() {
   document.body.appendChild(container);
 }
 
-function handleCapture() {
+// Wait for dynamic content to render (for SPAs like Twitter)
+async function waitForContent() {
+  const hostname = window.location.hostname;
+
+  // Twitter/X: wait for tweet content to render
+  if (hostname.includes("x.com") || hostname.includes("twitter.com")) {
+    // Wait for tweet text or up to 3 seconds
+    for (let i = 0; i < 30; i++) {
+      if (document.querySelector('[data-testid="tweetText"]')) {
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
+
+async function handleCapture() {
   const container = document.getElementById("secondbrain-float");
   const label = container.querySelector(".sb-label");
 
   container.classList.add("sb-capturing");
   label.textContent = "Capturing...";
+
+  // Wait for dynamic content if needed
+  await waitForContent();
 
   const html = document.documentElement.outerHTML;
   const title = document.title;

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource } from "@/lib/storage";
+import { loadSource, findSourcePath } from "@/lib/storage";
 import { analyzeContent, formatTextContent } from "@/lib/claude";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { promises as fs } from "fs";
 import path from "path";
-
-function getLibraryPath(): string {
-  return process.env.SECONDBRAIN_LIBRARY || path.join(process.cwd(), "library");
-}
 
 export async function POST(
   request: NextRequest,
@@ -27,17 +23,26 @@ export async function POST(
     let newContent: string;
     let newTitle: string = source.meta.title;
     let newOriginalContent = source.originalContent;
-    const sourceDir = path.join(getLibraryPath(), id);
+    const sourceDir = await findSourcePath(id);
+
+    if (!sourceDir) {
+      return NextResponse.json(
+        { success: false, error: "Source directory not found" },
+        { status: 404 }
+      );
+    }
 
     // Check if we have stored HTML (from extension capture)
     const hasStoredHtml = source.originalContent && (source.originalContent.includes("<!DOCTYPE") || source.originalContent.includes("<html"));
 
-    // Twitter/X HTML from direct capture is useless (JS-rendered), always re-fetch via fxtwitter
+    // Twitter/X: check if stored HTML has actual rendered content (data-testid="tweetText")
+    // If it does, we can use it; if not, fall back to fxtwitter
     const isTwitter = source.meta.type === "twitter" ||
       (source.meta.sourceUrl && (source.meta.sourceUrl.includes("x.com") || source.meta.sourceUrl.includes("twitter.com")));
-    const shouldUseStoredHtml = hasStoredHtml && !isTwitter;
+    const hasRenderedTwitterContent = isTwitter && source.originalContent?.includes('data-testid="tweetText"');
+    const shouldUseStoredHtml = hasStoredHtml && (!isTwitter || hasRenderedTwitterContent);
 
-    console.log(`Original content length: ${source.originalContent?.length || 0}, hasStoredHtml: ${hasStoredHtml}, isTwitter: ${isTwitter}`);
+    console.log(`Original content length: ${source.originalContent?.length || 0}, hasStoredHtml: ${hasStoredHtml}, isTwitter: ${isTwitter}, hasRenderedTwitterContent: ${hasRenderedTwitterContent}`);
 
     if (shouldUseStoredHtml) {
       // Use stored HTML to reprocess - don't pass providedTitle so it extracts fresh
