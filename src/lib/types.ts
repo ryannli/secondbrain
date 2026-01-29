@@ -49,7 +49,7 @@ export interface Highlight {
   id: string;
   text: string;
   type: "insight" | "fact" | "actionable";
-  reaction?: "agree" | "disagree" | "dismiss";
+  reaction?: "star" | "dismiss";
 }
 
 export interface Concept {

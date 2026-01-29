@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   RefreshCw,
   HelpCircle,
+  Star,
   Trash2,
   Copy,
   FolderPlus,
@@ -1207,77 +1208,45 @@ function HighlightsSection({
             actionable
           </span>
         </div>
-        <div className="relative group">
-          <HelpCircle className="w-3.5 h-3.5 cursor-help" style={{ color: theme.textLight }} />
-          <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
-            <p className="mb-2">Key points extracted by AI. Your reactions train the system:</p>
-            <ul className="space-y-1 mb-2 text-gray-300">
-              <li><strong className="text-white">Agree</strong> — Valuable insight worth remembering</li>
-              <li><strong className="text-white">Disagree</strong> — You hold a different view</li>
-              <li><strong className="text-white">Dismiss</strong> — Not worth highlighting</li>
-            </ul>
-            <p className="text-gray-300">This helps surface content you find valuable and improves future recommendations.</p>
-          </div>
-        </div>
       </div>
 
       <ul className="space-y-2">
         {highlights.map((h) => {
+          const isStarred = h.reaction === "star";
           const isDismissed = h.reaction === "dismiss";
           return (
             <li
               key={h.id}
-              className="text-sm pl-3 py-2 border-l-2 transition-opacity"
+              className="text-sm pl-3 py-2 border-l-2 transition-opacity flex items-start gap-2"
               style={{
                 borderColor: typeColors[h.type],
                 color: theme.textMuted,
                 opacity: isDismissed ? 0.4 : 1,
               }}
             >
-              <div className="mb-1.5">{h.text}</div>
-              <div className="flex gap-1">
-                {(["agree", "disagree", "dismiss"] as const).map((reaction) => (
-                  <button
-                    key={reaction}
-                    onClick={() => onReaction("highlight", h.id, reaction)}
-                    className="px-2 py-0.5 text-xs rounded transition-all capitalize hover:scale-105 hover:shadow-sm"
+              <div className="flex-1">{h.text}</div>
+              <div className="flex gap-1 flex-shrink-0">
+                <button
+                  onClick={() => onReaction("highlight", h.id, isStarred ? "" : "star")}
+                  className="p-1 rounded transition-all hover:scale-110"
+                  title={isStarred ? "Unstar" : "Star"}
+                >
+                  <Star
+                    className="w-4 h-4"
                     style={{
-                      backgroundColor: h.reaction === reaction
-                        ? reaction === "agree" ? `${palette[500]}20`
-                        : reaction === "disagree" ? "#ef444420"
-                        : `${theme.textLight}20`
-                        : "transparent",
-                      color: h.reaction === reaction
-                        ? reaction === "agree" ? palette[600]
-                        : reaction === "disagree" ? "#ef4444"
-                        : theme.textMuted
-                        : theme.textLight,
-                      border: `1px solid ${h.reaction === reaction
-                        ? reaction === "agree" ? palette[500]
-                        : reaction === "disagree" ? "#ef4444"
-                        : theme.border
-                        : theme.border}`,
+                      color: isStarred ? "#eab308" : theme.textLight,
+                      fill: isStarred ? "#eab308" : "none",
                     }}
-                    onMouseEnter={(e) => {
-                      if (h.reaction !== reaction) {
-                        e.currentTarget.style.backgroundColor = reaction === "agree" ? `${palette[500]}10`
-                          : reaction === "disagree" ? "#ef444410"
-                          : `${theme.textLight}10`;
-                        e.currentTarget.style.borderColor = reaction === "agree" ? palette[500]
-                          : reaction === "disagree" ? "#ef4444"
-                          : theme.textMuted;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (h.reaction !== reaction) {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.borderColor = theme.border;
-                      }
-                    }}
-                  >
-                    {reaction}
-                  </button>
-                ))}
+                  />
+                </button>
+                <button
+                  onClick={() => onReaction("highlight", h.id, isDismissed ? "" : "dismiss")}
+                  className="p-1 rounded transition-all hover:scale-110"
+                  title={isDismissed ? "Restore" : "Dismiss"}
+                  style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
+                >
+                  <span className="text-xs">✕</span>
+                </button>
               </div>
             </li>
           );
