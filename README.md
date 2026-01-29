@@ -10,7 +10,7 @@ A persistent cognitive workspace that manages information flow for knowledge wor
 
 Your library is just a folder on your computer. Every source, every analysis, every piece of metadata is a plain file you can read, edit, or move with any tool.
 
-**The UI is just a view.** It renders what's in your filesystem and writes changes back to it. There's no database, no cloud sync, no lock-in. Edit a file in VS Code, and the UI updates. Move a folder in Finder, and it moves in the app.
+**The UI is just a view.** It renders what's in your filesystem and writes changes back to it. There's no database, no cloud sync, no lock-in. Edit a file with any text editor, and the UI updates. Move a folder in Finder, and it moves in the app.
 
 This means:
 - **You own your data** — it's just markdown and JSON files
