@@ -1033,8 +1033,8 @@ function SourceView({
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="p-2 rounded-lg border hover:bg-green-50 transition-colors disabled:opacity-50"
-                    style={{ borderColor: theme.border, color: "#22c55e" }}
+                    className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
+                    style={{ borderColor: theme.border, color: palette[600] }}
                     title="Save changes"
                   >
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -1042,8 +1042,8 @@ function SourceView({
                   <button
                     onClick={handleCancel}
                     disabled={isSaving}
-                    className="p-2 rounded-lg border hover:bg-red-50 transition-colors disabled:opacity-50"
-                    style={{ borderColor: theme.border, color: "#ef4444" }}
+                    className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
+                    style={{ borderColor: theme.border, color: theme.textMuted }}
                     title="Cancel"
                   >
                     <X className="w-4 h-4" />
@@ -1100,7 +1100,7 @@ function SourceView({
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full h-96 p-3 border rounded-lg font-mono text-sm resize-y outline-none focus:border-green-600"
+                className="w-full min-h-[500px] p-4 border rounded-lg font-mono text-sm resize-y outline-none"
                 style={{ borderColor: theme.border }}
                 placeholder="Markdown content..."
               />
