@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
-  <!-- Filled rings: solid, confident -->
-  <circle cx="32" cy="32" r="28" fill="#3b6044" opacity="0.1"/>
-  <circle cx="32" cy="32" r="20" fill="#3b6044" opacity="0.2"/>
-  <circle cx="32" cy="32" r="12" fill="#3b6044" opacity="0.4"/>
-  <circle cx="32" cy="32" r="5" fill="#3b6044"/>
-</svg>

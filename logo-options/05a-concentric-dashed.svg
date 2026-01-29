@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
-  <!-- Concentric with dashed outer rings: data/digital feel -->
-  <circle cx="32" cy="32" r="24" stroke="#3b6044" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
-  <circle cx="32" cy="32" r="16" stroke="#3b6044" stroke-width="2" stroke-dasharray="3 2" opacity="0.5"/>
-  <circle cx="32" cy="32" r="8" stroke="#3b6044" stroke-width="2"/>
-  <circle cx="32" cy="32" r="3" fill="#3b6044"/>
-</svg>

@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
-  <!-- B in the center of concentric circles -->
-  <circle cx="32" cy="32" r="28" fill="#3b6044" opacity="0.1"/>
-  <circle cx="32" cy="32" r="21" fill="#3b6044" opacity="0.2"/>
-  <circle cx="32" cy="32" r="14" fill="#3b6044" opacity="0.35"/>
-
-  <!-- Letter B -->
-  <text x="32" y="41" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#3b6044" text-anchor="middle">B</text>
-</svg>

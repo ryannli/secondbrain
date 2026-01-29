@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
-  <!-- Hexagonal network: structured knowledge -->
-  <!-- Central hexagon -->
-  <polygon points="32,12 44,20 44,36 32,44 20,36 20,20" fill="#3b6044"/>
-  <!-- Connected smaller hexagons -->
-  <polygon points="32,48 38,52 38,60 32,64 26,60 26,52" fill="#3b6044" opacity="0.5" transform="translate(0,-8)"/>
-  <polygon points="50,28 56,32 56,40 50,44 44,40 44,32" fill="#3b6044" opacity="0.4" transform="translate(-2,0)"/>
-  <polygon points="14,28 20,32 20,40 14,44 8,40 8,32" fill="#3b6044" opacity="0.4" transform="translate(2,0)"/>
-</svg>
