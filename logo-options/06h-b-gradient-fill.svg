@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="grad1" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#3b6044" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#3b6044" stop-opacity="0.2"/>
+    </radialGradient>
+  </defs>
+
+  <!-- B with radial gradient fill -->
+  <path
+    d="M18 8 L18 56 L38 56 Q54 56 54 42 Q54 32 42 30 Q52 28 52 18 Q52 8 36 8 Z
+       M26 14 L36 14 Q44 14 44 20 Q44 26 36 26 L26 26 Z
+       M26 34 L38 34 Q46 34 46 42 Q46 50 38 50 L26 50 Z"
+    fill="url(#grad1)"
+    fill-rule="evenodd"
+  />
+</svg>

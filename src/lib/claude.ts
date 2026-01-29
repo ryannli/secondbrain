@@ -42,7 +42,16 @@ async function callClaude(prompt: string): Promise<string> {
  * Generate a concise title for content using AI
  */
 export async function generateTitle(content: string): Promise<string> {
-  const prompt = `Generate a concise, descriptive title (5-10 words) for this content. The title should capture the main topic or insight. Respond with ONLY the title, no quotes or explanation.
+  const prompt = `Generate a concise, descriptive title (5-10 words) for this content.
+
+Rules:
+1. Capture the main topic or insight
+2. If the author is a well-known person (tech leader, researcher, entrepreneur, public figure, etc.), include their name
+   - Format: "Author Name: Topic" or "Author Name on Topic"
+   - Examples: "Andrej Karpathy on LLM Training Workflows", "Paul Graham: How to Start a Startup"
+3. If the author is not famous or cannot be identified, just describe the content without attribution
+
+Respond with ONLY the title, no quotes or explanation.
 
 Content:
 ${content.slice(0, 3000)}`;

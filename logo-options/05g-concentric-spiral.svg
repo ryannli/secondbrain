@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- Spiral hint: growth, expansion -->
+  <path
+    d="M 32 32
+       m 0 -6
+       a 6 6 0 1 1 0 12
+       a 6 6 0 1 1 0 -12
+       m 0 -6
+       a 12 12 0 1 1 0 24
+       m 0 -30
+       a 18 18 0 1 1 0 36
+       m 0 -42
+       a 24 24 0 1 1 0 48"
+    stroke="#3b6044"
+    stroke-width="2"
+    fill="none"
+    opacity="0.6"
+  />
+  <circle cx="32" cy="32" r="3" fill="#3b6044"/>
+</svg>

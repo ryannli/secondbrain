@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- B outline with radiating glow behind -->
+  <!-- Glow layers -->
+  <circle cx="32" cy="32" r="30" fill="#3b6044" opacity="0.06"/>
+  <circle cx="32" cy="32" r="24" fill="#3b6044" opacity="0.1"/>
+  <circle cx="32" cy="32" r="18" fill="#3b6044" opacity="0.15"/>
+
+  <!-- B as outline -->
+  <path
+    d="M20 10 L20 54
+       M20 10 L36 10 Q48 10 48 20 Q48 30 36 32
+       M20 32 L38 32 Q52 32 52 44 Q52 54 38 54 L20 54"
+    stroke="#3b6044"
+    stroke-width="3"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- Open book forming a brain shape -->
+  <!-- Left page (brain left) -->
+  <path
+    d="M32 14
+       C24 14 18 18 16 24
+       C14 30 16 38 20 44
+       C24 50 28 52 32 54"
+    stroke="#3b6044"
+    stroke-width="2.5"
+    fill="none"
+  />
+  <!-- Right page (brain right) -->
+  <path
+    d="M32 14
+       C40 14 46 18 48 24
+       C50 30 48 38 44 44
+       C40 50 36 52 32 54"
+    stroke="#3b6044"
+    stroke-width="2.5"
+    fill="none"
+  />
+  <!-- Spine -->
+  <line x1="32" y1="14" x2="32" y2="54" stroke="#3b6044" stroke-width="2"/>
+  <!-- Page lines left -->
+  <path d="M22 26 Q27 28 30 26" stroke="#3b6044" stroke-width="1.2" opacity="0.4"/>
+  <path d="M20 34 Q26 36 30 34" stroke="#3b6044" stroke-width="1.2" opacity="0.4"/>
+  <!-- Page lines right -->
+  <path d="M42 26 Q37 28 34 26" stroke="#3b6044" stroke-width="1.2" opacity="0.4"/>
+  <path d="M44 34 Q38 36 34 34" stroke="#3b6044" stroke-width="1.2" opacity="0.4"/>
+</svg>

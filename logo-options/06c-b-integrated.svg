@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- B shape formed by overlapping circles -->
+  <!-- Background glow -->
+  <circle cx="32" cy="32" r="28" fill="#3b6044" opacity="0.05"/>
+
+  <!-- Upper bowl -->
+  <circle cx="34" cy="20" r="12" fill="#3b6044" opacity="0.2"/>
+  <circle cx="34" cy="20" r="7" fill="#3b6044" opacity="0.4"/>
+  <circle cx="34" cy="20" r="3" fill="#3b6044"/>
+
+  <!-- Lower bowl -->
+  <circle cx="36" cy="42" r="14" fill="#3b6044" opacity="0.2"/>
+  <circle cx="36" cy="42" r="9" fill="#3b6044" opacity="0.4"/>
+  <circle cx="36" cy="42" r="4" fill="#3b6044"/>
+
+  <!-- Spine -->
+  <rect x="14" y="8" width="4" height="48" rx="2" fill="#3b6044"/>
+</svg>

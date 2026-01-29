@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- Double B outline: "Second" brain -->
+  <!-- Outer B (shadow/second) -->
+  <path
+    d="M16 8 L16 56 L36 56 Q52 56 52 42 Q52 32 40 30 Q50 28 50 18 Q50 8 34 8 Z"
+    stroke="#3b6044"
+    stroke-width="2"
+    fill="none"
+    opacity="0.25"
+  />
+
+  <!-- Inner B (primary) -->
+  <path
+    d="M20 12 L20 52 L36 52 Q48 52 48 40 Q48 32 38 30 Q46 28 46 20 Q46 12 34 12 Z"
+    stroke="#3b6044"
+    stroke-width="2.5"
+    fill="#3b6044"
+    opacity="0.9"
+  />
+</svg>

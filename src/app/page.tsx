@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ChevronDown,
   Plus,
-  Brain,
   Loader2,
   AlertCircle,
   BookOpen,
@@ -34,12 +33,16 @@ import {
   FolderPlus,
 } from "lucide-react";
 import { Source, SourceSummary, SourceType, ActionType, ACTION_CONFIG, Highlight, TreeNode } from "@/lib/types";
+import { getBrandFromUrl, BrandConfig } from "@/lib/brandLogos";
 
-// X (Twitter) logo component
-function XLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+// Logo component
+function Logo({ className, color }: { className?: string; color?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    <svg viewBox="0 0 64 64" fill="none" className={className}>
+      <circle cx="32" cy="32" r="28" fill={color || "currentColor"} opacity="0.25"/>
+      <circle cx="32" cy="32" r="20" fill={color || "currentColor"} opacity="0.4"/>
+      <circle cx="32" cy="32" r="12" fill={color || "currentColor"} opacity="0.6"/>
+      <circle cx="32" cy="32" r="5" fill={color || "currentColor"}/>
     </svg>
   );
 }
@@ -100,23 +103,35 @@ function generatePalette(baseColor: string) {
 
 const palette = generatePalette(theme.accent);
 
-// Get icon component for source type
-function getSourceTypeIcon(type: SourceType) {
+// Fallback icon based on source type (when no brand match)
+function getFallbackIcon(type: SourceType) {
   switch (type) {
     case "youtube":
       return Youtube;
-    case "twitter":
-      return XLogo;
     case "podcast":
       return Headphones;
     case "pdf":
       return File;
     case "note":
       return FileText;
+    case "twitter":
     case "article":
     default:
       return ExternalLink;
   }
+}
+
+// Get icon component and color for a source (brand logo > fallback icon)
+function getSourceIcon(sourceUrl?: string, type: SourceType = "article"): {
+  Icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
+  color: string;
+  isBrand: boolean;
+} {
+  const brand = getBrandFromUrl(sourceUrl);
+  if (brand) {
+    return { Icon: brand.Logo, color: brand.color, isBrand: true };
+  }
+  return { Icon: getFallbackIcon(type), color: palette[500], isBrand: false };
 }
 
 export default function Home() {
@@ -569,10 +584,13 @@ function HomeContent() {
         className="h-12 flex-shrink-0 border-b flex items-center justify-between px-4"
         style={{ borderColor: theme.border }}
       >
-        <div className="flex items-center gap-2.5">
-          <Brain className="w-5 h-5" style={{ color: palette[600] }} />
+        <button
+          onClick={() => router.push("/")}
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+        >
+          <Logo className="w-5 h-5" color={palette[600]} />
           <span className="font-semibold">Second Brain</span>
-        </div>
+        </button>
         <button
           className="p-2 rounded-lg hover:bg-black/5 transition-colors"
           title="Settings"
@@ -707,7 +725,7 @@ function HomeContent() {
 
                 {/* Tree View */}
                 {isLibraryOpen && (
-                  <div className="ml-2">
+                  <div>
                     {buildTree().map((node) => (
                       <TreeItem
                         key={node.path}
@@ -724,6 +742,20 @@ function HomeContent() {
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onDragEnd={handleDragEnd}
+                        onStartCreateFolder={(parentPath) => {
+                          setIsCreatingFolder(true);
+                          setNewFolderParent(parentPath);
+                        }}
+                        isCreatingFolder={isCreatingFolder}
+                        newFolderParent={newFolderParent}
+                        newFolderName={newFolderName}
+                        onFolderNameChange={setNewFolderName}
+                        onCreateFolder={handleCreateFolder}
+                        onCancelCreate={() => {
+                          setIsCreatingFolder(false);
+                          setNewFolderName("");
+                          setNewFolderParent("");
+                        }}
                         palette={palette}
                         theme={theme}
                       />
@@ -899,7 +931,7 @@ function Dashboard({
   if (sources.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
-        <Brain className="w-12 h-12 mb-4" style={{ color: theme.textLight }} />
+        <Logo className="w-12 h-12 mb-4" color={theme.textLight} />
         <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
         <p className="text-sm mb-6" style={{ color: theme.textMuted }}>
           Capture and analyze content from anywhere.
@@ -920,7 +952,7 @@ function Dashboard({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {sources.map((source) => {
-          const TypeIcon = getSourceTypeIcon(source.meta.type);
+          const { Icon: SourceIcon, color: iconColor } = getSourceIcon(source.meta.sourceUrl, source.meta.type);
           const isProcessing = source.meta.processingStatus === "processing";
           const isFailed = source.meta.processingStatus === "failed";
 
@@ -937,7 +969,7 @@ function Dashboard({
                 {isProcessing ? (
                   <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
                 ) : (
-                  <TypeIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: palette[500] }} />
+                  <SourceIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: iconColor }} />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start gap-2">
@@ -1446,6 +1478,13 @@ function TreeItem({
   onDragLeave,
   onDrop,
   onDragEnd,
+  onStartCreateFolder,
+  isCreatingFolder,
+  newFolderParent,
+  newFolderName,
+  onFolderNameChange,
+  onCreateFolder,
+  onCancelCreate,
   palette,
   theme,
 }: {
@@ -1462,43 +1501,86 @@ function TreeItem({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent, targetFolder: string) => void;
   onDragEnd: () => void;
+  onStartCreateFolder: (parentPath: string) => void;
+  isCreatingFolder: boolean;
+  newFolderParent: string;
+  newFolderName: string;
+  onFolderNameChange: (name: string) => void;
+  onCreateFolder: () => void;
+  onCancelCreate: () => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
-  const paddingLeft = depth * 12 + 8;
+  const paddingLeft = depth * 12 + 12;
 
   if (node.type === "folder") {
     const isExpanded = expandedFolders.has(node.path);
     const isDragOver = dragOverFolder === node.path;
+    const showInput = isCreatingFolder && newFolderParent === node.path;
 
     return (
       <div>
         <div
-          onClick={() => onToggleFolder(node.path)}
           onDragOver={(e) => onDragOver(e, node.path)}
           onDragLeave={onDragLeave}
           onDrop={(e) => onDrop(e, node.path)}
-          className="w-full py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left cursor-pointer rounded"
+          className="w-full py-1.5 pr-3 flex items-center hover:bg-black/5 transition-colors text-left cursor-pointer rounded group"
           style={{
-            paddingLeft,
             backgroundColor: isDragOver ? `${palette[500]}20` : undefined,
           }}
         >
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4" style={{ color: theme.textMuted }} />
-          ) : (
-            <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
-          )}
-          {isExpanded ? (
-            <FolderOpen className="w-4 h-4" style={{ color: palette[500] }} />
-          ) : (
-            <Folder className="w-4 h-4" style={{ color: palette[500] }} />
-          )}
-          <span className="text-sm truncate">{node.name}</span>
+          <div
+            onClick={() => onToggleFolder(node.path)}
+            className="flex items-center gap-2 flex-1 min-w-0"
+            style={{ paddingLeft }}
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+            ) : (
+              <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+            )}
+            {isExpanded ? (
+              <FolderOpen className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+            ) : (
+              <Folder className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+            )}
+            <span className="text-sm truncate">{node.name}</span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartCreateFolder(node.path);
+              if (!isExpanded) onToggleFolder(node.path);
+            }}
+            className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+            title="New subfolder"
+          >
+            <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+          </button>
         </div>
-        {isExpanded && node.children && (
+        {isExpanded && (
           <div>
-            {node.children.map((child) => (
+            {showInput && (
+              <div style={{ paddingLeft: paddingLeft + 12 }} className="py-1">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => onFolderNameChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onCreateFolder();
+                    if (e.key === "Escape") onCancelCreate();
+                  }}
+                  onBlur={() => {
+                    if (!newFolderName.trim()) onCancelCreate();
+                  }}
+                  placeholder="Folder name..."
+                  className="w-full px-2 py-1 text-sm border rounded"
+                  style={{ borderColor: theme.border }}
+                  autoFocus
+                />
+              </div>
+            )}
+            {node.children?.map((child) => (
               <TreeItem
                 key={child.path}
                 node={child}
@@ -1514,6 +1596,13 @@ function TreeItem({
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
                 onDragEnd={onDragEnd}
+                onStartCreateFolder={onStartCreateFolder}
+                isCreatingFolder={isCreatingFolder}
+                newFolderParent={newFolderParent}
+                newFolderName={newFolderName}
+                onFolderNameChange={onFolderNameChange}
+                onCreateFolder={onCreateFolder}
+                onCancelCreate={onCancelCreate}
                 palette={palette}
                 theme={theme}
               />
@@ -1528,7 +1617,7 @@ function TreeItem({
   const source = node.source!;
   const isSelected = selectedSourceId === source.meta.id;
   const isProcessing = source.meta.processingStatus === "processing";
-  const TypeIcon = getSourceTypeIcon(source.meta.type);
+  const { Icon: SourceIcon, color: iconColor, isBrand } = getSourceIcon(source.meta.sourceUrl, source.meta.type);
 
   return (
     <div
@@ -1549,10 +1638,11 @@ function TreeItem({
           style={{ color: palette[500] }}
         />
       ) : (
-        <TypeIcon
+        <SourceIcon
           className="w-4 h-4 flex-shrink-0"
           style={{
-            color: isSelected ? palette[500] : theme.textLight,
+            // Brand logos use their own colors, fallback icons use theme colors
+            color: isBrand ? iconColor : (isSelected ? palette[500] : theme.textLight),
           }}
         />
       )}

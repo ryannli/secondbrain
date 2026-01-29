@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" fill="none">
+  <!-- B with half-circle accents mimicking concentric style -->
+  <!-- Stem -->
+  <rect x="14" y="8" width="5" height="48" rx="2" fill="#3b6044"/>
+
+  <!-- Upper arc layers -->
+  <path d="M19 8 Q44 8 44 22 Q44 32 19 32" fill="#3b6044" opacity="0.15"/>
+  <path d="M19 12 Q38 12 38 22 Q38 28 19 28" fill="#3b6044" opacity="0.35"/>
+  <path d="M19 16 Q32 16 32 22 Q32 24 19 24" fill="#3b6044" opacity="0.7"/>
+
+  <!-- Lower arc layers -->
+  <path d="M19 32 Q50 32 50 44 Q50 56 19 56" fill="#3b6044" opacity="0.15"/>
+  <path d="M19 36 Q42 36 42 44 Q42 52 19 52" fill="#3b6044" opacity="0.35"/>
+  <path d="M19 40 Q34 40 34 44 Q34 48 19 48" fill="#3b6044" opacity="0.7"/>
+</svg>
