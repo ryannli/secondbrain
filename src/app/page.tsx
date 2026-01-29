@@ -941,13 +941,16 @@ function Dashboard({
     </div>
   );
 
-  // Taglines for demo
+  // Rotating taglines
   const taglines = [
     "You can't read everything. You don't have to.",
     "The art of knowing what to ignore.",
     "Your cognitive throughput, amplified.",
     "Not storage. Sense-making.",
     "Metabolize. Don't accumulate.",
+    "From noise to signal.",
+    "Information overwhelms. Your second brain evolves.",
+    "Free your judgment from information triage.",
   ];
   const [taglineIndex, setTaglineIndex] = useState(0);
 
