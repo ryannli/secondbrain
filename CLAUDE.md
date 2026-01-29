@@ -133,3 +133,14 @@ created_at: "..."
   - Uses `claude -p --output-format json` for non-interactive mode
   - Legitimately uses Claude Code subscription (no API key needed)
   - Note: OAuth tokens cannot be used directly (Anthropic blocked external use)
+
+---
+
+## Workflow Rules
+
+### Before Committing
+- **Check README.md**: Before making any git commit, review if README.md needs to be updated based on the changes made. Consider updating if:
+  - New features were added
+  - Setup/installation steps changed
+  - API or configuration changed
+  - Dependencies were added/removed
