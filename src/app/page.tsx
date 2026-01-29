@@ -636,7 +636,7 @@ function HomeContent() {
                       <TreeItem
                         key={node.path}
                         node={node}
-                        depth={0}
+                        depth={1}
                         selectedSourceId={selectedSource?.meta.id}
                         expandedFolders={expandedFolders}
                         dragOverFolder={dragOverFolder}
