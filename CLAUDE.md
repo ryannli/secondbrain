@@ -14,7 +14,7 @@
 3. **Security boundary**: All operations stay within user-specified root directory.
 4. **Structure is optional**: System doesn't force organization; respects user-created structure.
 5. **First principles, no hardcoding**: Solve problems from first principles. Avoid hardcoded rules or brittle parsing logic. When dealing with messy/unstructured data (HTML, PDFs, etc.), prefer letting the AI model interpret the content rather than writing fragile extraction code. Ensure generalizability over edge-case handling.
-6. **Minimal code**: Less code is always better. Don't write unnecessary code. If something can be achieved with fewer lines, do it. Delete dead code. Avoid premature abstractions. The best code is no code.
+6. **Minimal code**: Less code is always better. **Knowing when to delete code is more important than knowing how to write it.** Don't write unnecessary code. If something can be achieved with fewer lines, do it. Actively look for code to delete - dead code, redundant logic, over-abstractions. The best code is no code.
 
 ---
 

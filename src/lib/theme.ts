@@ -55,7 +55,7 @@ export function generatePalette(baseColor: string) {
 export const palette = generatePalette(theme.accent);
 
 // Score color helper
-export function getScoreColor(score: number, palette: Record<number, string>) {
+export function getScoreColor(score: number) {
   if (score >= 80) return palette[600];
   if (score >= 60) return palette[500];
   if (score >= 40) return "#eab308";
