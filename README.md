@@ -17,6 +17,7 @@ This means:
 - **AI outputs are editable** — don't like the summary? Edit the file
 - **Use any tool** — grep, git, scripts, whatever works for you
 - **Offline by default** — everything works without internet (except AI analysis)
+- **AI agents work natively** — coding agents like Claude Code can read, edit, and organize your library directly through the filesystem
 
 ## Features
 
