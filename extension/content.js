@@ -1,5 +1,4 @@
 // Second Brain floating capture button
-const API_URL = "http://localhost:3000/api/capture";
 const POSITION_KEY = "secondbrain-button-position";
 
 // Create floating button
@@ -54,7 +53,6 @@ function createFloatingButton() {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
 
-    // Only count as drag if moved more than 5px
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
       wasDragged = true;
     }
@@ -62,7 +60,6 @@ function createFloatingButton() {
     let newX = initialX + dx;
     let newY = initialY + dy;
 
-    // Keep within viewport
     newX = Math.max(0, Math.min(newX, window.innerWidth - container.offsetWidth));
     newY = Math.max(0, Math.min(newY, window.innerHeight - container.offsetHeight));
 
@@ -78,14 +75,12 @@ function createFloatingButton() {
       container.style.transition = "";
       container.style.cursor = "";
 
-      // Save position
       const rect = container.getBoundingClientRect();
       localStorage.setItem(POSITION_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
     }
   });
 
   container.addEventListener("click", (e) => {
-    // Only capture if it wasn't a drag
     if (!wasDragged) {
       handleCapture();
     }
@@ -94,27 +89,22 @@ function createFloatingButton() {
   document.body.appendChild(container);
 }
 
-async function handleCapture() {
+function handleCapture() {
   const container = document.getElementById("secondbrain-float");
   const label = container.querySelector(".sb-label");
 
-  // Show capturing state
   container.classList.add("sb-capturing");
   label.textContent = "Capturing...";
 
-  try {
-    const html = document.documentElement.outerHTML;
-    const title = document.title;
-    const url = window.location.href;
+  const html = document.documentElement.outerHTML;
+  const title = document.title;
+  const url = window.location.href;
 
-    // Fire and forget
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html, title, url }),
-    }).then(async (response) => {
-      const data = await response.json();
-      if (data.success) {
+  // Send to background script (avoids CORS/Private Network Access issues)
+  chrome.runtime.sendMessage(
+    { action: "capture", html, title, url },
+    (response) => {
+      if (response && response.success) {
         container.classList.remove("sb-capturing");
         container.classList.add("sb-success");
         label.textContent = "Captured!";
@@ -123,36 +113,22 @@ async function handleCapture() {
           label.textContent = "Capture";
         }, 2000);
       } else {
-        throw new Error(data.error);
+        container.classList.remove("sb-capturing");
+        container.classList.add("sb-error");
+        label.textContent = "Failed";
+        setTimeout(() => {
+          container.classList.remove("sb-error");
+          label.textContent = "Capture";
+        }, 2000);
       }
-    }).catch((error) => {
-      console.error("Capture error:", error);
-      container.classList.remove("sb-capturing");
-      container.classList.add("sb-error");
-      label.textContent = "Failed";
-      setTimeout(() => {
-        container.classList.remove("sb-error");
-        label.textContent = "Capture";
-      }, 2000);
-    });
+    }
+  );
 
-    // Show immediate feedback
-    setTimeout(() => {
-      if (container.classList.contains("sb-capturing")) {
-        label.textContent = "Processing...";
-      }
-    }, 500);
-
-  } catch (error) {
-    console.error("Capture error:", error);
-    container.classList.remove("sb-capturing");
-    container.classList.add("sb-error");
-    label.textContent = "Failed";
-    setTimeout(() => {
-      container.classList.remove("sb-error");
-      label.textContent = "Capture";
-    }, 2000);
-  }
+  setTimeout(() => {
+    if (container.classList.contains("sb-capturing")) {
+      label.textContent = "Processing...";
+    }
+  }, 500);
 }
 
 // Initialize

@@ -669,13 +669,12 @@ function SourceView({
               <button
                 onClick={onReanalyze}
                 disabled={isReanalyzing}
-                className="px-3 py-1.5 text-sm rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
                 style={{ borderColor: theme.border, color: theme.textMuted }}
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${isReanalyzing ? "animate-spin" : ""}`}
+                  className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`}
                 />
-                {isReanalyzing ? "Processing..." : "Re-process"}
               </button>
               <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                 <p className="font-medium mb-1">Re-process this source</p>
@@ -944,7 +943,7 @@ function HighlightsSection({
                   <button
                     key={reaction}
                     onClick={() => onReaction("highlight", h.id, reaction)}
-                    className="px-2 py-0.5 text-xs rounded transition-colors capitalize"
+                    className="px-2 py-0.5 text-xs rounded transition-all capitalize hover:scale-105 hover:shadow-sm"
                     style={{
                       backgroundColor: h.reaction === reaction
                         ? reaction === "agree" ? `${palette[500]}20`
@@ -961,6 +960,22 @@ function HighlightsSection({
                         : reaction === "disagree" ? "#ef4444"
                         : theme.border
                         : theme.border}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (h.reaction !== reaction) {
+                        e.currentTarget.style.backgroundColor = reaction === "agree" ? `${palette[500]}10`
+                          : reaction === "disagree" ? "#ef444410"
+                          : `${theme.textLight}10`;
+                        e.currentTarget.style.borderColor = reaction === "agree" ? palette[500]
+                          : reaction === "disagree" ? "#ef4444"
+                          : theme.textMuted;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (h.reaction !== reaction) {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.borderColor = theme.border;
+                      }
                     }}
                   >
                     {reaction}
@@ -1016,11 +1031,25 @@ function ConceptsSection({
               <span className="font-medium text-sm">{c.term}</span>
               <button
                 onClick={() => onReaction("concept", c.id, "toggle")}
-                className="px-2 py-0.5 text-xs rounded transition-colors"
+                className="px-2 py-0.5 text-xs rounded transition-all hover:scale-105 hover:shadow-sm"
                 style={{
                   backgroundColor: c.understood ? `${palette[500]}20` : "transparent",
                   color: c.understood ? palette[600] : theme.textLight,
                   border: `1px solid ${c.understood ? palette[500] : theme.border}`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!c.understood) {
+                    e.currentTarget.style.backgroundColor = `${palette[500]}10`;
+                    e.currentTarget.style.borderColor = palette[500];
+                    e.currentTarget.style.color = palette[600];
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!c.understood) {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.borderColor = theme.border;
+                    e.currentTarget.style.color = theme.textLight;
+                  }
                 }}
               >
                 {c.understood ? "✓ Got it" : "Got it"}

@@ -1,7 +1,32 @@
 // Second Brain API endpoint
 const API_URL = "http://localhost:3000/api/capture";
 
-// Handle extension icon click
+// Handle messages from content script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "capture") {
+    captureFromContent(message.html, message.title, message.url)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Keep message channel open for async response
+  }
+});
+
+async function captureFromContent(html, title, url) {
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, title, url }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Capture error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Handle extension icon click (toolbar button)
 chrome.action.onClicked.addListener(async (tab) => {
   try {
     // Show immediate feedback
@@ -11,7 +36,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       args: ["Captured! Processing in background...", "success"],
     });
 
-    // Inject script to get page content
+    // Get page content
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: getPageContent,
@@ -19,19 +44,14 @@ chrome.action.onClicked.addListener(async (tab) => {
 
     const { html, title } = results[0].result;
 
-    // Send to Second Brain API (fire and forget - don't wait)
+    // Send to API
     fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        html,
-        title,
-        url: tab.url,
-      }),
+      body: JSON.stringify({ html, title, url: tab.url }),
     }).then(async (response) => {
       const data = await response.json();
       if (!data.success) {
-        // Show error if it failed
         chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: showNotification,
@@ -52,7 +72,6 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// Function injected into page to get content
 function getPageContent() {
   return {
     html: document.documentElement.outerHTML,
@@ -60,7 +79,6 @@ function getPageContent() {
   };
 }
 
-// Function injected to show notification
 function showNotification(message, type) {
   const existing = document.getElementById("secondbrain-notification");
   if (existing) existing.remove();

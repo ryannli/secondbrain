@@ -25,3 +25,26 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Custom prose heading sizes - smaller than page title */
+.prose h1 {
+  font-size: 1.125rem !important;
+  line-height: 1.5rem !important;
+}
+
+.prose h2 {
+  font-size: 1rem !important;
+  line-height: 1.4rem !important;
+}
+
+.prose h3 {
+  font-size: 0.9375rem !important;
+  line-height: 1.35rem !important;
+}
+
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
