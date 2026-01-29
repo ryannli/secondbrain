@@ -6,12 +6,17 @@ A persistent cognitive workspace that manages information flow for knowledge wor
 
 **The Solution**: AI handles information triage and organization; humans focus on judgment and decisions.
 
-## Core Principles
+## Core Principle: Everything is a Local File
 
-1. **Local-first**: Filesystem is the single source of truth. Web UI is just a view.
-2. **User ownership**: All AI outputs are editable. This is the user's second brain.
-3. **Security boundary**: All operations stay within user-specified root directory.
-4. **Structure is optional**: System doesn't force organization; respects user-created structure.
+Your library is just a folder on your computer. Every source, every analysis, every piece of metadata is a plain file you can read, edit, or move with any tool.
+
+**The UI is just a view.** It renders what's in your filesystem and writes changes back to it. There's no database, no cloud sync, no lock-in. Edit a file in VS Code, and the UI updates. Move a folder in Finder, and it moves in the app.
+
+This means:
+- **You own your data** — it's just markdown and JSON files
+- **AI outputs are editable** — don't like the summary? Edit the file
+- **Use any tool** — grep, git, scripts, whatever works for you
+- **Offline by default** — everything works without internet (except AI analysis)
 
 ## Features
 
