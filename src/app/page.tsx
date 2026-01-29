@@ -941,13 +941,35 @@ function Dashboard({
     </div>
   );
 
+  // Rotating taglines for empty state
+  const taglines = [
+    "You can't read everything. You don't have to.",
+    "The art of knowing what to ignore.",
+    "Your cognitive throughput, amplified.",
+    "Not storage. Sense-making.",
+    "Metabolize. Don't accumulate.",
+  ];
+  const [taglineIndex, setTaglineIndex] = useState(0);
+
+  useEffect(() => {
+    if (sources.length > 0) return;
+    const interval = setInterval(() => {
+      setTaglineIndex((prev) => (prev + 1) % taglines.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [sources.length, taglines.length]);
+
   if (sources.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
         <Logo className="w-12 h-12 mb-4" color={theme.textLight} />
         <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
-        <p className="text-sm mb-6" style={{ color: theme.textMuted }}>
-          Capture and analyze content from anywhere.
+        <p
+          className="text-sm mb-6 h-5 animate-fade-in"
+          style={{ color: theme.textMuted }}
+          key={taglineIndex}
+        >
+          {taglines[taglineIndex]}
         </p>
         <CaptureInput />
       </div>
