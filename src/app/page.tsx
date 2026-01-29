@@ -1106,7 +1106,22 @@ function SourceView({
               />
             ) : (
               <div className="prose prose-sm prose-neutral max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium underline underline-offset-2 hover:opacity-80"
+                        style={{ color: palette[600] }}
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
                   {content}
                 </ReactMarkdown>
               </div>
