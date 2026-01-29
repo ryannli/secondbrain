@@ -273,6 +273,21 @@ export function WSJLogo({ className, style }: LogoProps) {
   );
 }
 
+// WeChat logo
+export function WeChatLogo({ className, style }: LogoProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={style}>
+      <rect fill="#07C160" width="24" height="24" rx="4" />
+      <ellipse cx="9" cy="10.5" rx="5" ry="4" fill="white" />
+      <ellipse cx="15" cy="13.5" rx="5" ry="4" fill="white" />
+      <circle cx="7" cy="10" r="0.8" fill="#07C160" />
+      <circle cx="11" cy="10" r="0.8" fill="#07C160" />
+      <circle cx="13" cy="13" r="0.8" fill="#07C160" />
+      <circle cx="17" cy="13" r="0.8" fill="#07C160" />
+    </svg>
+  );
+}
+
 // Brand configuration type
 export interface BrandConfig {
   domains: string[];
@@ -426,6 +441,12 @@ export const brandLogos: Record<string, BrandConfig> = {
     Logo: WSJLogo,
     color: "#000000",
     name: "Wall Street Journal",
+  },
+  wechat: {
+    domains: ["mp.weixin.qq.com", "weixin.qq.com"],
+    Logo: WeChatLogo,
+    color: "#07C160",
+    name: "WeChat",
   },
 };
 
