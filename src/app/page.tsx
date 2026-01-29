@@ -982,14 +982,24 @@ function SourceView({
   }, [source.meta.id, content, meta.title]);
 
   const handleSave = async () => {
+    // Check if anything changed
+    const titleChanged = editedTitle !== meta.title;
+    const contentChanged = editedContent !== content;
+
+    if (!titleChanged && !contentChanged) {
+      // No changes, just close edit mode
+      setIsEditing(false);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const res = await fetch(`/api/sources/${meta.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: editedTitle !== meta.title ? editedTitle : undefined,
-          content: editedContent !== content ? editedContent : undefined,
+          title: titleChanged ? editedTitle : undefined,
+          content: contentChanged ? editedContent : undefined,
         }),
       });
       const data = await res.json();
