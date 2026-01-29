@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource } from "@/lib/storage";
+import { loadSource, deleteSource } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
@@ -19,6 +19,34 @@ export async function GET(
     return NextResponse.json({ success: true, source });
   } catch (error) {
     console.error("Error loading source:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  try {
+    const { id } = await params;
+    const deleted = await deleteSource(id);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: "Source not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting source:", error);
     return NextResponse.json(
       {
         success: false,

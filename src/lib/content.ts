@@ -1,5 +1,5 @@
 import { SourceType } from "./types";
-import { formatTextContent, extractReadableContent } from "./claude";
+import { formatTextContent, extractReadableContent, generateTitle } from "./claude";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 
@@ -156,7 +156,7 @@ export async function extractFromHtml(
   const reader = new Readability(dom.window.document);
   const article = reader.parse();
 
-  const title = providedTitle || article?.title || extractTitle(html) || "Untitled";
+  let title = providedTitle || article?.title || extractTitle(html) || "Untitled";
   const articleHtml = article?.content || "";
   const articleText = article?.textContent || "";
 
@@ -168,6 +168,12 @@ export async function extractFromHtml(
   } else {
     console.log(`Readability extracted only ${cleanedContent.length} chars, falling back to AI extraction...`);
     content = await extractReadableContent(html);
+  }
+
+  // If title is too long, use AI to generate a concise one
+  if (title.length > 60) {
+    console.log(`Title too long (${title.length} chars), using AI to generate concise title...`);
+    title = await generateTitle(content);
   }
 
   return {
@@ -212,3 +218,4 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
 }
+

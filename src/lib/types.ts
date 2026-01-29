@@ -2,6 +2,8 @@
 
 export type SourceType = "article" | "youtube" | "podcast" | "pdf" | "note" | "twitter";
 
+export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
+
 export interface SourceMeta {
   id: string;
   title: string;
@@ -9,6 +11,9 @@ export interface SourceMeta {
   sourceUrl?: string;
   createdAt: string;
   folder?: string; // relative path within library/
+  // Processing status
+  processingStatus?: ProcessingStatus;
+  processingError?: string;
   // Reading tracking
   readStatus?: "unread" | "reading" | "read";
   lastReadAt?: string;
@@ -88,6 +93,15 @@ export interface SourceSummary {
   score?: number;
   reason?: string;
   action?: ActionType;
+}
+
+// Tree structure for folder view
+export interface TreeNode {
+  type: "folder" | "source";
+  name: string;
+  path: string; // relative path within library/
+  children?: TreeNode[];
+  source?: SourceSummary;
 }
 
 // API types

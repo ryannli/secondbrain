@@ -43,8 +43,8 @@ function createFloatingButton() {
     const rect = container.getBoundingClientRect();
     initialX = rect.left;
     initialY = rect.top;
-    container.style.transition = "none";
-    container.style.cursor = "grabbing";
+    container.classList.add("sb-dragging");
+    e.preventDefault();
   });
 
   document.addEventListener("mousemove", (e) => {
@@ -72,8 +72,7 @@ function createFloatingButton() {
   document.addEventListener("mouseup", () => {
     if (isDragging) {
       isDragging = false;
-      container.style.transition = "";
-      container.style.cursor = "";
+      container.classList.remove("sb-dragging");
 
       const rect = container.getBoundingClientRect();
       localStorage.setItem(POSITION_KEY, JSON.stringify({ x: rect.left, y: rect.top }));

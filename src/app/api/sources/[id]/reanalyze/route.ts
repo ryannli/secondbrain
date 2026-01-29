@@ -25,42 +25,52 @@ export async function POST(
     }
 
     let newContent: string;
+    let newTitle: string = source.meta.title;
     let newOriginalContent = source.originalContent;
     const sourceDir = path.join(getLibraryPath(), id);
 
     // Check if we have stored HTML (from extension capture)
-    const hasStoredHtml = source.originalContent && source.originalContent.includes("<!DOCTYPE") || source.originalContent.includes("<html");
+    const hasStoredHtml = source.originalContent && (source.originalContent.includes("<!DOCTYPE") || source.originalContent.includes("<html"));
 
-    if (hasStoredHtml) {
-      // Use stored HTML to reprocess
+    // Twitter/X HTML from direct capture is useless (JS-rendered), always re-fetch via fxtwitter
+    const isTwitter = source.meta.type === "twitter" ||
+      (source.meta.sourceUrl && (source.meta.sourceUrl.includes("x.com") || source.meta.sourceUrl.includes("twitter.com")));
+    const shouldUseStoredHtml = hasStoredHtml && !isTwitter;
+
+    console.log(`Original content length: ${source.originalContent?.length || 0}, hasStoredHtml: ${hasStoredHtml}, isTwitter: ${isTwitter}`);
+
+    if (shouldUseStoredHtml) {
+      // Use stored HTML to reprocess - don't pass providedTitle so it extracts fresh
       console.log("Re-processing from stored HTML...");
-      const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl, source.meta.title);
+      const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl);
       newContent = extracted.content;
+      newTitle = extracted.title;
     } else if (source.meta.sourceUrl) {
       // URL without stored HTML: re-fetch
       console.log(`Re-fetching content from: ${source.meta.sourceUrl}`);
       const extracted = await extractFromUrl(source.meta.sourceUrl);
       newOriginalContent = extracted.originalContent;
       newContent = extracted.content;
+      newTitle = extracted.title;
       // Save the new HTML for future reprocessing
       await fs.writeFile(path.join(sourceDir, "original.html"), newOriginalContent, "utf-8");
     } else {
-      // Plain text: re-format
+      // Plain text: re-format (title stays the same for plain text)
       console.log("Re-formatting text content...");
       newContent = await formatTextContent(source.originalContent);
     }
 
-    // Re-analyze the content
+    // Re-analyze the content with new title
     console.log("Re-analyzing content...");
     const analysis = await analyzeContent(
-      source.meta.title,
+      newTitle,
       newContent,
       source.meta.sourceUrl
     );
 
-    // Update source.md
+    // Update source.md with new title
     const sourceMd = `---
-title: "${source.meta.title.replace(/"/g, '\\"')}"
+title: "${newTitle.replace(/"/g, '\\"')}"
 type: ${source.meta.type}
 ${source.meta.sourceUrl ? `source_url: "${source.meta.sourceUrl}"` : ""}
 created_at: "${source.meta.createdAt}"
@@ -81,6 +91,10 @@ ${newContent}
 
     const updatedSource = {
       ...source,
+      meta: {
+        ...source.meta,
+        title: newTitle,
+      },
       originalContent: newOriginalContent,
       content: newContent,
       analysis,

@@ -28,10 +28,12 @@ import {
   Headphones,
   FileText,
   File,
-  CheckCircle2,
   ExternalLink,
+  Trash2,
+  Copy,
+  FolderPlus,
 } from "lucide-react";
-import { Source, SourceMeta, SourceSummary, SourceType, ActionType, ACTION_CONFIG, Highlight, TriageCard } from "@/lib/types";
+import { Source, SourceSummary, SourceType, ActionType, ACTION_CONFIG, Highlight, TreeNode } from "@/lib/types";
 
 // X (Twitter) logo component
 function XLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
@@ -131,25 +133,62 @@ function HomeContent() {
   const sourceId = searchParams.get("source");
 
   const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [captureInput, setCaptureInput] = useState("");
-  const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
   const [libraryPath, setLibraryPath] = useState<string>("");
   const [isLibraryOpen, setIsLibraryOpen] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [pendingCaptures, setPendingCaptures] = useState<string[]>([]); // Track URLs being processed
+  const [pendingCaptures, setPendingCaptures] = useState<string[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Load config and sources on mount, poll for updates
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    sourceId: string;
+    sourceUrl?: string;
+  } | null>(null);
+
+  // Folder creation state
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderParent, setNewFolderParent] = useState<string>("");
+
+  // Drag and drop state
+  const [draggedSourceId, setDraggedSourceId] = useState<string | null>(null);
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
+
+  // Load config and sources on mount
   useEffect(() => {
     loadConfig();
     loadSources();
-
-    // Poll for new sources every 5 seconds (for extension captures)
-    const interval = setInterval(loadSources, 5000);
-    return () => clearInterval(interval);
+    loadFolders();
   }, []);
+
+  // Poll for updates - faster when sources are processing
+  useEffect(() => {
+    const hasProcessing = sources.some(s => s.meta.processingStatus === "processing");
+    const pollInterval = hasProcessing ? 2000 : 5000;
+
+    const interval = setInterval(() => {
+      loadSources();
+      loadFolders();
+    }, pollInterval);
+    return () => clearInterval(interval);
+  }, [sources]);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener("click", handleClick);
+      return () => document.removeEventListener("click", handleClick);
+    }
+  }, [contextMenu]);
 
   // Load source from URL param
   useEffect(() => {
@@ -181,6 +220,18 @@ function HomeContent() {
       }
     } catch (err) {
       console.error("Failed to load sources:", err);
+    }
+  };
+
+  const loadFolders = async () => {
+    try {
+      const res = await fetch("/api/folders");
+      const data = await res.json();
+      if (data.success) {
+        setFolders(data.folders);
+      }
+    } catch (err) {
+      console.error("Failed to load folders:", err);
     }
   };
 
@@ -241,6 +292,202 @@ function HomeContent() {
 
   const navigateToDashboard = () => {
     router.push("/dashboard");
+  };
+
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, sourceId: string, sourceUrl?: string) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      sourceId,
+      sourceUrl,
+    });
+  };
+
+  const handleCopyUrl = async () => {
+    if (contextMenu?.sourceUrl) {
+      await navigator.clipboard.writeText(contextMenu.sourceUrl);
+    }
+    setContextMenu(null);
+  };
+
+  const handleDelete = async () => {
+    if (!contextMenu) return;
+    const { sourceId } = contextMenu;
+    setContextMenu(null);
+
+    try {
+      const res = await fetch(`/api/sources/${sourceId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setSources((prev) => prev.filter((s) => s.meta.id !== sourceId));
+        if (selectedSource?.meta.id === sourceId) {
+          router.push("/");
+        }
+      } else {
+        setError(data.error || "Failed to delete source");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  // Folder creation
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    try {
+      const res = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newFolderName.trim(), parentPath: newFolderParent || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadFolders();
+        setExpandedFolders((prev) => new Set([...prev, data.path]));
+      } else {
+        setError(data.error || "Failed to create folder");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create folder");
+    } finally {
+      setIsCreatingFolder(false);
+      setNewFolderName("");
+      setNewFolderParent("");
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, sourceId: string) => {
+    setDraggedSourceId(sourceId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, folderPath: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverFolder(folderPath);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverFolder(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetFolder: string) => {
+    e.preventDefault();
+    setDragOverFolder(null);
+
+    if (!draggedSourceId) return;
+
+    try {
+      const res = await fetch(`/api/sources/${draggedSourceId}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetFolder }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadSources();
+      } else {
+        setError(data.error || "Failed to move source");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to move source");
+    } finally {
+      setDraggedSourceId(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSourceId(null);
+    setDragOverFolder(null);
+  };
+
+  // Toggle folder expansion
+  const toggleFolder = (folderPath: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderPath)) {
+        next.delete(folderPath);
+      } else {
+        next.add(folderPath);
+      }
+      return next;
+    });
+  };
+
+  // Build tree structure from sources and folders
+  const buildTree = (): TreeNode[] => {
+    const tree: TreeNode[] = [];
+    const folderNodes = new Map<string, TreeNode>();
+
+    // Create folder nodes
+    for (const folderPath of folders) {
+      const parts = folderPath.split("/");
+      let currentPath = "";
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const parentPath = currentPath;
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+        if (!folderNodes.has(currentPath)) {
+          const node: TreeNode = {
+            type: "folder",
+            name: part,
+            path: currentPath,
+            children: [],
+          };
+          folderNodes.set(currentPath, node);
+
+          if (parentPath) {
+            const parent = folderNodes.get(parentPath);
+            parent?.children?.push(node);
+          } else {
+            tree.push(node);
+          }
+        }
+      }
+    }
+
+    // Add sources to appropriate folders
+    for (const source of sources) {
+      const sourceNode: TreeNode = {
+        type: "source",
+        name: source.meta.title,
+        path: source.meta.folder ? `${source.meta.folder}/${source.meta.id}` : source.meta.id,
+        source,
+      };
+
+      if (source.meta.folder) {
+        const folderNode = folderNodes.get(source.meta.folder);
+        if (folderNode) {
+          folderNode.children?.push(sourceNode);
+        } else {
+          // Folder doesn't exist yet, add to root
+          tree.push(sourceNode);
+        }
+      } else {
+        tree.push(sourceNode);
+      }
+    }
+
+    // Sort: folders first, then sources; alphabetically within each group
+    const sortNodes = (nodes: TreeNode[]) => {
+      nodes.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      for (const node of nodes) {
+        if (node.children) sortNodes(node.children);
+      }
+    };
+    sortNodes(tree);
+
+    return tree;
   };
 
   const [reanalyzingId, setReanalyzingId] = useState<string | null>(null);
@@ -389,59 +636,99 @@ function HomeContent() {
                   </span>
                 </div>
 
-                {/* Library Folder */}
-                <button
-                  onClick={() => setIsLibraryOpen(!isLibraryOpen)}
-                  className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left"
+                {/* Library Root - drop target for moving to root */}
+                <div
+                  onDragOver={(e) => handleDragOver(e, "")}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, "")}
+                  className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left cursor-pointer"
+                  style={{
+                    backgroundColor: dragOverFolder === "" ? `${palette[500]}20` : undefined,
+                  }}
                 >
-                  {isLibraryOpen ? (
-                    <ChevronDown className="w-4 h-4" style={{ color: theme.textMuted }} />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
-                  )}
-                  {isLibraryOpen ? (
-                    <FolderOpen className="w-4 h-4" style={{ color: palette[500] }} />
-                  ) : (
-                    <Folder className="w-4 h-4" style={{ color: palette[500] }} />
-                  )}
-                  <span className="text-sm truncate flex-1" title={libraryPath}>
-                    {libraryPath.split("/").pop() || "library"}
-                  </span>
-                </button>
+                  <div
+                    onClick={() => setIsLibraryOpen(!isLibraryOpen)}
+                    className="flex items-center gap-2 flex-1 min-w-0"
+                  >
+                    {isLibraryOpen ? (
+                      <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+                    )}
+                    {isLibraryOpen ? (
+                      <FolderOpen className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+                    ) : (
+                      <Folder className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+                    )}
+                    <span className="text-sm truncate" title={libraryPath}>
+                      {libraryPath.split("/").pop() || "library"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCreatingFolder(true);
+                      setNewFolderParent("");
+                    }}
+                    className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
+                    title="New folder"
+                  >
+                    <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+                  </button>
+                </div>
 
-                {/* Source Files */}
+                {/* Folder Creation Input */}
+                {isCreatingFolder && newFolderParent === "" && isLibraryOpen && (
+                  <div className="ml-6 mr-3 mb-1">
+                    <input
+                      type="text"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCreateFolder();
+                        if (e.key === "Escape") {
+                          setIsCreatingFolder(false);
+                          setNewFolderName("");
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!newFolderName.trim()) {
+                          setIsCreatingFolder(false);
+                          setNewFolderName("");
+                        }
+                      }}
+                      placeholder="Folder name..."
+                      className="w-full px-2 py-1 text-sm border rounded"
+                      style={{ borderColor: theme.border }}
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {/* Tree View */}
                 {isLibraryOpen && (
-                  <div className="ml-4">
-                    {sources.map((source) => {
-                      const TypeIcon = getSourceTypeIcon(source.meta.type);
-                      return (
-                        <button
-                          key={source.meta.id}
-                          onClick={() => navigateToSource(source.meta.id)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded"
-                          style={{
-                            backgroundColor: selectedSource?.meta.id === source.meta.id ? `${palette[500]}15` : undefined,
-                          }}
-                        >
-                          <TypeIcon
-                            className="w-4 h-4 flex-shrink-0"
-                            style={{
-                              color: selectedSource?.meta.id === source.meta.id ? palette[500] : theme.textLight,
-                            }}
-                          />
-                          <span
-                            className="text-sm truncate"
-                            style={{
-                              color: selectedSource?.meta.id === source.meta.id ? palette[600] : theme.text,
-                            }}
-                            title={source.meta.title}
-                          >
-                            {source.meta.title}
-                          </span>
-                        </button>
-                      );
-                    })}
-                    {sources.length === 0 && (
+                  <div className="ml-2">
+                    {buildTree().map((node) => (
+                      <TreeItem
+                        key={node.path}
+                        node={node}
+                        depth={0}
+                        selectedSourceId={selectedSource?.meta.id}
+                        expandedFolders={expandedFolders}
+                        dragOverFolder={dragOverFolder}
+                        onToggleFolder={toggleFolder}
+                        onSelectSource={navigateToSource}
+                        onContextMenu={handleContextMenu}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onDragEnd={handleDragEnd}
+                        palette={palette}
+                        theme={theme}
+                      />
+                    ))}
+                    {sources.length === 0 && folders.length === 0 && (
                       <div className="px-3 py-2 text-sm" style={{ color: theme.textLight }}>
                         No sources yet
                       </div>
@@ -464,48 +751,6 @@ function HomeContent() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* Quick Capture Bar */}
-          <div
-            className="px-6 py-3 border-b flex items-center gap-3"
-            style={{ borderColor: theme.border }}
-          >
-            <Plus className="w-4 h-4 flex-shrink-0" style={{ color: theme.textLight }} />
-            <input
-              type="text"
-              value={captureInput}
-              onChange={(e) => setCaptureInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && captureInput.trim() && handleCapture()}
-              placeholder="Paste a URL to analyze..."
-              className="flex-1 bg-transparent outline-none text-sm"
-              style={{ color: theme.text }}
-            />
-            <button
-              onClick={handleCapture}
-              disabled={!captureInput.trim()}
-              className="px-3 py-1.5 font-medium text-white text-sm rounded-lg disabled:opacity-50 transition-all"
-              style={{ backgroundColor: palette[600] }}
-            >
-              Capture
-            </button>
-          </div>
-
-          {/* Pending Captures */}
-          {pendingCaptures.length > 0 && (
-            <div className="px-6 py-2 border-b flex items-center gap-2 text-sm" style={{ borderColor: theme.border, backgroundColor: `${palette[500]}10` }}>
-              <Loader2 className="w-4 h-4 animate-spin" style={{ color: palette[500] }} />
-              <span style={{ color: theme.textMuted }}>
-                Processing: {pendingCaptures.join(", ")}
-              </span>
-            </div>
-          )}
-
-          {error && (
-            <div className="mx-6 mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
-
           {/* Content Area */}
           <div className="flex-1 p-6 overflow-y-auto">
             {selectedSource ? (
@@ -526,6 +771,11 @@ function HomeContent() {
               <Dashboard
                 sources={sources}
                 onSelect={navigateToSource}
+                captureInput={captureInput}
+                setCaptureInput={setCaptureInput}
+                onCapture={handleCapture}
+                pendingCaptures={pendingCaptures}
+                error={error}
                 palette={palette}
                 theme={theme}
               />
@@ -533,6 +783,35 @@ function HomeContent() {
           </div>
         </main>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white border rounded-lg shadow-lg py-1 z-50"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            borderColor: theme.border,
+          }}
+        >
+          {contextMenu.sourceUrl && (
+            <button
+              onClick={handleCopyUrl}
+              className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
+            >
+              <Copy className="w-4 h-4" style={{ color: theme.textMuted }} />
+              Copy Source URL
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -540,11 +819,21 @@ function HomeContent() {
 function Dashboard({
   sources,
   onSelect,
+  captureInput,
+  setCaptureInput,
+  onCapture,
+  pendingCaptures,
+  error,
   palette,
   theme,
 }: {
   sources: SourceSummary[];
   onSelect: (id: string) => void;
+  captureInput: string;
+  setCaptureInput: (value: string) => void;
+  onCapture: () => void;
+  pendingCaptures: string[];
+  error: string | null;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
@@ -557,22 +846,74 @@ function Dashboard({
     return "#ef4444";
   };
 
+  // Capture input component
+  const CaptureInput = () => (
+    <div className="max-w-xl mx-auto mt-8 mb-8">
+      <div
+        className="flex items-center gap-3 p-3 rounded-xl border bg-white shadow-sm"
+        style={{ borderColor: theme.border }}
+      >
+        <Plus className="w-5 h-5 flex-shrink-0" style={{ color: theme.textLight }} />
+        <input
+          type="text"
+          value={captureInput}
+          onChange={(e) => setCaptureInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && captureInput.trim() && onCapture()}
+          placeholder="Paste a link, text, or drop a file..."
+          className="flex-1 bg-transparent outline-none text-sm"
+          style={{ color: theme.text }}
+        />
+        <button
+          onClick={onCapture}
+          disabled={!captureInput.trim()}
+          className="px-4 py-2 font-medium text-white text-sm rounded-lg disabled:opacity-50 transition-all hover:opacity-90"
+          style={{ backgroundColor: palette[600] }}
+        >
+          Capture
+        </button>
+      </div>
+
+      {/* Pending Captures */}
+      {pendingCaptures.length > 0 && (
+        <div
+          className="mt-3 px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+          style={{ backgroundColor: `${palette[500]}10` }}
+        >
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: palette[500] }} />
+          <span style={{ color: theme.textMuted }}>
+            Processing: {pendingCaptures.join(", ")}
+          </span>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+        </div>
+      )}
+    </div>
+  );
+
   if (sources.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <Brain className="w-12 h-12 mx-auto mb-4" style={{ color: theme.textLight }} />
-          <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
-          <p className="text-sm" style={{ color: theme.textMuted }}>
-            Paste a URL above to capture and analyze your first source.
-          </p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center">
+        <Brain className="w-12 h-12 mb-4" style={{ color: theme.textLight }} />
+        <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
+        <p className="text-sm mb-6" style={{ color: theme.textMuted }}>
+          Capture and analyze content from anywhere.
+        </p>
+        <CaptureInput />
       </div>
     );
   }
 
   return (
     <div>
+      {/* Capture Input */}
+      <CaptureInput />
+
       <div className="flex items-center gap-2 mb-6">
         <Clock className="w-5 h-5" style={{ color: theme.textMuted }} />
         <h2 className="font-medium">Recent Sources</h2>
@@ -580,36 +921,55 @@ function Dashboard({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {sources.map((source) => {
           const TypeIcon = getSourceTypeIcon(source.meta.type);
-          const isRead = source.meta.readStatus === "read";
-          const isReading = source.meta.readStatus === "reading";
+          const isProcessing = source.meta.processingStatus === "processing";
+          const isFailed = source.meta.processingStatus === "failed";
 
           return (
             <button
               key={source.meta.id}
-              onClick={() => onSelect(source.meta.id)}
-              className="p-4 border rounded-xl hover:shadow-md transition-all text-left relative"
+              onClick={() => !isProcessing && onSelect(source.meta.id)}
+              className={`p-4 border rounded-xl transition-all text-left ${isProcessing ? "opacity-70" : "hover:shadow-md"}`}
               style={{ borderColor: theme.border, backgroundColor: "white" }}
+              disabled={isProcessing}
             >
-              {/* Action badge - top right */}
-              {source.action && (
-                <span
-                  className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md"
-                  style={{
-                    backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
-                    color: getScoreColor(source.score ?? 50),
-                  }}
-                >
-                  {ACTION_CONFIG[source.action]?.label ?? source.action}
-                </span>
-              )}
-
-              {/* Header: Icon + Title */}
-              <div className="flex items-start gap-3 mb-2 pr-10">
-                <TypeIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: palette[500] }} />
+              {/* Header: Icon + Title + Badge */}
+              <div className="flex items-start gap-3 mb-2">
+                {isProcessing ? (
+                  <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
+                ) : (
+                  <TypeIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: palette[500] }} />
+                )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium leading-snug line-clamp-2 text-sm" style={{ color: theme.text }}>
-                    {source.meta.title}
-                  </h3>
+                  <div className="flex items-start gap-2">
+                    <h3 className="font-medium leading-snug line-clamp-2 text-sm flex-1 min-w-0" style={{ color: theme.text }}>
+                      {source.meta.title}
+                    </h3>
+                    {isProcessing ? (
+                      <span
+                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
+                        style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
+                      >
+                        Processing...
+                      </span>
+                    ) : isFailed ? (
+                      <span
+                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
+                        style={{ backgroundColor: "#ef444415", color: "#ef4444" }}
+                      >
+                        Failed
+                      </span>
+                    ) : source.action && (
+                      <span
+                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
+                        style={{
+                          backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
+                          color: getScoreColor(source.score ?? 50),
+                        }}
+                      >
+                        {ACTION_CONFIG[source.action]?.label ?? source.action}
+                      </span>
+                    )}
+                  </div>
                   {source.meta.sourceUrl && (
                     <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
                       {new URL(source.meta.sourceUrl).hostname}
@@ -618,8 +978,16 @@ function Dashboard({
                 </div>
               </div>
 
-              {/* Reason */}
-              {source.reason && (
+              {/* Reason or Processing Status */}
+              {isProcessing ? (
+                <p className="text-xs ml-8" style={{ color: theme.textMuted }}>
+                  Extracting content and analyzing...
+                </p>
+              ) : isFailed ? (
+                <p className="text-xs ml-8" style={{ color: "#ef4444" }}>
+                  {source.meta.processingError || "Processing failed"}
+                </p>
+              ) : source.reason && (
                 <p className="text-xs line-clamp-2 ml-8" style={{ color: theme.textMuted }}>
                   {source.reason}
                 </p>
@@ -1059,6 +1427,144 @@ function ConceptsSection({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Tree item component for folder/source rendering
+function TreeItem({
+  node,
+  depth,
+  selectedSourceId,
+  expandedFolders,
+  dragOverFolder,
+  onToggleFolder,
+  onSelectSource,
+  onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  palette,
+  theme,
+}: {
+  node: TreeNode;
+  depth: number;
+  selectedSourceId?: string;
+  expandedFolders: Set<string>;
+  dragOverFolder: string | null;
+  onToggleFolder: (path: string) => void;
+  onSelectSource: (id: string) => void;
+  onContextMenu: (e: React.MouseEvent, sourceId: string, sourceUrl?: string) => void;
+  onDragStart: (e: React.DragEvent, sourceId: string) => void;
+  onDragOver: (e: React.DragEvent, folderPath: string) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent, targetFolder: string) => void;
+  onDragEnd: () => void;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  const paddingLeft = depth * 12 + 8;
+
+  if (node.type === "folder") {
+    const isExpanded = expandedFolders.has(node.path);
+    const isDragOver = dragOverFolder === node.path;
+
+    return (
+      <div>
+        <div
+          onClick={() => onToggleFolder(node.path)}
+          onDragOver={(e) => onDragOver(e, node.path)}
+          onDragLeave={onDragLeave}
+          onDrop={(e) => onDrop(e, node.path)}
+          className="w-full py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left cursor-pointer rounded"
+          style={{
+            paddingLeft,
+            backgroundColor: isDragOver ? `${palette[500]}20` : undefined,
+          }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4" style={{ color: theme.textMuted }} />
+          ) : (
+            <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
+          )}
+          {isExpanded ? (
+            <FolderOpen className="w-4 h-4" style={{ color: palette[500] }} />
+          ) : (
+            <Folder className="w-4 h-4" style={{ color: palette[500] }} />
+          )}
+          <span className="text-sm truncate">{node.name}</span>
+        </div>
+        {isExpanded && node.children && (
+          <div>
+            {node.children.map((child) => (
+              <TreeItem
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                selectedSourceId={selectedSourceId}
+                expandedFolders={expandedFolders}
+                dragOverFolder={dragOverFolder}
+                onToggleFolder={onToggleFolder}
+                onSelectSource={onSelectSource}
+                onContextMenu={onContextMenu}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                onDragEnd={onDragEnd}
+                palette={palette}
+                theme={theme}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Source item
+  const source = node.source!;
+  const isSelected = selectedSourceId === source.meta.id;
+  const isProcessing = source.meta.processingStatus === "processing";
+  const TypeIcon = getSourceTypeIcon(source.meta.type);
+
+  return (
+    <div
+      draggable={!isProcessing}
+      onClick={() => !isProcessing && onSelectSource(source.meta.id)}
+      onContextMenu={(e) => !isProcessing && onContextMenu(e, source.meta.id, source.meta.sourceUrl)}
+      onDragStart={(e) => !isProcessing && onDragStart(e, source.meta.id)}
+      onDragEnd={onDragEnd}
+      className={`w-full py-1.5 flex items-center gap-2 transition-colors text-left rounded ${isProcessing ? "opacity-60" : "hover:bg-black/5 cursor-pointer"}`}
+      style={{
+        paddingLeft,
+        backgroundColor: isSelected ? `${palette[500]}15` : undefined,
+      }}
+    >
+      {isProcessing ? (
+        <Loader2
+          className="w-4 h-4 flex-shrink-0 animate-spin"
+          style={{ color: palette[500] }}
+        />
+      ) : (
+        <TypeIcon
+          className="w-4 h-4 flex-shrink-0"
+          style={{
+            color: isSelected ? palette[500] : theme.textLight,
+          }}
+        />
+      )}
+      <span
+        className="text-sm truncate"
+        style={{
+          color: isProcessing ? theme.textMuted : isSelected ? palette[600] : theme.text,
+        }}
+        title={source.meta.title}
+      >
+        {source.meta.title}
+      </span>
     </div>
   );
 }
