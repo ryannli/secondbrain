@@ -1022,9 +1022,9 @@ function SourceView({
 
   return (
     <div className="flex gap-6 items-start">
-      {/* Content Area - independent scroll */}
-      <div className="flex-1 min-w-0 max-w-2xl max-h-[calc(100vh-140px)] overflow-y-auto sticky top-0">
-        <div className="bg-white border rounded-xl p-6" style={{ borderColor: theme.border }}>
+      {/* Content Area - fixed height container */}
+      <div className="flex-1 min-w-0 max-w-2xl h-[calc(100vh-140px)] sticky top-0">
+        <div className="bg-white border rounded-xl p-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
           <div className="flex items-start justify-between mb-2">
             {isEditing ? (
               <input
@@ -1105,17 +1105,17 @@ function SourceView({
           )}
 
           {/* Content */}
-          <div className="mt-6">
+          <div className="mt-6 flex-1 min-h-0 overflow-hidden">
             {isEditing ? (
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full h-[calc(100vh-300px)] p-4 border rounded-lg font-mono text-sm resize-none outline-none"
+                className="w-full h-full p-4 border rounded-lg font-mono text-sm resize-none outline-none"
                 style={{ borderColor: theme.border }}
                 placeholder="Markdown content..."
               />
             ) : (
-              <div className="prose prose-sm prose-neutral max-w-none">
+              <div className="prose prose-sm prose-neutral max-w-none h-full overflow-y-auto">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
