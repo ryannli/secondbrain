@@ -28,6 +28,20 @@ This means:
   - **Critique**: Hidden assumptions, potential issues, verification needs
 - **Library Organization**: Tree-based file organization with user-created folders
 
+## How Data is Stored
+
+Each source lives in its own folder:
+
+```
+library/{id}/
+├── original.html    # Raw capture (immutable - never overwritten)
+├── source.md        # Processed content (regeneratable)
+├── analysis.json    # AI analysis (regeneratable)
+└── README.md        # Human-readable triage card
+```
+
+**Original vs Derived**: The `original.html` is captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from it. This means you can always re-analyze with improved AI without losing the source material.
+
 ## Tech Stack
 
 - **Frontend**: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4

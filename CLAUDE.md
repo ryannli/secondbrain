@@ -81,6 +81,29 @@ created_at: "..."
 [For videos: transcript with timestamps]
 ```
 
+### Data Model: Original vs Derived
+
+**CRITICAL**: Understand which data is original (immutable after capture) vs derived (can be regenerated).
+
+| File | Type | Description |
+|------|------|-------------|
+| `original.html` / `original.txt` | **ORIGINAL** | Raw content from first capture. **NEVER overwrite.** |
+| `source_url` | **ORIGINAL** | Where the content came from. |
+| `created_at` | **ORIGINAL** | When the source was captured. |
+| `type` | **ORIGINAL** | Content type (article, twitter, pdf, etc.) |
+| `source.md` (content body) | **DERIVED** | Processed/extracted from original. Can regenerate. |
+| `title` | **DERIVED** | Extracted from original. Can regenerate. |
+| `analysis.json` | **DERIVED** | AI analysis. Can regenerate. |
+| `README.md` (triage card) | **DERIVED** | Human-readable summary. Can regenerate. |
+
+**Reanalyze operation**:
+1. Read from `original.html` / `original.txt` (the immutable source)
+2. Re-extract content → update `source.md`
+3. Re-run AI analysis → update `analysis.json`
+4. **NEVER** overwrite `original.html` / `original.txt`
+
+**Why this matters**: Browser extension captures rendered HTML that server-side fetch cannot reproduce (SPAs like Twitter). Overwriting original with server-fetched content destroys irreplaceable data.
+
 ---
 
 ## UI Structure
