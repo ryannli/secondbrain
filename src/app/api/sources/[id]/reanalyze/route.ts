@@ -51,14 +51,17 @@ export async function POST(
       newContent = extracted.content;
       newTitle = extracted.title;
     } else if (source.meta.sourceUrl) {
-      // URL without stored HTML: re-fetch
+      // URL without usable stored HTML: re-fetch
       console.log(`Re-fetching content from: ${source.meta.sourceUrl}`);
       const extracted = await extractFromUrl(source.meta.sourceUrl);
       newOriginalContent = extracted.originalContent;
       newContent = extracted.content;
       newTitle = extracted.title;
-      // Save the new HTML for future reprocessing
-      await fs.writeFile(path.join(sourceDir, "original.html"), newOriginalContent, "utf-8");
+      // Only save new HTML if we didn't have any stored HTML before
+      // (don't overwrite potentially good extension-captured HTML with server-fetched HTML)
+      if (!hasStoredHtml) {
+        await fs.writeFile(path.join(sourceDir, "original.html"), newOriginalContent, "utf-8");
+      }
     } else {
       // Plain text: re-format (title stays the same for plain text)
       console.log("Re-formatting text content...");
