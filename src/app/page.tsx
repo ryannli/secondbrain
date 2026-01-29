@@ -1008,48 +1008,49 @@ function Dashboard({
             <button
               key={source.meta.id}
               onClick={() => !isProcessing && onSelect(source.meta.id)}
-              className={`p-4 border rounded-xl transition-all text-left ${isProcessing ? "opacity-70" : "hover:shadow-md"}`}
+              className={`p-4 border rounded-xl transition-all text-left relative ${isProcessing ? "opacity-70" : "hover:shadow-md"}`}
               style={{ borderColor: theme.border, backgroundColor: "white" }}
               disabled={isProcessing}
             >
-              {/* Header: Icon + Title + Badge */}
-              <div className="flex items-start gap-3 mb-2">
+              {/* Badge - absolute positioned */}
+              {isProcessing ? (
+                <span
+                  className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+                  style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
+                >
+                  Processing...
+                </span>
+              ) : isFailed ? (
+                <span
+                  className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+                  style={{ backgroundColor: "#ef444415", color: "#ef4444" }}
+                >
+                  Failed
+                </span>
+              ) : source.action && (
+                <span
+                  className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+                  style={{
+                    backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
+                    color: getScoreColor(source.score ?? 50),
+                    border: (source.score ?? 50) >= 60 ? `1px solid ${theme.text}` : "none",
+                  }}
+                >
+                  {ACTION_CONFIG[source.action]?.label ?? source.action}
+                </span>
+              )}
+
+              {/* Header: Icon + Title */}
+              <div className="flex items-start gap-3 mb-2 pr-24">
                 {isProcessing ? (
                   <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
                 ) : (
                   <SourceIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: iconColor }} />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2">
-                    <h3 className="font-medium leading-snug line-clamp-2 text-sm flex-1 min-w-0" style={{ color: theme.text }}>
-                      {source.meta.title}
-                    </h3>
-                    {isProcessing ? (
-                      <span
-                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
-                        style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
-                      >
-                        Processing...
-                      </span>
-                    ) : isFailed ? (
-                      <span
-                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
-                        style={{ backgroundColor: "#ef444415", color: "#ef4444" }}
-                      >
-                        Failed
-                      </span>
-                    ) : source.action && (
-                      <span
-                        className="px-2 py-0.5 text-xs font-medium rounded-md flex-shrink-0 whitespace-nowrap"
-                        style={{
-                          backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
-                          color: getScoreColor(source.score ?? 50),
-                        }}
-                      >
-                        {ACTION_CONFIG[source.action]?.label ?? source.action}
-                      </span>
-                    )}
-                  </div>
+                  <h3 className="font-medium leading-snug line-clamp-2 text-sm" style={{ color: theme.text }}>
+                    {source.meta.title}
+                  </h3>
                   {source.meta.sourceUrl && (
                     <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
                       {new URL(source.meta.sourceUrl).hostname}
