@@ -1021,7 +1021,7 @@ function SourceView({
                 type="text"
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
-                className="text-2xl font-semibold leading-tight w-full border-b-2 outline-none bg-transparent"
+                className="text-2xl font-semibold leading-tight flex-1 min-w-0 border-b-2 outline-none bg-transparent"
                 style={{ borderColor: palette[500] }}
               />
             ) : (
