@@ -197,15 +197,16 @@ export function OpenAILogo({ className, style }: LogoProps) {
   );
 }
 
-// The Information logo (stylized "i")
+// The Information logo (using favicon image)
 export function TheInformationLogo({ className, style }: LogoProps) {
   return (
-    <svg viewBox="0 0 24 24" className={className} style={style}>
-      <rect fill="#000000" width="24" height="24" rx="2" />
-      <text x="12" y="18" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="Georgia, serif" fontStyle="italic">
-        i
-      </text>
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/favicons/theinformation.png"
+      alt="The Information"
+      className={className}
+      style={style}
+    />
   );
 }
 
@@ -403,7 +404,7 @@ export const brandLogos: Record<string, BrandConfig> = {
   theinformation: {
     domains: ["theinformation.com"],
     Logo: TheInformationLogo,
-    color: "#000000",
+    color: "#F04E5E",
     name: "The Information",
   },
   techcrunch: {
