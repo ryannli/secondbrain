@@ -1100,7 +1100,7 @@ function SourceView({
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full min-h-[500px] p-4 border rounded-lg font-mono text-sm resize-y outline-none"
+                className="w-full h-[calc(100vh-300px)] p-4 border rounded-lg font-mono text-sm resize-none outline-none"
                 style={{ borderColor: theme.border }}
                 placeholder="Markdown content..."
               />
