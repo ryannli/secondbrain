@@ -1688,11 +1688,11 @@ function HighlightsSection({
               <div className="flex gap-1 flex-shrink-0">
                 <button
                   onClick={() => onReaction("highlight", h.id, isStarred ? "" : "star")}
-                  className="p-2 rounded-lg border border-transparent transition-colors hover:border-amber-400"
+                  className="p-2 rounded-lg transition-colors group"
                   title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
-                    className="w-5 h-5"
+                    className="w-5 h-5 transition-colors group-hover:text-amber-500"
                     style={{
                       color: isStarred ? "#eab308" : theme.textLight,
                       fill: isStarred ? "#eab308" : "none",
@@ -1701,11 +1701,13 @@ function HighlightsSection({
                 </button>
                 <button
                   onClick={() => onReaction("highlight", h.id, isDismissed ? "" : "dismiss")}
-                  className="p-2 rounded-lg border border-transparent transition-colors hover:border-gray-400"
+                  className="p-2 rounded-lg transition-colors group"
                   title={isDismissed ? "Restore" : "Dismiss"}
-                  style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
                 >
-                  <X className="w-5 h-5" />
+                  <X
+                    className="w-5 h-5 transition-colors group-hover:text-gray-600"
+                    style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
+                  />
                 </button>
               </div>
             </li>
@@ -1727,6 +1729,8 @@ function ConceptsSection({
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
@@ -1747,49 +1751,54 @@ function ConceptsSection({
       </div>
 
       <div className="space-y-2">
-        {concepts.map((c) => (
-          <div
-            key={c.id}
-            className="p-2 rounded-lg transition-opacity"
-            style={{
-              backgroundColor: theme.borderLight,
-              opacity: c.status ? 0.4 : 1,
-            }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-medium text-sm">{c.term}</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onReaction("concept", c.id, "knew")}
-                  className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                    c.status !== "knew" ? "hover:border-gray-400" : ""
-                  }`}
-                  style={{
-                    backgroundColor: c.status === "knew" ? `${palette[500]}20` : undefined,
-                    color: c.status === "knew" ? palette[600] : theme.textLight,
-                    border: `1px solid ${c.status === "knew" ? palette[500] : theme.border}`,
-                  }}
-                >
-                  {c.status === "knew" ? "✓ Knew" : "Knew"}
-                </button>
-                <button
-                  onClick={() => onReaction("concept", c.id, "learned")}
-                  className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                    c.status !== "learned" ? "hover:border-gray-400" : ""
-                  }`}
-                  style={{
-                    backgroundColor: c.status === "learned" ? `${palette[500]}20` : undefined,
-                    color: c.status === "learned" ? palette[600] : theme.textLight,
-                    border: `1px solid ${c.status === "learned" ? palette[500] : theme.border}`,
-                  }}
-                >
-                  {c.status === "learned" ? "✓ Learned" : "Learned"}
-                </button>
+        {concepts.map((c) => {
+          const isKnewHovered = hoveredButton === `${c.id}-knew`;
+          const isLearnedHovered = hoveredButton === `${c.id}-learned`;
+
+          return (
+            <div
+              key={c.id}
+              className="p-2 rounded-lg transition-opacity"
+              style={{
+                backgroundColor: theme.borderLight,
+                opacity: c.status ? 0.4 : 1,
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium text-sm">{c.term}</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => onReaction("concept", c.id, "knew")}
+                    onMouseEnter={() => setHoveredButton(`${c.id}-knew`)}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="px-2 py-0.5 text-xs rounded transition-colors"
+                    style={{
+                      backgroundColor: c.status === "knew" ? `${palette[500]}20` : undefined,
+                      color: c.status === "knew" || isKnewHovered ? palette[600] : theme.textLight,
+                      border: `1px solid ${c.status === "knew" || isKnewHovered ? palette[500] : theme.border}`,
+                    }}
+                  >
+                    {c.status === "knew" ? "✓ Knew" : "Knew"}
+                  </button>
+                  <button
+                    onClick={() => onReaction("concept", c.id, "learned")}
+                    onMouseEnter={() => setHoveredButton(`${c.id}-learned`)}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="px-2 py-0.5 text-xs rounded transition-colors"
+                    style={{
+                      backgroundColor: c.status === "learned" ? `${palette[500]}20` : undefined,
+                      color: c.status === "learned" || isLearnedHovered ? palette[600] : theme.textLight,
+                      border: `1px solid ${c.status === "learned" || isLearnedHovered ? palette[500] : theme.border}`,
+                    }}
+                  >
+                    {c.status === "learned" ? "✓ Learned" : "Learned"}
+                  </button>
+                </div>
               </div>
+              <div className="text-sm" style={{ color: theme.textMuted }}>{c.definition}</div>
             </div>
-            <div className="text-sm" style={{ color: theme.textMuted }}>{c.definition}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
