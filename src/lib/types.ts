@@ -76,6 +76,7 @@ export interface Highlight {
   text: string;
   type: "insight" | "fact" | "actionable";
   reaction?: "star" | "dismiss";
+  reactionAt?: string;  // ISO timestamp of last reaction
 }
 
 export interface Concept {
@@ -83,6 +84,7 @@ export interface Concept {
   term: string;
   definition: string;
   understood?: boolean;
+  understoodAt?: string;  // ISO timestamp when marked understood
 }
 
 export interface DigestAnalysis {

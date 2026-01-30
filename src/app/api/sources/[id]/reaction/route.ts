@@ -25,12 +25,16 @@ export async function PATCH(
 
     const analysis = { ...source.analysis };
 
+    const now = new Date().toISOString();
+
     if (type === "highlight") {
       const highlights = analysis.digest.highlights ?? [];
       const highlight = highlights.find((h) => h.id === itemId);
       if (highlight) {
         // Toggle reaction: if same reaction clicked again, clear it
-        highlight.reaction = highlight.reaction === reaction ? undefined : reaction;
+        const newReaction = highlight.reaction === reaction ? undefined : reaction;
+        highlight.reaction = newReaction;
+        highlight.reactionAt = newReaction ? now : undefined;
       }
     }
 
@@ -40,6 +44,7 @@ export async function PATCH(
       if (concept) {
         // Toggle understood
         concept.understood = !concept.understood;
+        concept.understoodAt = concept.understood ? now : undefined;
       }
     }
 
