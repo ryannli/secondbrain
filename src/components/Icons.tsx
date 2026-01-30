@@ -1,10 +1,39 @@
 import {
   Globe,
   FileText,
-  File,
   Image,
 } from "lucide-react";
 import { SourceType } from "@/lib/types";
+
+// PDF icon - document with red folded corner and "PDF" text
+export function PDFIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={style}>
+      {/* Document body */}
+      <path
+        fill="#FECACA"
+        d="M6 2C4.9 2 4 2.9 4 4v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6H6z"
+      />
+      {/* Folded corner */}
+      <path
+        fill="#DC2626"
+        d="M14 2v6h6l-6-6z"
+      />
+      {/* PDF text */}
+      <text
+        x="12"
+        y="16"
+        textAnchor="middle"
+        fill="#DC2626"
+        fontSize="6"
+        fontWeight="bold"
+        fontFamily="system-ui, sans-serif"
+      >
+        PDF
+      </text>
+    </svg>
+  );
+}
 
 // Logo component
 export function Logo({ className, color }: { className?: string; color?: string }) {
@@ -33,7 +62,7 @@ export function getFallbackIcon(type: SourceType) {
     case "text":
       return FileText;   // Plain text note
     case "document":
-      return File;       // PDF, DOC, etc.
+      return PDFIcon;    // PDF icon (red)
     case "image":
       return Image;      // Image file
     default:

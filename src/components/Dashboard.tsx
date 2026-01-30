@@ -8,10 +8,9 @@ import {
   Clock,
   X,
   Inbox,
-  FileText,
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG } from "@/lib/types";
-import { Logo } from "@/components/Icons";
+import { Logo, PDFIcon } from "@/components/Icons";
 import { getSourceIcon } from "@/lib/sourceIcon";
 
 export interface DashboardProps {
@@ -128,7 +127,7 @@ export function Dashboard({
                   className="w-8 h-8 object-cover rounded"
                 />
               ) : (
-                <FileText className="w-8 h-8 p-1" style={{ color: palette[500] }} />
+                <PDFIcon className="w-8 h-8" />
               )}
               <span className="text-xs font-medium truncate max-w-32" style={{ color: palette[600] }}>
                 {stagedFile.file.name}
