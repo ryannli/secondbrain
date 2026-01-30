@@ -231,8 +231,8 @@ export function TreeItem({
         <SourceIcon
           className="w-4 h-4 flex-shrink-0"
           style={{
-            // Brand logos use their own colors, fallback icons use theme colors
-            color: isBrand ? iconColor : (isSelected ? palette[500] : theme.textLight),
+            // Brand logos use their own colors, fallback icons use accent color
+            color: isBrand ? iconColor : palette[500],
           }}
         />
       )}
