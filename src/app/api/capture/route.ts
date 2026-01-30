@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
-import { analyzeContent, generateTitle, formatTextContent, analyzeImage } from "@/lib/claude";
+import { analyzeContent, generateTitle, formatTextContent, analyzeFile } from "@/lib/claude";
 import { createPendingSource, completeSource, failSource, ensureLibraryExists } from "@/lib/storage";
 import { SourceType } from "@/lib/types";
 
@@ -226,7 +226,7 @@ async function handleFileUpload(request: NextRequest): Promise<NextResponse> {
  */
 async function processFileInBackground(
   id: string,
-  originalFileName: string,  // e.g. "original.png"
+  originalFileName: string,  // e.g. "original.png", "original.pdf"
   sourceType: SourceType,
   displayName: string  // original filename for display
 ): Promise<void> {
@@ -234,18 +234,17 @@ async function processFileInBackground(
     let content: string;
     let extractedTitle: string;
 
-    if (sourceType === "image") {
-      // Use Claude vision to analyze the image
-      // Image is already saved in library at: user_data/library/{id}/{originalFileName}
-      console.log(`[${id}] Analyzing image with Claude vision...`);
-      const imageResult = await analyzeImage(id, originalFileName);
-      content = imageResult.content;
-      extractedTitle = imageResult.title;
+    if (sourceType === "image" || sourceType === "document") {
+      // Use Claude Read tool to analyze the file (works for both images and PDFs)
+      // File is already saved in library at: user_data/library/{id}/{originalFileName}
+      console.log(`[${id}] Analyzing ${sourceType} with Claude...`);
+      const fileResult = await analyzeFile(id, originalFileName);
+      content = fileResult.content;
+      extractedTitle = fileResult.title;
     } else {
-      // For documents (PDF, etc.), we'll need different handling
-      // For now, just note that it's a document
-      console.log(`[${id}] Document processing not yet implemented`);
-      content = `Document: ${displayName}\n\n[Content extraction for this file type is not yet implemented]`;
+      // Unsupported file type
+      console.log(`[${id}] Unsupported file type: ${sourceType}`);
+      content = `File: ${displayName}\n\n[Content extraction for this file type is not yet supported]`;
       extractedTitle = displayName.replace(/\.[^.]+$/, "");
     }
 

@@ -8,6 +8,7 @@ import {
   Clock,
   X,
   Inbox,
+  FileText,
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG } from "@/lib/types";
 import { Logo } from "@/components/Icons";
@@ -41,7 +42,7 @@ export function Dashboard({
   getScoreColor,
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [stagedFile, setStagedFile] = useState<{ file: File; preview: string } | null>(null);
+  const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -62,19 +63,24 @@ export function Dashboard({
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      // Only process images for now
+      // Accept images and PDFs
       const imageFile = files.find(f => f.type.startsWith("image/"));
+      const pdfFile = files.find(f => f.type === "application/pdf");
+
       if (imageFile) {
-        // Create preview URL and stage the file
         const preview = URL.createObjectURL(imageFile);
-        setStagedFile({ file: imageFile, preview });
+        setStagedFile({ file: imageFile, preview, isImage: true });
+      } else if (pdfFile) {
+        setStagedFile({ file: pdfFile, preview: null, isImage: false });
       }
     }
   };
 
   const handleClearStagedFile = () => {
     if (stagedFile) {
-      URL.revokeObjectURL(stagedFile.preview);
+      if (stagedFile.preview) {
+        URL.revokeObjectURL(stagedFile.preview);
+      }
       setStagedFile(null);
     }
   };
@@ -82,7 +88,9 @@ export function Dashboard({
   const handleCaptureWithFile = () => {
     if (stagedFile) {
       onFileUpload(stagedFile.file);
-      URL.revokeObjectURL(stagedFile.preview);
+      if (stagedFile.preview) {
+        URL.revokeObjectURL(stagedFile.preview);
+      }
       setStagedFile(null);
     } else if (captureInput.trim()) {
       onCapture();
@@ -113,11 +121,15 @@ export function Dashboard({
               className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-lg"
               style={{ backgroundColor: `${palette[500]}10` }}
             >
-              <img
-                src={stagedFile.preview}
-                alt="Preview"
-                className="w-8 h-8 object-cover rounded"
-              />
+              {stagedFile.isImage && stagedFile.preview ? (
+                <img
+                  src={stagedFile.preview}
+                  alt="Preview"
+                  className="w-8 h-8 object-cover rounded"
+                />
+              ) : (
+                <FileText className="w-8 h-8 p-1" style={{ color: palette[500] }} />
+              )}
               <span className="text-xs font-medium truncate max-w-32" style={{ color: palette[600] }}>
                 {stagedFile.file.name}
               </span>
@@ -140,7 +152,7 @@ export function Dashboard({
             value={captureInput}
             onChange={(e) => setCaptureInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && canCapture && handleCaptureWithFile()}
-            placeholder={isDragging ? "Drop image here..." : stagedFile ? "Add a note (optional)..." : "Paste a link, text, or drop an image..."}
+            placeholder={isDragging ? "Drop file here..." : stagedFile ? "Add a note (optional)..." : "Paste a link, text, or drop a file..."}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: theme.text }}
           />

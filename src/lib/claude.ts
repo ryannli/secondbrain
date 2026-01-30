@@ -98,27 +98,29 @@ ${text.slice(0, 30000)}`;
 }
 
 /**
- * Analyze an image using Claude's vision capabilities
- * Assumes the image contains text (screenshot, document, etc.)
- * Uses OCR to extract text and format as Markdown
+ * Analyze a file (image or PDF) using Claude's Read tool
+ * - Images: Uses vision capabilities to extract text (OCR) and understand content
+ * - PDFs: Extracts text directly (for text PDFs) or uses vision (for scanned PDFs)
  *
  * @param sourceId - The source ID (used to locate the file in library)
- * @param originalFileName - The filename in the source directory (e.g. "original.png")
+ * @param originalFileName - The filename in the source directory (e.g. "original.png", "original.pdf")
  */
-export async function analyzeImage(
+export async function analyzeFile(
   sourceId: string,
   originalFileName: string
 ): Promise<{ title: string; content: string }> {
-  // Image is saved at: user_data/library/{sourceId}/{originalFileName}
-  // Use relative path from project root for Claude to read
-  const imagePath = path.join(process.cwd(), "user_data", "library", sourceId, originalFileName);
+  // File is saved at: user_data/library/{sourceId}/{originalFileName}
+  const filePath = path.join(process.cwd(), "user_data", "library", sourceId, originalFileName);
+  const ext = originalFileName.split(".").pop()?.toLowerCase() || "";
+  const isPDF = ext === "pdf";
 
-  const prompt = `Read the image file at ${imagePath} and analyze it.
+  const prompt = `Read the file at ${filePath} and extract its content.
 
-This image likely contains text (a screenshot, document, or note). Your job is to:
+${isPDF ? "This is a PDF document." : "This is an image file (likely a screenshot, document scan, or note)."}
 
-1. Extract ALL visible text from the image
-2. Format it as clean Markdown, preserving the structure (headings, lists, paragraphs, etc.)
+Your job is to:
+1. Extract ALL text content from the file
+2. Format it as clean Markdown, preserving the structure (headings, lists, paragraphs, tables, etc.)
 3. Generate a concise title (5-10 words) that captures the main topic
 
 Format your response EXACTLY as:
@@ -130,12 +132,13 @@ CONTENT:
 Rules:
 - Extract ALL text, don't summarize or paraphrase
 - Preserve the original structure as much as possible
-- If there are multiple sections, use Markdown headings
+- If there are multiple sections or pages, use Markdown headings to organize
 - If there are bullet points or numbered lists, preserve them
-- If the text is messy or hard to read, do your best to interpret it
-- If the image doesn't contain meaningful text, describe what you see instead`;
+- If there are tables, format them as Markdown tables
+- ${isPDF ? "For multi-page PDFs, process all pages" : "If the image text is hard to read, do your best to interpret it"}
+- If the file doesn't contain meaningful text, describe what you see instead`;
 
-  // Call Claude with Read tool to analyze the image
+  // Call Claude with Read tool to analyze the file
   const result = await callClaudeWithReadTool(prompt);
 
   // Parse the response
