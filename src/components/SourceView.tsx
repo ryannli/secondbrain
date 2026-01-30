@@ -11,6 +11,7 @@ import {
   Pencil,
   Check,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { Source, ActionType, Highlight } from "@/lib/types";
 
@@ -160,6 +161,23 @@ export function SourceView({
                     <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                       <p className="font-medium mb-1">Re-process this source</p>
                       <p className="text-gray-300">Re-fetch content from the original input, then re-run AI analysis.</p>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <a
+                      href={meta.sourceUrl || `/api/sources/${meta.id}/original`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors block"
+                      style={{ borderColor: theme.border, color: theme.textMuted }}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                      <p className="font-medium mb-1">View original</p>
+                      <p className="text-gray-300">
+                        {meta.sourceUrl ? "Open the original web page." : "View the original file."}
+                      </p>
                     </div>
                   </div>
                 </>
