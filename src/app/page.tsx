@@ -1644,6 +1644,8 @@ function HighlightsSection({
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
   const typeColors = {
     insight: palette[500],
     fact: "#3b82f6",
@@ -1674,6 +1676,9 @@ function HighlightsSection({
         {highlights.map((h) => {
           const isStarred = h.reaction === "star";
           const isDismissed = h.reaction === "dismiss";
+          const isStarHovered = hoveredButton === `${h.id}-star`;
+          const isDismissHovered = hoveredButton === `${h.id}-dismiss`;
+
           return (
             <li
               key={h.id}
@@ -1688,25 +1693,29 @@ function HighlightsSection({
               <div className="flex gap-1 flex-shrink-0">
                 <button
                   onClick={() => onReaction("highlight", h.id, isStarred ? "" : "star")}
-                  className="p-2 rounded-lg transition-colors group"
+                  onMouseEnter={() => setHoveredButton(`${h.id}-star`)}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  className="p-2 rounded-lg transition-colors"
                   title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
-                    className="w-5 h-5 transition-colors group-hover:text-amber-500"
+                    className="w-5 h-5 transition-colors"
                     style={{
-                      color: isStarred ? "#eab308" : theme.textLight,
+                      color: isStarred || isStarHovered ? "#eab308" : theme.textLight,
                       fill: isStarred ? "#eab308" : "none",
                     }}
                   />
                 </button>
                 <button
                   onClick={() => onReaction("highlight", h.id, isDismissed ? "" : "dismiss")}
-                  className="p-2 rounded-lg transition-colors group"
+                  onMouseEnter={() => setHoveredButton(`${h.id}-dismiss`)}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  className="p-2 rounded-lg transition-colors"
                   title={isDismissed ? "Restore" : "Dismiss"}
                 >
                   <X
-                    className="w-5 h-5 transition-colors group-hover:text-gray-600"
-                    style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
+                    className="w-5 h-5 transition-colors"
+                    style={{ color: isDismissed || isDismissHovered ? "#6b7280" : theme.textLight }}
                   />
                 </button>
               </div>
