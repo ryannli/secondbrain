@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -68,18 +68,46 @@ export async function ensureLibraryExists(libraryPath = getLibraryPath()): Promi
 }
 
 /**
+ * Determine the original_file name based on type and content
+ */
+function getOriginalFileName(type: SourceType, content?: string | Buffer): string {
+  switch (type) {
+    case "html":
+      return "original.html";
+    case "text":
+      return "original.txt";
+    case "document":
+      // For documents, we'll get the extension from the actual file
+      // Default to .pdf for now
+      return "original.pdf";
+    case "image":
+      // For images, we'll get the extension from the actual file
+      // Default to .png for now
+      return "original.png";
+    default:
+      // Detect from content
+      if (typeof content === "string") {
+        const isHtml = content.includes("<!DOCTYPE") || content.includes("<html");
+        return isHtml ? "original.html" : "original.txt";
+      }
+      return "original.txt";
+  }
+}
+
+/**
  * Create a pending source immediately (before processing)
  * This allows the UI to show the source right away with a loading state.
  *
  * Creates:
  * - original.json (immutable metadata)
- * - original.html or original.txt (raw content)
+ * - original file (raw content)
  *
  * Status "processing" is inferred from original.json existing without content.md
  */
 export async function createPendingSource(
   meta: Omit<SourceMeta, "id" | "createdAt" | "processingStatus">,
-  originalContent: string,
+  originalContent: string | Buffer,
+  options?: { originalFileName?: string },
   libraryPath = getLibraryPath()
 ): Promise<{ id: string; meta: SourceMeta }> {
   const id = uuidv4().slice(0, 8);
@@ -88,12 +116,16 @@ export async function createPendingSource(
   const sourceDir = path.join(libraryPath, id);
   await fs.mkdir(sourceDir, { recursive: true });
 
+  // Determine original_file name
+  const originalFile = options?.originalFileName || getOriginalFileName(meta.type, originalContent);
+
   // Save original.json (immutable metadata)
   const originalData: OriginalData = {
     id,
     source_url: meta.sourceUrl,
     created_at: createdAt,
     type: meta.type,
+    original_file: originalFile,
     original_title: meta.title,
   };
   await fs.writeFile(
@@ -103,11 +135,10 @@ export async function createPendingSource(
   );
 
   // Save original content for reprocessing later
-  const isHtml = originalContent.includes("<!DOCTYPE") || originalContent.includes("<html");
-  if (isHtml) {
-    await fs.writeFile(path.join(sourceDir, "original.html"), originalContent, "utf-8");
+  if (Buffer.isBuffer(originalContent)) {
+    await fs.writeFile(path.join(sourceDir, originalFile), originalContent);
   } else {
-    await fs.writeFile(path.join(sourceDir, "original.txt"), originalContent, "utf-8");
+    await fs.writeFile(path.join(sourceDir, originalFile), originalContent, "utf-8");
   }
 
   const sourceMeta: SourceMeta = {
@@ -118,6 +149,65 @@ export async function createPendingSource(
   };
 
   return { id, meta: sourceMeta };
+}
+
+/**
+ * Update read status in content.md frontmatter
+ */
+export async function updateReadStatus(
+  id: string,
+  status: "read" | "unread",
+  libraryPath = getLibraryPath()
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Find source directory
+    let sourceDir = path.join(libraryPath, id);
+    try {
+      await fs.access(path.join(sourceDir, "original.json"));
+    } catch {
+      const foundPath = await findSourcePath(id, libraryPath);
+      if (!foundPath) {
+        return { success: false, error: "Source not found" };
+      }
+      sourceDir = foundPath;
+    }
+
+    // Read current content.md
+    const contentMdPath = path.join(sourceDir, "content.md");
+    let currentTitle = "Untitled";
+    let currentContent = "";
+
+    try {
+      const contentMd = await fs.readFile(contentMdPath, "utf-8");
+      const parsed = parseContentMd(contentMd);
+      currentTitle = parsed.title;
+      currentContent = parsed.content;
+    } catch {
+      // content.md doesn't exist yet
+      return { success: false, error: "Content not ready" };
+    }
+
+    // Build new frontmatter
+    const lastReadAt = status === "read" ? new Date().toISOString() : undefined;
+    const frontmatterLines = [`title: "${currentTitle.replace(/"/g, '\\"')}"`];
+    if (status === "read") {
+      frontmatterLines.push(`readStatus: "read"`);
+      frontmatterLines.push(`lastReadAt: "${lastReadAt}"`);
+    }
+    // For unread, we simply omit the readStatus field (backward compatible default)
+
+    const newContentMd = `---
+${frontmatterLines.join("\n")}
+---
+
+${currentContent}
+`;
+    await fs.writeFile(contentMdPath, newContentMd, "utf-8");
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
 
 /**
@@ -153,15 +243,27 @@ export async function completeSource(
     processingStatus: "ready",
   };
 
-  // Load original content
+  // Load original content using original_file from metadata
   let originalContent = "";
+  const originalFile = originalData.original_file || "original.html"; // fallback for old format
   try {
-    originalContent = await fs.readFile(path.join(sourceDir, "original.html"), "utf-8");
+    const filePath = path.join(sourceDir, originalFile);
+    // For binary files (images), we don't load content here
+    if (originalData.type === "image") {
+      originalContent = `[Image: ${originalFile}]`;
+    } else {
+      originalContent = await fs.readFile(filePath, "utf-8");
+    }
   } catch {
+    // Try legacy file names for backward compatibility
     try {
-      originalContent = await fs.readFile(path.join(sourceDir, "original.txt"), "utf-8");
+      originalContent = await fs.readFile(path.join(sourceDir, "original.html"), "utf-8");
     } catch {
-      // No original content found
+      try {
+        originalContent = await fs.readFile(path.join(sourceDir, "original.txt"), "utf-8");
+      } catch {
+        // No original content found
+      }
     }
   }
 
@@ -210,16 +312,17 @@ export async function failSource(
  *
  * Creates:
  * - original.json (immutable metadata)
- * - original.html or original.txt (raw content)
+ * - original file (raw content)
  * - content.md (derived content)
  * - analysis.json
  * - README.md (triage card)
  */
 export async function saveSource(
   meta: Omit<SourceMeta, "id" | "createdAt">,
-  originalContent: string,
+  originalContent: string | Buffer,
   content: string,
   analysis: Analysis,
+  options?: { originalFileName?: string },
   libraryPath = getLibraryPath()
 ): Promise<Source> {
   const id = uuidv4().slice(0, 8);
@@ -228,12 +331,16 @@ export async function saveSource(
   const sourceDir = path.join(libraryPath, id);
   await fs.mkdir(sourceDir, { recursive: true });
 
+  // Determine original_file name
+  const originalFile = options?.originalFileName || getOriginalFileName(meta.type, originalContent);
+
   // 1. Save original.json (immutable metadata)
   const originalData: OriginalData = {
     id,
     source_url: meta.sourceUrl,
     created_at: createdAt,
     type: meta.type,
+    original_file: originalFile,
     original_title: meta.title,
   };
   await fs.writeFile(
@@ -243,11 +350,10 @@ export async function saveSource(
   );
 
   // 2. Save original content for reprocessing later
-  const isHtml = originalContent.includes("<!DOCTYPE") || originalContent.includes("<html");
-  if (isHtml) {
-    await fs.writeFile(path.join(sourceDir, "original.html"), originalContent, "utf-8");
+  if (Buffer.isBuffer(originalContent)) {
+    await fs.writeFile(path.join(sourceDir, originalFile), originalContent);
   } else {
-    await fs.writeFile(path.join(sourceDir, "original.txt"), originalContent, "utf-8");
+    await fs.writeFile(path.join(sourceDir, originalFile), originalContent, "utf-8");
   }
 
   // 3. Save content.md with title in frontmatter
@@ -279,7 +385,7 @@ ${content}
 
   return {
     meta: sourceMeta,
-    originalContent,
+    originalContent: Buffer.isBuffer(originalContent) ? "[Binary content]" : originalContent,
     content,
     analysis,
   };
@@ -361,9 +467,19 @@ export async function updateAnalysis(
 }
 
 /**
- * Parse content.md frontmatter to extract title
+ * Parsed frontmatter from content.md
  */
-function parseContentMd(fileContent: string): { title: string; content: string } {
+interface ContentMdFrontmatter {
+  title: string;
+  content: string;
+  readStatus?: "unread" | "read";
+  lastReadAt?: string;
+}
+
+/**
+ * Parse content.md frontmatter to extract title and read status
+ */
+function parseContentMd(fileContent: string): ContentMdFrontmatter {
   const frontmatterMatch = fileContent.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
   if (!frontmatterMatch) {
@@ -374,7 +490,10 @@ function parseContentMd(fileContent: string): { title: string; content: string }
   const body = frontmatterMatch[2];
 
   const title = extractYamlValue(frontmatter, "title") || "Untitled";
-  return { title, content: body.trim() };
+  const readStatus = extractYamlValue(frontmatter, "readStatus") as "unread" | "read" | undefined;
+  const lastReadAt = extractYamlValue(frontmatter, "lastReadAt");
+
+  return { title, content: body.trim(), readStatus, lastReadAt };
 }
 
 function extractYamlValue(yaml: string, key: string): string | undefined {
@@ -488,24 +607,40 @@ async function loadSourceFromPath(
     // Read content.md if it exists
     let title = originalData.original_title;
     let content = "";
+    let readStatus: "unread" | "read" | undefined;
+    let lastReadAt: string | undefined;
     try {
       const contentMd = await fs.readFile(path.join(sourceDir, "content.md"), "utf-8");
       const parsed = parseContentMd(contentMd);
       title = parsed.title;
       content = parsed.content;
+      readStatus = parsed.readStatus;
+      lastReadAt = parsed.lastReadAt;
     } catch {
       // Content not ready yet (processing state)
     }
 
-    // Read original content
+    // Read original content using original_file from metadata
     let originalContent = "";
+    const originalFile = originalData.original_file || "original.html"; // fallback for old format
     try {
-      originalContent = await fs.readFile(path.join(sourceDir, "original.html"), "utf-8");
+      const filePath = path.join(sourceDir, originalFile);
+      // For binary files (images), we don't load content here
+      if (originalData.type === "image") {
+        originalContent = `[Image: ${originalFile}]`;
+      } else {
+        originalContent = await fs.readFile(filePath, "utf-8");
+      }
     } catch {
+      // Try legacy file names for backward compatibility
       try {
-        originalContent = await fs.readFile(path.join(sourceDir, "original.txt"), "utf-8");
+        originalContent = await fs.readFile(path.join(sourceDir, "original.html"), "utf-8");
       } catch {
-        // No original content found
+        try {
+          originalContent = await fs.readFile(path.join(sourceDir, "original.txt"), "utf-8");
+        } catch {
+          // No original content found
+        }
       }
     }
 
@@ -526,6 +661,8 @@ async function loadSourceFromPath(
       createdAt: originalData.created_at,
       processingStatus: status,
       processingError: error,
+      readStatus,
+      lastReadAt,
     };
 
     return { meta, originalContent, content, analysis };

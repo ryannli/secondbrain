@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource, deleteSource, updateSourceContent } from "@/lib/storage";
+import { loadSource, deleteSource, updateSourceContent, updateReadStatus } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
@@ -14,6 +14,13 @@ export async function GET(
         { success: false, error: "Source not found" },
         { status: 404 }
       );
+    }
+
+    // Auto-mark as read when viewing (if ready and not already read)
+    if (source.meta.processingStatus === "ready" && source.meta.readStatus !== "read") {
+      await updateReadStatus(id, "read");
+      source.meta.readStatus = "read";
+      source.meta.lastReadAt = new Date().toISOString();
     }
 
     return NextResponse.json({ success: true, source });
@@ -64,22 +71,39 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, content } = body as { title?: string; content?: string };
+    const { title, content, readStatus } = body as {
+      title?: string;
+      content?: string;
+      readStatus?: "read" | "unread";
+    };
 
-    if (!title && !content) {
+    if (!title && !content && !readStatus) {
       return NextResponse.json(
         { success: false, error: "No updates provided" },
         { status: 400 }
       );
     }
 
-    const result = await updateSourceContent(id, { title, content });
+    // Update read status if provided
+    if (readStatus) {
+      const statusResult = await updateReadStatus(id, readStatus);
+      if (!statusResult.success) {
+        return NextResponse.json(
+          { success: false, error: statusResult.error },
+          { status: 404 }
+        );
+      }
+    }
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 404 }
-      );
+    // Update content if provided
+    if (title || content) {
+      const result = await updateSourceContent(id, { title, content });
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 404 }
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
