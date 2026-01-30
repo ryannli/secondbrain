@@ -4,40 +4,48 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 
 /**
- * Detect source type from URL
+ * Determine source type from URL or content.
+ * Type now represents FILE FORMAT, not content source.
+ * Brand (YouTube, Twitter, etc.) is detected separately from source_url.
  */
-export function detectSourceType(url: string): SourceType {
-  const hostname = new URL(url).hostname.toLowerCase();
-  const pathname = new URL(url).pathname.toLowerCase();
-
-  // YouTube
-  if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
-    return "youtube";
+export function getSourceType(url?: string, content?: string): SourceType {
+  if (url) {
+    const pathname = new URL(url).pathname.toLowerCase();
+    // PDF links
+    if (pathname.endsWith(".pdf")) {
+      return "document";
+    }
+    // All web pages are html type
+    return "html";
   }
 
-  // Twitter/X
-  if (hostname.includes("twitter.com") || hostname.includes("x.com")) {
-    return "twitter";
+  // No URL = text content
+  return "text";
+}
+
+/**
+ * Get type from file extension for uploaded files
+ */
+export function getTypeFromExtension(filename: string): SourceType {
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+
+  // Images
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"].includes(ext)) {
+    return "image";
   }
 
-  // Podcast platforms
-  if (
-    hostname.includes("spotify.com") && pathname.includes("/episode") ||
-    hostname.includes("podcasts.apple.com") ||
-    hostname.includes("overcast.fm") ||
-    hostname.includes("pocketcasts.com") ||
-    hostname.includes("castbox.fm")
-  ) {
-    return "podcast";
+  // Documents
+  if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "rtf"].includes(ext)) {
+    return "document";
   }
 
-  // PDF links
-  if (pathname.endsWith(".pdf")) {
-    return "pdf";
+  // HTML
+  if (["html", "htm"].includes(ext)) {
+    return "html";
   }
 
-  // Default to article
-  return "article";
+  // Default to text
+  return "text";
 }
 
 export interface ExtractedContent {
@@ -65,10 +73,18 @@ function getAlternativeUrl(url: string): string {
 }
 
 /**
+ * Check if URL is Twitter/X
+ */
+function isTwitterUrl(url: string): boolean {
+  const hostname = new URL(url).hostname.toLowerCase();
+  return hostname.includes("twitter.com") || hostname.includes("x.com");
+}
+
+/**
  * Fetch content from URL and extract readable content
  */
 export async function extractFromUrl(url: string): Promise<ExtractedContent> {
-  const sourceType = detectSourceType(url);
+  const sourceType = getSourceType(url);
   const fetchUrl = getAlternativeUrl(url);
   console.log(`Original URL: ${url}`);
   console.log(`Fetching from: ${fetchUrl}`);
@@ -93,7 +109,7 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   const siteName = new URL(url).hostname;
 
   // Special handling for Twitter/X - content is in og:description meta tag
-  if (sourceType === "twitter") {
+  if (isTwitterUrl(url)) {
     const title = extractTitle(html) || "Tweet";
     const tweetContent = extractOgDescription(html);
 
@@ -152,7 +168,7 @@ export async function extractFromHtml(
   url?: string,
   providedTitle?: string
 ): Promise<ExtractedContent> {
-  const sourceType = url ? detectSourceType(url) : "article";
+  const sourceType = getSourceType(url);
   const siteName = url ? new URL(url).hostname : undefined;
 
   // Use Readability to extract article content

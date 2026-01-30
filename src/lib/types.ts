@@ -1,6 +1,13 @@
 // Core types for Second Brain
 
-export type SourceType = "article" | "youtube" | "podcast" | "pdf" | "note" | "twitter";
+/**
+ * Source type represents the FILE FORMAT, not the content source.
+ * - html: Web pages (YouTube, Twitter, articles, etc. - source inferred from source_url)
+ * - text: Plain text notes
+ * - document: PDF, DOC, DOCX, etc.
+ * - image: PNG, JPG, WebP, GIF, etc.
+ */
+export type SourceType = "html" | "text" | "document" | "image";
 
 /**
  * Original data captured at source creation time.
@@ -11,6 +18,7 @@ export interface OriginalData {
   source_url?: string;
   created_at: string;
   type: SourceType;
+  original_file: string;  // e.g. "original.html", "original.pdf", "original.png"
   original_title: string; // Title at capture time (before AI processing)
 }
 

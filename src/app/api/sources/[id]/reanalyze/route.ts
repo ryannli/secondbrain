@@ -37,8 +37,8 @@ export async function POST(
 
     // Twitter/X: check if stored HTML has actual rendered content (data-testid="tweetText")
     // If it does, we can use it; if not, fall back to fxtwitter
-    const isTwitter = source.meta.type === "twitter" ||
-      (source.meta.sourceUrl && (source.meta.sourceUrl.includes("x.com") || source.meta.sourceUrl.includes("twitter.com")));
+    // Note: type is now "html" for all web pages, so we check the URL instead
+    const isTwitter = source.meta.sourceUrl && (source.meta.sourceUrl.includes("x.com") || source.meta.sourceUrl.includes("twitter.com"));
     const hasRenderedTwitterContent = isTwitter && source.originalContent?.includes('data-testid="tweetText"');
     const shouldUseStoredHtml = hasStoredHtml && (!isTwitter || hasRenderedTwitterContent);
 

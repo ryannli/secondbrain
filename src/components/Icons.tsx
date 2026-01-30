@@ -1,9 +1,8 @@
 import {
-  Youtube,
-  Headphones,
+  Globe,
   FileText,
   File,
-  ExternalLink,
+  Image,
 } from "lucide-react";
 import { SourceType } from "@/lib/types";
 
@@ -19,20 +18,25 @@ export function Logo({ className, color }: { className?: string; color?: string 
   );
 }
 
-// Fallback icon based on source type (when no brand match)
+/**
+ * Fallback icon based on source type (when no brand match from URL)
+ * Type now represents file format, not content source:
+ * - html: Web pages (brand is detected from source_url)
+ * - text: Plain text notes
+ * - document: PDF, DOC, etc.
+ * - image: PNG, JPG, etc.
+ */
 export function getFallbackIcon(type: SourceType) {
   switch (type) {
-    case "youtube":
-      return Youtube;
-    case "podcast":
-      return Headphones;
-    case "pdf":
-      return File;
-    case "note":
-      return FileText;
-    case "twitter":
-    case "article":
+    case "html":
+      return Globe;      // Generic web page
+    case "text":
+      return FileText;   // Plain text note
+    case "document":
+      return File;       // PDF, DOC, etc.
+    case "image":
+      return Image;      // Image file
     default:
-      return ExternalLink;
+      return Globe;
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractFromUrl, extractFromHtml, detectSourceType } from "@/lib/content";
-import { analyzeContent, generateTitle, formatTextContent } from "@/lib/claude";
+import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
+import { analyzeContent, generateTitle, formatTextContent, analyzeImage } from "@/lib/claude";
 import { createPendingSource, completeSource, failSource, ensureLibraryExists } from "@/lib/storage";
 import { SourceType } from "@/lib/types";
 
@@ -17,6 +17,14 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Check content type for file upload vs JSON
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      // Handle file upload
+      return handleFileUpload(request);
+    }
+
     const body = await request.json();
     const { url, text, title, html } = body;
 
@@ -38,16 +46,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (html) {
       initialTitle = title || "Processing...";
       sourceUrl = body.url;
-      sourceType = sourceUrl ? detectSourceType(sourceUrl) : "article";
+      sourceType = getSourceType(sourceUrl);
       originalContent = html;
     } else if (url) {
       initialTitle = title || new URL(url).hostname;
       sourceUrl = url;
-      sourceType = detectSourceType(url);
+      sourceType = getSourceType(url);
       originalContent = ""; // Will be fetched during processing
     } else {
       initialTitle = title || text.slice(0, 50) + "...";
-      sourceType = "note";
+      sourceType = "text";
       originalContent = text;
     }
 
@@ -141,6 +149,117 @@ async function processSourceInBackground(
     console.log(`[${id}] Source processing complete`);
   } catch (error) {
     console.error(`[${id}] Processing failed:`, error);
+    await failSource(id, error instanceof Error ? error.message : "Unknown error");
+  }
+}
+
+/**
+ * Handle file upload (images, documents)
+ */
+async function handleFileUpload(request: NextRequest): Promise<NextResponse> {
+  try {
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: "No file provided" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    await ensureLibraryExists();
+
+    const filename = file.name;
+    const sourceType = getTypeFromExtension(filename);
+    const ext = filename.split(".").pop()?.toLowerCase() || "bin";
+    const originalFileName = `original.${ext}`;
+
+    // Read file content
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Initial title from filename
+    const initialTitle = filename.replace(/\.[^.]+$/, "") || "Uploaded file";
+
+    console.log(`Creating pending source for file: ${filename} (${sourceType})`);
+    const { id, meta } = await createPendingSource(
+      {
+        title: initialTitle,
+        type: sourceType,
+      },
+      buffer,
+      { originalFileName }
+    );
+
+    // Return immediately
+    const response = NextResponse.json({
+      success: true,
+      source: {
+        meta,
+        content: "Processing...",
+        originalContent: `[File: ${filename}]`,
+      },
+    }, { headers: corsHeaders });
+
+    // Process in background - pass the file path in library, not buffer
+    // File is already saved at: user_data/library/{id}/{originalFileName}
+    processFileInBackground(id, originalFileName, sourceType, filename).catch((error) => {
+      console.error(`Background file processing failed for ${id}:`, error);
+    });
+
+    return response;
+  } catch (error) {
+    console.error("File upload error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+/**
+ * Process uploaded file in background
+ */
+async function processFileInBackground(
+  id: string,
+  originalFileName: string,  // e.g. "original.png"
+  sourceType: SourceType,
+  displayName: string  // original filename for display
+): Promise<void> {
+  try {
+    let content: string;
+    let extractedTitle: string;
+
+    if (sourceType === "image") {
+      // Use Claude vision to analyze the image
+      // Image is already saved in library at: user_data/library/{id}/{originalFileName}
+      console.log(`[${id}] Analyzing image with Claude vision...`);
+      const imageResult = await analyzeImage(id, originalFileName);
+      content = imageResult.content;
+      extractedTitle = imageResult.title;
+    } else {
+      // For documents (PDF, etc.), we'll need different handling
+      // For now, just note that it's a document
+      console.log(`[${id}] Document processing not yet implemented`);
+      content = `Document: ${displayName}\n\n[Content extraction for this file type is not yet implemented]`;
+      extractedTitle = displayName.replace(/\.[^.]+$/, "");
+    }
+
+    // Analyze with Claude
+    console.log(`[${id}] Analyzing content: ${extractedTitle}`);
+    const analysis = await analyzeContent(extractedTitle, content);
+
+    // Complete the source
+    console.log(`[${id}] Completing source: ${extractedTitle}`);
+    await completeSource(id, content, analysis, extractedTitle);
+
+    console.log(`[${id}] File processing complete`);
+  } catch (error) {
+    console.error(`[${id}] File processing failed:`, error);
     await failSource(id, error instanceof Error ? error.message : "Unknown error");
   }
 }

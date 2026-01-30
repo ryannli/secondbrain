@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { Analysis, Highlight } from "./types";
+import path from "path";
 
 /**
  * Call Claude via CLI in print mode (async, non-blocking)
@@ -94,6 +95,100 @@ Output only the formatted Markdown.
 ${text.slice(0, 30000)}`;
 
   return await callClaude(prompt);
+}
+
+/**
+ * Analyze an image using Claude's vision capabilities
+ * Assumes the image contains text (screenshot, document, etc.)
+ * Uses OCR to extract text and format as Markdown
+ *
+ * @param sourceId - The source ID (used to locate the file in library)
+ * @param originalFileName - The filename in the source directory (e.g. "original.png")
+ */
+export async function analyzeImage(
+  sourceId: string,
+  originalFileName: string
+): Promise<{ title: string; content: string }> {
+  // Image is saved at: user_data/library/{sourceId}/{originalFileName}
+  // Use relative path from project root for Claude to read
+  const imagePath = path.join(process.cwd(), "user_data", "library", sourceId, originalFileName);
+
+  const prompt = `Read the image file at ${imagePath} and analyze it.
+
+This image likely contains text (a screenshot, document, or note). Your job is to:
+
+1. Extract ALL visible text from the image
+2. Format it as clean Markdown, preserving the structure (headings, lists, paragraphs, etc.)
+3. Generate a concise title (5-10 words) that captures the main topic
+
+Format your response EXACTLY as:
+TITLE: [your title here]
+
+CONTENT:
+[extracted text formatted as Markdown - preserve structure, use ## for headings, - for lists, etc.]
+
+Rules:
+- Extract ALL text, don't summarize or paraphrase
+- Preserve the original structure as much as possible
+- If there are multiple sections, use Markdown headings
+- If there are bullet points or numbered lists, preserve them
+- If the text is messy or hard to read, do your best to interpret it
+- If the image doesn't contain meaningful text, describe what you see instead`;
+
+  // Call Claude with Read tool to analyze the image
+  const result = await callClaudeWithReadTool(prompt);
+
+  // Parse the response
+  const titleMatch = result.match(/TITLE:\s*(.+?)(?:\n|$)/i);
+  const contentMatch = result.match(/CONTENT:\s*([\s\S]+)/i);
+
+  const title = titleMatch?.[1]?.trim() || originalFileName.replace(/\.[^.]+$/, "");
+  const content = contentMatch?.[1]?.trim() || result;
+
+  return { title, content };
+}
+
+/**
+ * Call Claude CLI with Read tool enabled (for reading local files including images)
+ */
+async function callClaudeWithReadTool(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Use Read tool with permission-mode dontAsk to auto-accept file reads
+    const proc = spawn("claude", [
+      "--print",
+      "--tools", "Read",
+      "--output-format", "text",
+      "--permission-mode", "dontAsk"
+    ], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr || `Claude exited with code ${code}`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      reject(err);
+    });
+
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+  });
 }
 
 export async function analyzeContent(
