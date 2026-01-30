@@ -18,6 +18,7 @@ import {
   Trash2,
   Copy,
   FolderPlus,
+  Pencil,
 } from "lucide-react";
 import { Source, SourceSummary, ActionType, ACTION_CONFIG, TreeNode } from "@/lib/types";
 import { theme, generatePalette } from "@/lib/theme";
@@ -52,19 +53,24 @@ function HomeContent() {
   const [pendingCaptures, setPendingCaptures] = useState<string[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Context menu state
+  // Context menu state - supports both sources and folders
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     x: number;
     y: number;
-    sourceId: string;
+    type: "source" | "folder";
+    sourceId?: string;
     sourceUrl?: string;
+    folderPath?: string;
+    folderName?: string;
   } | null>(null);
 
-  // Folder creation state
+  // Folder editing state
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderParent, setNewFolderParent] = useState<string>("");
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
+  const [renameFolderValue, setRenameFolderValue] = useState("");
 
   // Drag and drop state
   const [draggedSourceId, setDraggedSourceId] = useState<string | null>(null);
@@ -289,8 +295,22 @@ function HomeContent() {
       visible: true,
       x: e.clientX,
       y: e.clientY,
+      type: "source",
       sourceId,
       sourceUrl,
+    });
+  };
+
+  const handleFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      type: "folder",
+      folderPath,
+      folderName,
     });
   };
 
@@ -301,8 +321,8 @@ function HomeContent() {
     setContextMenu(null);
   };
 
-  const handleDelete = async () => {
-    if (!contextMenu) return;
+  const handleDeleteSource = async () => {
+    if (!contextMenu || contextMenu.type !== "source") return;
     const { sourceId } = contextMenu;
     setContextMenu(null);
 
@@ -319,6 +339,72 @@ function HomeContent() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!contextMenu || contextMenu.type !== "folder") return;
+    const { folderPath } = contextMenu;
+    setContextMenu(null);
+
+    try {
+      const res = await fetch("/api/folders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: folderPath }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadFolders();
+        await loadSources();
+      } else {
+        setError(data.error || "Failed to delete folder");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete folder");
+    }
+  };
+
+  const handleStartRenameFolder = () => {
+    if (!contextMenu || contextMenu.type !== "folder") return;
+    setRenamingFolder(contextMenu.folderPath!);
+    setRenameFolderValue(contextMenu.folderName!);
+    setContextMenu(null);
+  };
+
+  const handleRenameFolder = async () => {
+    if (!renamingFolder || !renameFolderValue.trim()) {
+      setRenamingFolder(null);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/folders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: renamingFolder, newName: renameFolderValue.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Update expanded folders if the renamed folder was expanded
+        if (expandedFolders.has(renamingFolder)) {
+          setExpandedFolders((prev) => {
+            const next = new Set(prev);
+            next.delete(renamingFolder);
+            next.add(data.newPath);
+            return next;
+          });
+        }
+        await loadFolders();
+        await loadSources();
+      } else {
+        setError(data.error || "Failed to rename folder");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to rename folder");
+    } finally {
+      setRenamingFolder(null);
+      setRenameFolderValue("");
     }
   };
 
@@ -766,6 +852,7 @@ function HomeContent() {
                         onToggleFolder={toggleFolder}
                         onSelectSource={navigateToSource}
                         onContextMenu={handleContextMenu}
+                        onFolderContextMenu={handleFolderContextMenu}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
@@ -784,6 +871,14 @@ function HomeContent() {
                           setIsCreatingFolder(false);
                           setNewFolderName("");
                           setNewFolderParent("");
+                        }}
+                        renamingFolder={renamingFolder}
+                        renameFolderValue={renameFolderValue}
+                        onRenameFolderChange={setRenameFolderValue}
+                        onRenameFolder={handleRenameFolder}
+                        onCancelRename={() => {
+                          setRenamingFolder(null);
+                          setRenameFolderValue("");
                         }}
                         palette={palette}
                         theme={theme}
@@ -858,22 +953,43 @@ function HomeContent() {
             borderColor: theme.border,
           }}
         >
-          {contextMenu.sourceUrl && (
-            <button
-              onClick={handleCopyUrl}
-              className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
-            >
-              <Copy className="w-4 h-4" style={{ color: theme.textMuted }} />
-              Copy Source URL
-            </button>
+          {contextMenu.type === "source" ? (
+            <>
+              {contextMenu.sourceUrl && (
+                <button
+                  onClick={handleCopyUrl}
+                  className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
+                >
+                  <Copy className="w-4 h-4" style={{ color: theme.textMuted }} />
+                  Copy Source URL
+                </button>
+              )}
+              <button
+                onClick={handleDeleteSource}
+                className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleStartRenameFolder}
+                className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" style={{ color: theme.textMuted }} />
+                Rename
+              </button>
+              <button
+                onClick={handleDeleteFolder}
+                className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
           )}
-          <button
-            onClick={handleDelete}
-            className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
         </div>
       )}
     </div>

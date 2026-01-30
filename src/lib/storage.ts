@@ -870,3 +870,103 @@ export async function createFolder(
   await fs.mkdir(fullPath, { recursive: true });
   return true;
 }
+
+/**
+ * Delete a folder and all its contents
+ */
+export async function deleteFolder(
+  folderPath: string, // relative path within library
+  libraryPath = getLibraryPath()
+): Promise<boolean> {
+  if (!folderPath || folderPath.includes("..")) {
+    throw new Error("Invalid folder path");
+  }
+
+  const fullPath = path.join(libraryPath, folderPath);
+
+  // Security check
+  const resolvedPath = path.resolve(fullPath);
+  const resolvedLibrary = path.resolve(libraryPath);
+  if (!resolvedPath.startsWith(resolvedLibrary) || resolvedPath === resolvedLibrary) {
+    throw new Error("Security error: cannot delete this path");
+  }
+
+  // Check if folder exists
+  try {
+    const stat = await fs.stat(fullPath);
+    if (!stat.isDirectory()) {
+      throw new Error("Path is not a folder");
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("Folder not found");
+    }
+    throw err;
+  }
+
+  await fs.rm(fullPath, { recursive: true });
+  return true;
+}
+
+/**
+ * Rename a folder
+ */
+export async function renameFolder(
+  oldPath: string, // relative path within library
+  newName: string, // new folder name (not full path)
+  libraryPath = getLibraryPath()
+): Promise<string> {
+  if (!oldPath || oldPath.includes("..")) {
+    throw new Error("Invalid folder path");
+  }
+  if (!newName || newName.includes("/") || newName.includes("..")) {
+    throw new Error("Invalid new folder name");
+  }
+  // Validate folder name
+  if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+    throw new Error("Folder name can only contain letters, numbers, dash, and underscore");
+  }
+
+  const fullOldPath = path.join(libraryPath, oldPath);
+  const parentDir = path.dirname(fullOldPath);
+  const fullNewPath = path.join(parentDir, newName);
+  const newRelativePath = path.relative(libraryPath, fullNewPath);
+
+  // Security checks
+  const resolvedOld = path.resolve(fullOldPath);
+  const resolvedNew = path.resolve(fullNewPath);
+  const resolvedLibrary = path.resolve(libraryPath);
+
+  if (!resolvedOld.startsWith(resolvedLibrary) || resolvedOld === resolvedLibrary) {
+    throw new Error("Security error: cannot rename this path");
+  }
+  if (!resolvedNew.startsWith(resolvedLibrary)) {
+    throw new Error("Security error: new path is outside library");
+  }
+
+  // Check if old folder exists
+  try {
+    const stat = await fs.stat(fullOldPath);
+    if (!stat.isDirectory()) {
+      throw new Error("Path is not a folder");
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("Folder not found");
+    }
+    throw err;
+  }
+
+  // Check if new path already exists
+  try {
+    await fs.access(fullNewPath);
+    throw new Error("A folder with this name already exists");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw err;
+    }
+  }
+
+  await fs.rename(fullOldPath, fullNewPath);
+  return newRelativePath;
+}

@@ -21,6 +21,7 @@ export interface TreeItemProps {
   onToggleFolder: (path: string) => void;
   onSelectSource: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, sourceId: string, sourceUrl?: string) => void;
+  onFolderContextMenu: (e: React.MouseEvent, folderPath: string, folderName: string) => void;
   onDragStart: (e: React.DragEvent, sourceId: string) => void;
   onDragOver: (e: React.DragEvent, folderPath: string) => void;
   onDragLeave: () => void;
@@ -33,6 +34,12 @@ export interface TreeItemProps {
   onFolderNameChange: (name: string) => void;
   onCreateFolder: () => void;
   onCancelCreate: () => void;
+  // Folder renaming
+  renamingFolder: string | null;
+  renameFolderValue: string;
+  onRenameFolderChange: (value: string) => void;
+  onRenameFolder: () => void;
+  onCancelRename: () => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }
@@ -46,6 +53,7 @@ export function TreeItem({
   onToggleFolder,
   onSelectSource,
   onContextMenu,
+  onFolderContextMenu,
   onDragStart,
   onDragOver,
   onDragLeave,
@@ -58,6 +66,11 @@ export function TreeItem({
   onFolderNameChange,
   onCreateFolder,
   onCancelCreate,
+  renamingFolder,
+  renameFolderValue,
+  onRenameFolderChange,
+  onRenameFolder,
+  onCancelRename,
   palette,
   theme,
 }: TreeItemProps) {
@@ -67,6 +80,7 @@ export function TreeItem({
     const isExpanded = expandedFolders.has(node.path);
     const isDragOver = dragOverFolder === node.path;
     const showInput = isCreatingFolder && newFolderParent === node.path;
+    const isRenaming = renamingFolder === node.path;
 
     return (
       <div>
@@ -74,13 +88,14 @@ export function TreeItem({
           onDragOver={(e) => onDragOver(e, node.path)}
           onDragLeave={onDragLeave}
           onDrop={(e) => onDrop(e, node.path)}
+          onContextMenu={(e) => onFolderContextMenu(e, node.path, node.name)}
           className="w-full py-1.5 pr-3 flex items-center hover:bg-black/5 transition-colors text-left cursor-pointer rounded group"
           style={{
             backgroundColor: isDragOver ? `${palette[500]}20` : undefined,
           }}
         >
           <div
-            onClick={() => onToggleFolder(node.path)}
+            onClick={() => !isRenaming && onToggleFolder(node.path)}
             className="flex items-center gap-2 flex-1 min-w-0"
             style={{ paddingLeft }}
           >
@@ -94,19 +109,38 @@ export function TreeItem({
             ) : (
               <Folder className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
             )}
-            <span className="text-sm truncate">{node.name}</span>
+            {isRenaming ? (
+              <input
+                type="text"
+                value={renameFolderValue}
+                onChange={(e) => onRenameFolderChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onRenameFolder();
+                  if (e.key === "Escape") onCancelRename();
+                }}
+                onBlur={() => onRenameFolder()}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 px-1 py-0.5 text-sm border rounded min-w-0"
+                style={{ borderColor: palette[500] }}
+                autoFocus
+              />
+            ) : (
+              <span className="text-sm truncate">{node.name}</span>
+            )}
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartCreateFolder(node.path);
-              if (!isExpanded) onToggleFolder(node.path);
-            }}
-            className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-            title="New subfolder"
-          >
-            <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
-          </button>
+          {!isRenaming && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartCreateFolder(node.path);
+                if (!isExpanded) onToggleFolder(node.path);
+              }}
+              className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+              title="New subfolder"
+            >
+              <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+            </button>
+          )}
         </div>
         {isExpanded && (
           <div>
@@ -141,6 +175,7 @@ export function TreeItem({
                 onToggleFolder={onToggleFolder}
                 onSelectSource={onSelectSource}
                 onContextMenu={onContextMenu}
+                onFolderContextMenu={onFolderContextMenu}
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
@@ -153,6 +188,11 @@ export function TreeItem({
                 onFolderNameChange={onFolderNameChange}
                 onCreateFolder={onCreateFolder}
                 onCancelCreate={onCancelCreate}
+                renamingFolder={renamingFolder}
+                renameFolderValue={renameFolderValue}
+                onRenameFolderChange={onRenameFolderChange}
+                onRenameFolder={onRenameFolder}
+                onCancelRename={onCancelRename}
                 palette={palette}
                 theme={theme}
               />
