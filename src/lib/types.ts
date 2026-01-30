@@ -83,8 +83,8 @@ export interface Concept {
   id: string;
   term: string;
   definition: string;
-  understood?: boolean;
-  understoodAt?: string;  // ISO timestamp when marked understood
+  status?: "knew" | "learned";  // knew = already knew, learned = just learned
+  statusAt?: string;  // ISO timestamp when status was set
 }
 
 export interface DigestAnalysis {

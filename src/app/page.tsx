@@ -1722,7 +1722,7 @@ function ConceptsSection({
   palette,
   theme,
 }: {
-  concepts: { id: string; term: string; definition: string; understood?: boolean }[];
+  concepts: { id: string; term: string; definition: string; status?: "knew" | "learned" }[];
   onReaction: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
@@ -1736,9 +1736,12 @@ function ConceptsSection({
           <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
             <p className="mb-2">Terms or ideas that may need explanation.</p>
             <p className="mb-2 text-gray-300">
-              <strong className="text-white">Got it</strong> — Click when you understand. The concept fades so you can focus on what you still need to learn.
+              <strong className="text-white">Knew</strong> — You already knew this concept.
             </p>
-            <p className="text-gray-300">Tracking your knowledge helps tailor future analysis to your expertise level.</p>
+            <p className="mb-2 text-gray-300">
+              <strong className="text-white">Learned</strong> — You just learned this from the article.
+            </p>
+            <p className="text-gray-300">Tracking helps tailor future analysis to your expertise.</p>
           </div>
         </div>
       </div>
@@ -1750,36 +1753,35 @@ function ConceptsSection({
             className="p-2 rounded-lg transition-opacity"
             style={{
               backgroundColor: theme.borderLight,
-              opacity: c.understood ? 0.4 : 1,
+              opacity: c.status ? 0.4 : 1,
             }}
           >
             <div className="flex items-center justify-between mb-1">
               <span className="font-medium text-sm">{c.term}</span>
-              <button
-                onClick={() => onReaction("concept", c.id, "toggle")}
-                className="px-2 py-0.5 text-xs rounded transition-all hover:scale-105 hover:shadow-sm"
-                style={{
-                  backgroundColor: c.understood ? `${palette[500]}20` : "transparent",
-                  color: c.understood ? palette[600] : theme.textLight,
-                  border: `1px solid ${c.understood ? palette[500] : theme.border}`,
-                }}
-                onMouseEnter={(e) => {
-                  if (!c.understood) {
-                    e.currentTarget.style.backgroundColor = `${palette[500]}10`;
-                    e.currentTarget.style.borderColor = palette[500];
-                    e.currentTarget.style.color = palette[600];
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!c.understood) {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.borderColor = theme.border;
-                    e.currentTarget.style.color = theme.textLight;
-                  }
-                }}
-              >
-                {c.understood ? "✓ Got it" : "Got it"}
-              </button>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onReaction("concept", c.id, "knew")}
+                  className="px-2 py-0.5 text-xs rounded transition-all hover:scale-105"
+                  style={{
+                    backgroundColor: c.status === "knew" ? `${palette[500]}20` : "transparent",
+                    color: c.status === "knew" ? palette[600] : theme.textLight,
+                    border: `1px solid ${c.status === "knew" ? palette[500] : theme.border}`,
+                  }}
+                >
+                  {c.status === "knew" ? "✓ Knew" : "Knew"}
+                </button>
+                <button
+                  onClick={() => onReaction("concept", c.id, "learned")}
+                  className="px-2 py-0.5 text-xs rounded transition-all hover:scale-105"
+                  style={{
+                    backgroundColor: c.status === "learned" ? `${palette[500]}20` : "transparent",
+                    color: c.status === "learned" ? palette[600] : theme.textLight,
+                    border: `1px solid ${c.status === "learned" ? palette[500] : theme.border}`,
+                  }}
+                >
+                  {c.status === "learned" ? "✓ Learned" : "Learned"}
+                </button>
+              </div>
             </div>
             <div className="text-sm" style={{ color: theme.textMuted }}>{c.definition}</div>
           </div>

@@ -42,9 +42,10 @@ export async function PATCH(
       const concepts = analysis.digest.concepts ?? [];
       const concept = concepts.find((c) => c.id === itemId);
       if (concept) {
-        // Toggle understood
-        concept.understood = !concept.understood;
-        concept.understoodAt = concept.understood ? now : undefined;
+        // Toggle status: if same status clicked again, clear it
+        const newStatus = concept.status === reaction ? undefined : reaction;
+        concept.status = newStatus;
+        concept.statusAt = newStatus ? now : undefined;
       }
     }
 
