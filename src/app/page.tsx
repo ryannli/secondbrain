@@ -1688,11 +1688,11 @@ function HighlightsSection({
               <div className="flex gap-1 flex-shrink-0">
                 <button
                   onClick={() => onReaction("highlight", h.id, isStarred ? "" : "star")}
-                  className="p-2 rounded-lg transition-all hover:scale-110 hover:bg-amber-100 hover:shadow-sm"
+                  className="p-2 rounded-lg border border-transparent transition-colors hover:border-amber-400"
                   title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
-                    className="w-5 h-5 transition-colors"
+                    className="w-5 h-5"
                     style={{
                       color: isStarred ? "#eab308" : theme.textLight,
                       fill: isStarred ? "#eab308" : "none",
@@ -1701,7 +1701,7 @@ function HighlightsSection({
                 </button>
                 <button
                   onClick={() => onReaction("highlight", h.id, isDismissed ? "" : "dismiss")}
-                  className="p-2 rounded-lg transition-all hover:scale-110 hover:bg-gray-200 hover:shadow-sm"
+                  className="p-2 rounded-lg border border-transparent transition-colors hover:border-gray-400"
                   title={isDismissed ? "Restore" : "Dismiss"}
                   style={{ color: isDismissed ? theme.textMuted : theme.textLight }}
                 >
@@ -1761,8 +1761,8 @@ function ConceptsSection({
               <div className="flex gap-1">
                 <button
                   onClick={() => onReaction("concept", c.id, "knew")}
-                  className={`px-2 py-0.5 text-xs rounded transition-all hover:scale-105 hover:shadow-sm ${
-                    c.status !== "knew" ? "hover:bg-gray-200 hover:border-gray-400" : ""
+                  className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                    c.status !== "knew" ? "hover:border-gray-400" : ""
                   }`}
                   style={{
                     backgroundColor: c.status === "knew" ? `${palette[500]}20` : undefined,
@@ -1774,8 +1774,8 @@ function ConceptsSection({
                 </button>
                 <button
                   onClick={() => onReaction("concept", c.id, "learned")}
-                  className={`px-2 py-0.5 text-xs rounded transition-all hover:scale-105 hover:shadow-sm ${
-                    c.status !== "learned" ? "hover:bg-gray-200 hover:border-gray-400" : ""
+                  className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                    c.status !== "learned" ? "hover:border-gray-400" : ""
                   }`}
                   style={{
                     backgroundColor: c.status === "learned" ? `${palette[500]}20` : undefined,
