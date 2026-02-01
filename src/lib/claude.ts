@@ -463,8 +463,7 @@ Return a JSON array of connections:
       "summary": "One-line description of the connection",
       "details": "2-3 sentences explaining the connection with specific references",
       "relatedSourceIds": ["id1", "id2"],
-      "relatedSourceTitles": ["Title 1", "Title 2"],
-      "conceptTerms": ["term1", "term2"]  // Optional: key concepts involved
+      "relatedSourceTitles": ["Title 1", "Title 2"]
     }
   ]
 }
@@ -495,7 +494,6 @@ Respond with ONLY the JSON object.`;
       details: c.details ?? "",
       relatedSourceIds: c.relatedSourceIds ?? [],
       relatedSourceTitles: c.relatedSourceTitles ?? [],
-      conceptTerms: c.conceptTerms,
     }));
   } catch {
     console.error("Failed to parse connections:", responseText.slice(0, 200));

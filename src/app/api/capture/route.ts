@@ -412,7 +412,6 @@ async function createReverseConnections(
         details: conn.details,
         relatedSourceIds: [newSourceId],
         relatedSourceTitles: [newSourceTitle],
-        conceptTerms: conn.conceptTerms,
       };
 
       const success = await addConnectionToSource(relatedSourceId, reverseConnection);

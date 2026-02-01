@@ -110,7 +110,6 @@ export interface Connection {
   details: string;              // Detailed explanation
   relatedSourceIds: string[];   // IDs of related sources
   relatedSourceTitles: string[]; // Titles for display
-  conceptTerms?: string[];      // Related concept terms (for builds_on type)
 }
 
 export interface Analysis {

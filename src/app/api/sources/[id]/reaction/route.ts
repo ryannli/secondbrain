@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource } from "@/lib/storage";
-import { updateAnalysis } from "@/lib/storage";
+import { loadSource, findSourcePath } from "@/lib/storage";
+import { promises as fs } from "fs";
+import path from "path";
+import { Analysis } from "@/lib/types";
 
 export async function PATCH(
   request: NextRequest,
@@ -15,15 +17,28 @@ export async function PATCH(
     // itemId: the id of the highlight or concept
     // reaction: the user's reaction/status
 
-    const source = await loadSource(id);
-    if (!source || !source.analysis) {
+    // Find source path
+    const sourceDir = await findSourcePath(id);
+    if (!sourceDir) {
       return NextResponse.json(
-        { success: false, error: "Source or analysis not found" },
+        { success: false, error: "Source not found" },
         { status: 404 }
       );
     }
 
-    const analysis = { ...source.analysis };
+    // Read fresh analysis from disk to avoid race conditions
+    // (connections might have been added after the source was loaded in the UI)
+    const analysisPath = path.join(sourceDir, "analysis.json");
+    let analysis: Analysis;
+    try {
+      const analysisJson = await fs.readFile(analysisPath, "utf-8");
+      analysis = JSON.parse(analysisJson);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Analysis not found" },
+        { status: 404 }
+      );
+    }
 
     const now = new Date().toISOString();
 
@@ -49,12 +64,15 @@ export async function PATCH(
       }
     }
 
-    // Save updated analysis
-    await updateAnalysis(id, analysis);
+    // Save updated analysis directly to file
+    await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
+
+    // Load full source for response
+    const source = await loadSource(id);
 
     return NextResponse.json({
       success: true,
-      source: { ...source, analysis },
+      source: source ? { ...source, analysis } : null,
     });
   } catch (error) {
     console.error("Reaction update error:", error);
