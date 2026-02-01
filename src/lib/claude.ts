@@ -462,8 +462,7 @@ Return a JSON array of connections:
       "type": "redundant|contradicts|related",
       "summary": "One-line description of the connection",
       "details": "2-3 sentences explaining the connection with specific references",
-      "relatedSourceIds": ["id1", "id2"],
-      "relatedSourceTitles": ["Title 1", "Title 2"]
+      "relatedSourceIds": ["id1", "id2"]
     }
   ]
 }
@@ -493,7 +492,6 @@ Respond with ONLY the JSON object.`;
       summary: c.summary ?? "",
       details: c.details ?? "",
       relatedSourceIds: c.relatedSourceIds ?? [],
-      relatedSourceTitles: c.relatedSourceTitles ?? [],
     }));
   } catch {
     console.error("Failed to parse connections:", responseText.slice(0, 200));

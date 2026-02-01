@@ -401,17 +401,12 @@ async function createReverseConnections(
   // Create reverse connections for each related source
   for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
     for (const conn of sourceConnections) {
-      // Rewrite summary to reference the new source title instead of the original
-      // The original summary references the related source, so we need to flip the perspective
-      const reverseSummary = rewriteSummaryForReverse(conn.summary, conn.relatedSourceTitles, newSourceTitle);
-
       const reverseConnection: Connection = {
         id: `rev-${conn.id}-${newSourceId}`,
         type: reverseType[conn.type] || conn.type,
-        summary: reverseSummary,
+        summary: conn.summary, // Keep same summary - titles will be resolved at display time
         details: conn.details,
         relatedSourceIds: [newSourceId],
-        relatedSourceTitles: [newSourceTitle],
       };
 
       const success = await addConnectionToSource(relatedSourceId, reverseConnection);
@@ -420,17 +415,4 @@ async function createReverseConnections(
       }
     }
   }
-}
-
-/**
- * Rewrite a connection summary to reference the new source instead of the original
- */
-function rewriteSummaryForReverse(
-  originalSummary: string,
-  originalTitles: string[],
-  newSourceTitle: string
-): string {
-  // Simply reference the new source title for the reverse connection
-  // The summary will point to the new source that has a connection back
-  return `Related to "${newSourceTitle}"`;
 }

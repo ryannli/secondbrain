@@ -853,6 +853,19 @@ async function loadSourceFromPath(
     try {
       const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
       analysis = JSON.parse(analysisJson);
+
+      // Resolve connection titles dynamically
+      if (analysis?.connections) {
+        for (const conn of analysis.connections) {
+          const titles: string[] = [];
+          for (const relatedId of conn.relatedSourceIds) {
+            const relatedTitle = await getSourceTitle(relatedId);
+            titles.push(relatedTitle || relatedId); // Fallback to ID if title not found
+          }
+          // Add resolved titles to connection (not stored, just for display)
+          (conn as Connection & { relatedSourceTitles?: string[] }).relatedSourceTitles = titles;
+        }
+      }
     } catch {
       // Analysis might not exist yet
     }
@@ -1000,6 +1013,35 @@ export async function findSourcePath(
   }
 
   return searchDir(libraryPath);
+}
+
+/**
+ * Get a source's title by ID (for resolving connection titles)
+ */
+async function getSourceTitle(
+  id: string,
+  libraryPath = getLibraryPath()
+): Promise<string | null> {
+  const sourcePath = await findSourcePath(id, libraryPath);
+  if (!sourcePath) return null;
+
+  // Try to get title from content.md first
+  try {
+    const contentMd = await fs.readFile(path.join(sourcePath, "content.md"), "utf-8");
+    const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+    if (titleMatch) return titleMatch[1];
+  } catch {
+    // No content.md
+  }
+
+  // Fall back to original.json
+  try {
+    const originalJson = await fs.readFile(path.join(sourcePath, "original.json"), "utf-8");
+    const original = JSON.parse(originalJson);
+    return original.original_title || null;
+  } catch {
+    return null;
+  }
 }
 
 /**

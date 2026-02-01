@@ -21,7 +21,7 @@ import {
   ChevronRight,
   Link as LinkIcon,
 } from "lucide-react";
-import { Source, ActionType, Highlight, Connection, ConnectionType } from "@/lib/types";
+import { Source, ActionType, Highlight, ResolvedConnection, ConnectionType } from "@/lib/types";
 
 export interface SourceViewProps {
   source: Source;
@@ -399,7 +399,7 @@ export function SourceView({
             {/* Connections Section */}
             {analysis.connections && analysis.connections.length > 0 && (
               <ConnectionsSection
-                connections={analysis.connections}
+                connections={analysis.connections as ResolvedConnection[]}
                 onNavigate={onNavigateToSource}
                 palette={palette}
                 theme={theme}
@@ -790,7 +790,7 @@ function ConnectionsSection({
   palette,
   theme,
 }: {
-  connections: Connection[];
+  connections: ResolvedConnection[];
   onNavigate?: (sourceId: string) => void;
   palette: Record<number, string>;
   theme: Record<string, string>;

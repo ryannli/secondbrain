@@ -246,16 +246,12 @@ async function createReverseConnections(
 
   for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
     for (const conn of sourceConnections) {
-      // Create a simple summary that references the new source title
-      const reverseSummary = `Related to "${newSourceTitle}"`;
-
       const reverseConnection: Connection = {
         id: `rev-${conn.id}-${newSourceId}`,
         type: reverseType[conn.type] || conn.type,
-        summary: reverseSummary,
+        summary: conn.summary, // Keep same summary - titles will be resolved at display time
         details: conn.details,
         relatedSourceIds: [newSourceId],
-        relatedSourceTitles: [newSourceTitle],
       };
 
       const success = await addConnectionToSource(relatedSourceId, reverseConnection);

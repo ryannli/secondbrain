@@ -109,7 +109,11 @@ export interface Connection {
   summary: string;              // One-line description
   details: string;              // Detailed explanation
   relatedSourceIds: string[];   // IDs of related sources
-  relatedSourceTitles: string[]; // Titles for display
+}
+
+// Connection with resolved titles (for display)
+export interface ResolvedConnection extends Connection {
+  relatedSourceTitles: string[]; // Resolved at load time, not stored
 }
 
 export interface Analysis {
