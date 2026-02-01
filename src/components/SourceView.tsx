@@ -781,43 +781,13 @@ function AnalysisLoader({
           className="rounded-xl border relative overflow-hidden h-[140px]"
           style={{ borderColor: theme.border, backgroundColor: "white" }}
         >
-          {/* Sci-fi grid with glow effect */}
-          <div className="absolute inset-0 overflow-hidden">
-            {/* Base grid */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `
-                  linear-gradient(${palette[500]}15 1px, transparent 1px),
-                  linear-gradient(90deg, ${palette[500]}15 1px, transparent 1px)
-                `,
-                backgroundSize: "24px 24px",
-              }}
-            />
-            {/* Glowing horizontal scan line */}
-            <div
-              className="absolute left-0 right-0 h-[1px] animate-scan-line"
-              style={{
-                background: `linear-gradient(90deg, transparent, ${palette[500]}80, ${palette[400]}, ${palette[500]}80, transparent)`,
-                boxShadow: `0 0 20px 3px ${palette[500]}60, 0 0 40px 6px ${palette[500]}30`,
-              }}
-            />
-            {/* Secondary scan line (delayed) */}
-            <div
-              className="absolute left-0 right-0 h-[1px] animate-scan-line-2"
-              style={{
-                background: `linear-gradient(90deg, transparent, ${palette[400]}50, ${palette[500]}60, ${palette[400]}50, transparent)`,
-                boxShadow: `0 0 15px 2px ${palette[500]}40`,
-              }}
-            />
-            {/* Gradient overlay for depth */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(ellipse at 50% 50%, transparent 0%, ${palette[500]}08 100%)`,
-              }}
-            />
-          </div>
+          {/* Top gradient - deeper green fading down */}
+          <div
+            className="absolute inset-x-0 top-0 h-16 pointer-events-none"
+            style={{
+              background: `linear-gradient(to bottom, ${palette[500]}35, ${palette[500]}15, transparent)`,
+            }}
+          />
 
           {/* Water fill progress */}
           <div
