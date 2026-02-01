@@ -104,25 +104,29 @@ body {
   animation: water-fill 18s ease-out forwards;
 }
 
-/* Particle flow - data points moving left to right */
-@keyframes particle-flow {
+/* Sci-fi scan line animation */
+@keyframes scan-line {
   0% {
-    left: -10px;
+    top: -5%;
     opacity: 0;
   }
   10% {
-    opacity: 0.6;
+    opacity: 1;
   }
   90% {
-    opacity: 0.6;
+    opacity: 1;
   }
   100% {
-    left: calc(100% + 10px);
+    top: 105%;
     opacity: 0;
   }
 }
-.animate-particle-flow {
-  animation: particle-flow 3s ease-in-out infinite;
+.animate-scan-line {
+  animation: scan-line 4s ease-in-out infinite;
+}
+.animate-scan-line-2 {
+  animation: scan-line 4s ease-in-out infinite;
+  animation-delay: 2s;
 }
 
 /* Wave animation - slow, organic movement */

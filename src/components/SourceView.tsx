@@ -781,39 +781,42 @@ function AnalysisLoader({
           className="rounded-xl border relative overflow-hidden h-[140px]"
           style={{ borderColor: theme.border, backgroundColor: "white" }}
         >
-          {/* Perspective grid background */}
-          <div className="absolute inset-0 overflow-hidden opacity-[0.07]">
+          {/* Sci-fi grid with glow effect */}
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Base grid */}
             <div
               className="absolute inset-0"
               style={{
                 backgroundImage: `
-                  linear-gradient(${palette[500]} 1px, transparent 1px),
-                  linear-gradient(90deg, ${palette[500]} 1px, transparent 1px)
+                  linear-gradient(${palette[500]}15 1px, transparent 1px),
+                  linear-gradient(90deg, ${palette[500]}15 1px, transparent 1px)
                 `,
                 backgroundSize: "24px 24px",
-                transform: "perspective(200px) rotateX(30deg) scale(2)",
-                transformOrigin: "center top",
               }}
             />
-          </div>
-
-          {/* Floating data particles */}
-          <div className="absolute inset-0 overflow-hidden">
-            {[...Array(12)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full animate-particle-flow"
-                style={{
-                  width: `${3 + (i % 3) * 2}px`,
-                  height: `${3 + (i % 3) * 2}px`,
-                  background: i % 2 === 0 ? palette[500] : palette[400],
-                  opacity: 0.4 + (i % 3) * 0.2,
-                  top: `${15 + (i * 7) % 70}%`,
-                  animationDelay: `${i * 0.3}s`,
-                  animationDuration: `${2.5 + (i % 3) * 0.5}s`,
-                }}
-              />
-            ))}
+            {/* Glowing horizontal scan line */}
+            <div
+              className="absolute left-0 right-0 h-[1px] animate-scan-line"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${palette[500]}80, ${palette[400]}, ${palette[500]}80, transparent)`,
+                boxShadow: `0 0 20px 3px ${palette[500]}60, 0 0 40px 6px ${palette[500]}30`,
+              }}
+            />
+            {/* Secondary scan line (delayed) */}
+            <div
+              className="absolute left-0 right-0 h-[1px] animate-scan-line-2"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${palette[400]}50, ${palette[500]}60, ${palette[400]}50, transparent)`,
+                boxShadow: `0 0 15px 2px ${palette[500]}40`,
+              }}
+            />
+            {/* Gradient overlay for depth */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `radial-gradient(ellipse at 50% 50%, transparent 0%, ${palette[500]}08 100%)`,
+              }}
+            />
           </div>
 
           {/* Water fill progress */}

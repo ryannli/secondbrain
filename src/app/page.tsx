@@ -2,31 +2,15 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ChevronRight,
-  ChevronDown,
-  BookOpen,
-  Eye,
-  SkipForward,
-  Folder,
-  FolderOpen,
-  Target,
-  PanelLeftClose,
-  PanelLeft,
-  Settings,
-  LayoutDashboard,
-  Trash2,
-  Copy,
-  FolderPlus,
-  Pencil,
-} from "lucide-react";
+import { BookOpen, Eye, SkipForward, Target, Settings } from "lucide-react";
 import { Source, SourceSummary, ActionType, ACTION_CONFIG, TreeNode } from "@/lib/types";
 import { theme, generatePalette } from "@/lib/theme";
 import { Logo } from "@/components/Icons";
-import { getSourceIcon } from "@/lib/sourceIcon";
-import { TreeItem } from "@/components/TreeItem";
 import { SourceView } from "@/components/SourceView";
 import { Dashboard } from "@/components/Dashboard";
+import { SettingsModal } from "@/components/SettingsModal";
+import { ContextMenu, ContextMenuState } from "@/components/ContextMenu";
+import { LibrarySidebar } from "@/components/LibrarySidebar";
 
 export default function Home() {
   return (
@@ -54,16 +38,7 @@ function HomeContent() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   // Context menu state - supports both sources and folders
-  const [contextMenu, setContextMenu] = useState<{
-    visible: boolean;
-    x: number;
-    y: number;
-    type: "source" | "folder";
-    sourceId?: string;
-    sourceUrl?: string;
-    folderPath?: string;
-    folderName?: string;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // Folder editing state
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -658,274 +633,65 @@ function HomeContent() {
       </header>
 
       {/* Settings Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setIsSettingsOpen(false)}
-          />
-          <div
-            className="relative bg-white rounded-xl shadow-xl p-6 w-96 max-w-[90vw]"
-            style={{ borderColor: theme.border }}
-          >
-            <h2 className="text-lg font-semibold mb-4">Settings</h2>
-
-            {/* Font Family */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Font</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "outfit", name: "Outfit" },
-                  { id: "inter", name: "Inter" },
-                  { id: "dm-sans", name: "DM Sans" },
-                  { id: "space-grotesk", name: "Space Grotesk" },
-                  { id: "sora", name: "Sora" },
-                  { id: "plus-jakarta-sans", name: "Plus Jakarta Sans" },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => saveFont(option.id)}
-                    className="px-3 py-2 rounded-lg border text-center transition-all hover:border-gray-300"
-                    style={{
-                      fontFamily: `var(--font-${option.id})`,
-                      borderColor: fontFamily === option.id ? palette[500] : theme.border,
-                      backgroundColor: fontFamily === option.id ? `${palette[500]}10` : "transparent",
-                    }}
-                  >
-                    <div className="font-medium text-sm">Second Brain</div>
-                    <div className="text-xs text-gray-400">{option.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Data Path */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Data Location</label>
-              <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
-            </div>
-
-            {/* Debug Loading Mode */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Debug: Preview Loading UI</label>
-              <div className="flex gap-2">
-                {[
-                  { id: "none", label: "Off" },
-                  { id: "analysis", label: "Analysis" },
-                  { id: "connections", label: "Connections" },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setDebugLoadingMode(option.id as "none" | "analysis" | "connections")}
-                    className="px-3 py-1.5 rounded-lg border text-sm transition-all"
-                    style={{
-                      borderColor: debugLoadingMode === option.id ? palette[500] : theme.border,
-                      backgroundColor: debugLoadingMode === option.id ? `${palette[500]}10` : "transparent",
-                      color: debugLoadingMode === option.id ? palette[600] : theme.textMuted,
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
-            </div>
-
-
-            {/* Close Button */}
-            <button
-              onClick={() => setIsSettingsOpen(false)}
-              className="w-full mt-4 px-4 py-2 rounded-lg text-white font-medium transition-opacity hover:opacity-90"
-              style={{ backgroundColor: palette[600] }}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        fontFamily={fontFamily}
+        onFontChange={saveFont}
+        rootPath={rootPath}
+        debugLoadingMode={debugLoadingMode}
+        onDebugModeChange={setDebugLoadingMode}
+        palette={palette}
+      />
 
       {/* Main Area: Sidebar + Content */}
       <div className="flex-1 flex min-h-0">
         {/* Sidebar */}
-        <aside
-          className={`flex-shrink-0 border-r flex flex-col transition-all duration-200 ${
-            isSidebarOpen ? "w-64" : "w-12"
-          }`}
-          style={{ borderColor: theme.border }}
-        >
-          {/* Sidebar Toggle */}
-          <div className="px-3 py-2 flex items-center justify-end">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1 rounded hover:bg-black/5 transition-colors"
-              title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              {isSidebarOpen ? (
-                <PanelLeftClose className="w-4 h-4" style={{ color: theme.textMuted }} />
-              ) : (
-                <PanelLeft className="w-4 h-4" style={{ color: theme.textMuted }} />
-              )}
-            </button>
-          </div>
-
-          {/* Navigation */}
-          {isSidebarOpen && (
-            <>
-              {/* Dashboard Entry */}
-              <button
-                onClick={navigateToDashboard}
-                className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
-                style={{
-                  backgroundColor: !selectedSource ? `${palette[500]}15` : undefined,
-                }}
-              >
-                <LayoutDashboard
-                  className="w-4 h-4"
-                  style={{ color: !selectedSource ? palette[500] : theme.textMuted }}
-                />
-                <span
-                  className="text-sm font-medium"
-                  style={{ color: !selectedSource ? palette[600] : theme.text }}
-                >
-                  Dashboard
-                </span>
-              </button>
-
-              <div className="flex-1 overflow-auto mt-2">
-                {/* Library Section Label */}
-                <div className="px-3 py-1">
-                  <span className="text-xs font-medium uppercase tracking-wide" style={{ color: theme.textMuted }}>
-                    Library
-                  </span>
-                </div>
-
-                {/* Library Root - drop target for moving to root */}
-                <div
-                  onDragOver={(e) => handleDragOver(e, "")}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, "")}
-                  className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left cursor-pointer"
-                  style={{
-                    backgroundColor: dragOverFolder === "" ? `${palette[500]}20` : undefined,
-                  }}
-                >
-                  <div
-                    onClick={() => setIsLibraryOpen(!isLibraryOpen)}
-                    className="flex items-center gap-2 flex-1 min-w-0"
-                  >
-                    {isLibraryOpen ? (
-                      <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
-                    )}
-                    {isLibraryOpen ? (
-                      <FolderOpen className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
-                    ) : (
-                      <Folder className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
-                    )}
-                    <span className="text-sm truncate" title={libraryPath}>
-                      {libraryPath.split("/").pop() || "library"}
-                    </span>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCreatingFolder(true);
-                      setNewFolderParent("");
-                    }}
-                    className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
-                    title="New folder"
-                  >
-                    <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
-                  </button>
-                </div>
-
-                {/* Folder Creation Input */}
-                {isCreatingFolder && newFolderParent === "" && isLibraryOpen && (
-                  <div className="ml-6 mr-3 mb-1">
-                    <input
-                      type="text"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleCreateFolder();
-                        if (e.key === "Escape") {
-                          setIsCreatingFolder(false);
-                          setNewFolderName("");
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!newFolderName.trim()) {
-                          setIsCreatingFolder(false);
-                          setNewFolderName("");
-                        }
-                      }}
-                      placeholder="Folder name..."
-                      className="w-full px-2 py-1 text-sm border rounded"
-                      style={{ borderColor: theme.border }}
-                      autoFocus
-                    />
-                  </div>
-                )}
-
-                {/* Tree View */}
-                {isLibraryOpen && (
-                  <div>
-                    {buildTree().map((node) => (
-                      <TreeItem
-                        key={node.path}
-                        node={node}
-                        depth={1}
-                        selectedSourceId={selectedSource?.meta.id}
-                        expandedFolders={expandedFolders}
-                        dragOverFolder={dragOverFolder}
-                        onToggleFolder={toggleFolder}
-                        onSelectSource={navigateToSource}
-                        onContextMenu={handleContextMenu}
-                        onFolderContextMenu={handleFolderContextMenu}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onDragEnd={handleDragEnd}
-                        onStartCreateFolder={(parentPath) => {
-                          setIsCreatingFolder(true);
-                          setNewFolderParent(parentPath);
-                        }}
-                        isCreatingFolder={isCreatingFolder}
-                        newFolderParent={newFolderParent}
-                        newFolderName={newFolderName}
-                        onFolderNameChange={setNewFolderName}
-                        onCreateFolder={handleCreateFolder}
-                        onCancelCreate={() => {
-                          setIsCreatingFolder(false);
-                          setNewFolderName("");
-                          setNewFolderParent("");
-                        }}
-                        renamingFolder={renamingFolder}
-                        renameFolderValue={renameFolderValue}
-                        onRenameFolderChange={setRenameFolderValue}
-                        onRenameFolder={handleRenameFolder}
-                        onCancelRename={() => {
-                          setRenamingFolder(null);
-                          setRenameFolderValue("");
-                        }}
-                        palette={palette}
-                        theme={theme}
-                      />
-                    ))}
-                    {sources.length === 0 && folders.length === 0 && (
-                      <div className="px-3 py-2 text-sm" style={{ color: theme.textLight }}>
-                        No sources yet
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            </>
-          )}
-        </aside>
+        <LibrarySidebar
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isLibraryOpen={isLibraryOpen}
+          onToggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
+          libraryPath={libraryPath}
+          selectedSource={selectedSource}
+          onNavigateToDashboard={navigateToDashboard}
+          onNavigateToSource={navigateToSource}
+          treeNodes={buildTree()}
+          expandedFolders={expandedFolders}
+          onToggleFolder={toggleFolder}
+          onContextMenu={handleContextMenu}
+          onFolderContextMenu={handleFolderContextMenu}
+          dragOverFolder={dragOverFolder}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onDragEnd={handleDragEnd}
+          isCreatingFolder={isCreatingFolder}
+          newFolderParent={newFolderParent}
+          newFolderName={newFolderName}
+          onStartCreateFolder={(parentPath) => {
+            setIsCreatingFolder(true);
+            setNewFolderParent(parentPath);
+          }}
+          onFolderNameChange={setNewFolderName}
+          onCreateFolder={handleCreateFolder}
+          onCancelCreate={() => {
+            setIsCreatingFolder(false);
+            setNewFolderName("");
+            setNewFolderParent("");
+          }}
+          renamingFolder={renamingFolder}
+          renameFolderValue={renameFolderValue}
+          onRenameFolderChange={setRenameFolderValue}
+          onRenameFolder={handleRenameFolder}
+          onCancelRename={() => {
+            setRenamingFolder(null);
+            setRenameFolderValue("");
+          }}
+          palette={palette}
+          isEmpty={sources.length === 0 && folders.length === 0}
+        />
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0">
@@ -976,54 +742,13 @@ function HomeContent() {
       </div>
 
       {/* Context Menu */}
-      {contextMenu && (
-        <div
-          className="fixed bg-white border rounded-lg shadow-lg py-1 z-50"
-          style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
-            borderColor: theme.border,
-          }}
-        >
-          {contextMenu.type === "source" ? (
-            <>
-              {contextMenu.sourceUrl && (
-                <button
-                  onClick={handleCopyUrl}
-                  className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
-                >
-                  <Copy className="w-4 h-4" style={{ color: theme.textMuted }} />
-                  Copy Source URL
-                </button>
-              )}
-              <button
-                onClick={handleDeleteSource}
-                className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleStartRenameFolder}
-                className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
-              >
-                <Pencil className="w-4 h-4" style={{ color: theme.textMuted }} />
-                Rename
-              </button>
-              <button
-                onClick={handleDeleteFolder}
-                className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      <ContextMenu
+        menu={contextMenu}
+        onCopyUrl={handleCopyUrl}
+        onDeleteSource={handleDeleteSource}
+        onRenameFolder={handleStartRenameFolder}
+        onDeleteFolder={handleDeleteFolder}
+      />
     </div>
   );
 }
