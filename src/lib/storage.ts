@@ -233,6 +233,9 @@ ${content}
 /**
  * Save analysis.json for a source (progressive update - step 2)
  * Also generates README.md
+ *
+ * WARNING: This overwrites the entire analysis.json. If you only need to
+ * add connections, use setSourceConnections() instead to avoid race conditions.
  */
 export async function saveSourceAnalysis(
   id: string,
@@ -273,6 +276,30 @@ export async function saveSourceAnalysis(
   };
   const readme = generateReadme(meta, analysis);
   await fs.writeFile(path.join(sourceDir, "README.md"), readme, "utf-8");
+}
+
+/**
+ * Safely set connections for a source (read-modify-write pattern)
+ * This reads the current analysis, updates only the connections field, and writes back.
+ * Safer than saveSourceAnalysis when only updating connections.
+ */
+export async function setSourceConnections(
+  id: string,
+  connections: Connection[],
+  libraryPath = getLibraryPath()
+): Promise<void> {
+  const sourceDir = path.join(libraryPath, id);
+  const analysisPath = path.join(sourceDir, "analysis.json");
+
+  // Read current analysis
+  const analysisJson = await fs.readFile(analysisPath, "utf-8");
+  const analysis: Analysis = JSON.parse(analysisJson);
+
+  // Update only connections
+  analysis.connections = connections;
+
+  // Write back
+  await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
 }
 
 /**

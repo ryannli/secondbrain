@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
-import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis } from "@/lib/storage";
+import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, findSourcePath } from "@/lib/storage";
 import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
@@ -150,11 +152,10 @@ async function processSourceInBackground(
     console.log(`[${id}] Finding connections...`);
     const connections = await findConnectionsForSource(id, extractedTitle, analysis);
     if (connections.length > 0) {
-      analysis.connections = connections;
       console.log(`[${id}] Found ${connections.length} connections`);
-      // Progressive save: connections now visible
+      // Use setSourceConnections for safe read-modify-write (avoids race conditions)
       console.log(`[${id}] Saving connections (progressive step 3)...`);
-      await saveSourceAnalysis(id, analysis);
+      await setSourceConnections(id, connections);
     }
 
     console.log(`[${id}] Source processing complete`);
@@ -273,11 +274,10 @@ async function processFileInBackground(
     console.log(`[${id}] Finding connections...`);
     const connections = await findConnectionsForSource(id, extractedTitle, analysis);
     if (connections.length > 0) {
-      analysis.connections = connections;
       console.log(`[${id}] Found ${connections.length} connections`);
-      // Progressive save: connections now visible
+      // Use setSourceConnections for safe read-modify-write (avoids race conditions)
       console.log(`[${id}] Saving connections (progressive step 3)...`);
-      await saveSourceAnalysis(id, analysis);
+      await setSourceConnections(id, connections);
     }
 
     console.log(`[${id}] File processing complete`);
@@ -357,10 +357,15 @@ async function findConnectionsForSource(
       learnedConcepts
     );
 
-    // Create reverse connections for related sources
+    // Smart merge into related sources' connections
     if (connections.length > 0) {
-      console.log(`[${sourceId}] Creating reverse connections...`);
-      await createReverseConnections(sourceId, title, connections);
+      console.log(`[${sourceId}] Smart merging into related sources...`);
+      await smartMergeIntoRelatedSources(
+        sourceId,
+        title,
+        analysis.digest.summary,
+        connections
+      );
     }
 
     return connections;
@@ -371,48 +376,94 @@ async function findConnectionsForSource(
 }
 
 /**
- * Create reverse connections in related sources
- * e.g., if A "builds_on" B, then B gets "extended_by" A
+ * Smart merge a new source into related sources' connections
+ * Instead of creating simple reverse connections, this asks AI to:
+ * 1. Merge into existing connection if same topic
+ * 2. Create new connection if different topic
  */
-async function createReverseConnections(
+async function smartMergeIntoRelatedSources(
   newSourceId: string,
   newSourceTitle: string,
+  newSourceSummary: string,
   connections: Connection[]
 ): Promise<void> {
-  // Map connection types to their reverse (all symmetric now)
-  const reverseType: Record<string, Connection["type"]> = {
-    redundant: "redundant",
-    contradicts: "contradicts",
-    related: "related",
-  };
-
-  // Group connections by related source to avoid updating the same source multiple times
-  const connectionsBySource = new Map<string, Connection[]>();
-
+  // Collect unique related source IDs
+  const relatedSourceIds = new Set<string>();
   for (const conn of connections) {
     for (const relatedId of conn.relatedSourceIds) {
-      if (!connectionsBySource.has(relatedId)) {
-        connectionsBySource.set(relatedId, []);
-      }
-      connectionsBySource.get(relatedId)!.push(conn);
+      relatedSourceIds.add(relatedId);
     }
   }
 
-  // Create reverse connections for each related source
-  for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
-    for (const conn of sourceConnections) {
-      const reverseConnection: Connection = {
-        id: `rev-${conn.id}-${newSourceId}`,
-        type: reverseType[conn.type] || conn.type,
-        summary: conn.summary, // Keep same summary - titles will be resolved at display time
-        details: conn.details,
-        relatedSourceIds: [newSourceId],
-      };
+  // For each related source, smart merge the new source into its connections
+  for (const relatedSourceId of relatedSourceIds) {
+    try {
+      // Load the related source's current connections
+      const relatedSource = await loadSourceForMerge(relatedSourceId);
+      if (!relatedSource) {
+        console.log(`[${newSourceId}] Could not load related source ${relatedSourceId} for merge`);
+        continue;
+      }
 
-      const success = await addConnectionToSource(relatedSourceId, reverseConnection);
-      if (success) {
-        console.log(`[${newSourceId}] Added reverse connection to ${relatedSourceId}`);
+      const existingConnections = relatedSource.connections || [];
+
+      // Ask AI to merge the new source into existing connections
+      console.log(`[${newSourceId}] Merging into ${relatedSourceId}'s connections...`);
+      const mergedConnections = await mergeSourceIntoConnections(
+        existingConnections,
+        { id: newSourceId, title: newSourceTitle, summary: newSourceSummary },
+        relatedSource.title
+      );
+
+      // Save the merged connections
+      await setSourceConnections(relatedSourceId, mergedConnections);
+      console.log(`[${newSourceId}] Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
+    } catch (error) {
+      console.error(`[${newSourceId}] Failed to merge into ${relatedSourceId}:`, error);
+      // Continue with other sources even if one fails
+    }
+  }
+}
+
+/**
+ * Load a source's title and connections for merge operation
+ */
+async function loadSourceForMerge(
+  sourceId: string
+): Promise<{ title: string; connections: Connection[] } | null> {
+  try {
+    const sourcePath = await findSourcePath(sourceId);
+    if (!sourcePath) return null;
+
+    // Load title from content.md
+    let title = sourceId;
+    try {
+      const contentMd = await fs.readFile(path.join(sourcePath, "content.md"), "utf-8");
+      const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+      if (titleMatch) title = titleMatch[1];
+    } catch {
+      // Try original.json
+      try {
+        const originalJson = await fs.readFile(path.join(sourcePath, "original.json"), "utf-8");
+        const original = JSON.parse(originalJson);
+        title = original.original_title || sourceId;
+      } catch {
+        // Use sourceId as fallback
       }
     }
+
+    // Load connections from analysis.json
+    let connections: Connection[] = [];
+    try {
+      const analysisJson = await fs.readFile(path.join(sourcePath, "analysis.json"), "utf-8");
+      const analysis = JSON.parse(analysisJson);
+      connections = analysis.connections || [];
+    } catch {
+      // No analysis or connections yet
+    }
+
+    return { title, connections };
+  } catch {
+    return null;
   }
 }

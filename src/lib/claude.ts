@@ -498,3 +498,109 @@ Respond with ONLY the JSON object.`;
     return [];
   }
 }
+
+/**
+ * Merge a new source into an existing source's connections
+ * Either adds to an existing connection (if semantically similar) or creates a new one
+ */
+export async function mergeSourceIntoConnections(
+  existingConnections: Connection[],
+  newSource: { id: string; title: string; summary: string },
+  targetSourceTitle: string
+): Promise<Connection[]> {
+  // If no existing connections, create a new one
+  if (existingConnections.length === 0) {
+    return [{
+      id: `conn-${newSource.id}`,
+      type: "related",
+      summary: `Related to "${newSource.title}"`,
+      details: newSource.summary,
+      relatedSourceIds: [newSource.id],
+    }];
+  }
+
+  const connectionsContext = existingConnections
+    .map((c, i) => `${i + 1}. [${c.type}] "${c.summary}" - Sources: ${c.relatedSourceIds.join(", ")}`)
+    .join("\n");
+
+  const prompt = `You are helping organize connections between knowledge sources.
+
+## Target Source: "${targetSourceTitle}"
+
+## Existing Connections:
+${connectionsContext}
+
+## New Source to Merge:
+- ID: ${newSource.id}
+- Title: "${newSource.title}"
+- Summary: ${newSource.summary}
+
+## Task
+Decide how to integrate the new source into the target's connections:
+1. **Merge**: If the new source discusses the same topic as an existing connection, add it to that connection's relatedSourceIds
+2. **Create new**: If the new source discusses a different topic, create a new connection
+
+## Rules
+- Only merge if the topics are semantically the same (not just vaguely related)
+- Keep connection summaries general enough to cover all related sources
+- If merging, you may update the summary to better reflect all sources
+
+Return the complete updated connections array as JSON:
+{
+  "connections": [
+    {
+      "id": "existing-or-new-id",
+      "type": "redundant|contradicts|related",
+      "summary": "Updated or new summary",
+      "details": "Updated or new details",
+      "relatedSourceIds": ["id1", "id2", "newSourceId"]
+    }
+  ]
+}
+
+Respond with ONLY the JSON object.`;
+
+  const responseText = await callClaude(prompt);
+
+  try {
+    let jsonText = responseText;
+    const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("Failed to parse merge response, keeping existing + new");
+      // Fallback: just add a new connection
+      return [...existingConnections, {
+        id: `conn-${newSource.id}`,
+        type: "related" as const,
+        summary: `Related to "${newSource.title}"`,
+        details: newSource.summary,
+        relatedSourceIds: [newSource.id],
+      }];
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    const connections = result.connections ?? [];
+
+    return connections.map((c: Partial<Connection>, i: number) => ({
+      id: c.id ?? `conn${i + 1}`,
+      type: c.type ?? "related",
+      summary: c.summary ?? "",
+      details: c.details ?? "",
+      relatedSourceIds: c.relatedSourceIds ?? [],
+    }));
+  } catch {
+    console.error("Failed to parse merge connections:", responseText.slice(0, 200));
+    // Fallback: just add a new connection
+    return [...existingConnections, {
+      id: `conn-${newSource.id}`,
+      type: "related" as const,
+      summary: `Related to "${newSource.title}"`,
+      details: newSource.summary,
+      relatedSourceIds: [newSource.id],
+    }];
+  }
+}

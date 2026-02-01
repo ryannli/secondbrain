@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource, findSourcePath, listSourcesForConnections, addConnectionToSource } from "@/lib/storage";
-import { analyzeContent, formatTextContent, findRelatedSources, analyzeConnections } from "@/lib/claude";
+import { loadSource, findSourcePath, listSourcesForConnections, setSourceConnections } from "@/lib/storage";
+import { analyzeContent, formatTextContent, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { Connection } from "@/lib/types";
 import { promises as fs } from "fs";
@@ -213,10 +213,15 @@ async function findConnectionsForSource(
       learnedConcepts
     );
 
-    // Create reverse connections for related sources
+    // Smart merge into related sources' connections
     if (connections.length > 0) {
-      console.log("Creating reverse connections...");
-      await createReverseConnections(sourceId, title, connections);
+      console.log("Smart merging into related sources...");
+      await smartMergeIntoRelatedSources(
+        sourceId,
+        title,
+        analysis.digest.summary,
+        connections
+      );
     }
 
     return { connections };
@@ -228,44 +233,89 @@ async function findConnectionsForSource(
 }
 
 /**
- * Create reverse connections in related sources
+ * Smart merge a new source into related sources' connections
  */
-async function createReverseConnections(
+async function smartMergeIntoRelatedSources(
   newSourceId: string,
   newSourceTitle: string,
+  newSourceSummary: string,
   connections: Connection[]
 ): Promise<void> {
-  const reverseType: Record<string, Connection["type"]> = {
-    redundant: "redundant",
-    contradicts: "contradicts",
-    related: "related",
-  };
-
-  const connectionsBySource = new Map<string, Connection[]>();
-
+  // Collect unique related source IDs
+  const relatedSourceIds = new Set<string>();
   for (const conn of connections) {
     for (const relatedId of conn.relatedSourceIds) {
-      if (!connectionsBySource.has(relatedId)) {
-        connectionsBySource.set(relatedId, []);
-      }
-      connectionsBySource.get(relatedId)!.push(conn);
+      relatedSourceIds.add(relatedId);
     }
   }
 
-  for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
-    for (const conn of sourceConnections) {
-      const reverseConnection: Connection = {
-        id: `rev-${conn.id}-${newSourceId}`,
-        type: reverseType[conn.type] || conn.type,
-        summary: conn.summary, // Keep same summary - titles will be resolved at display time
-        details: conn.details,
-        relatedSourceIds: [newSourceId],
-      };
+  // For each related source, smart merge the new source into its connections
+  for (const relatedSourceId of relatedSourceIds) {
+    try {
+      // Load the related source's current connections
+      const relatedSource = await loadSourceForMerge(relatedSourceId);
+      if (!relatedSource) {
+        console.log(`Could not load related source ${relatedSourceId} for merge`);
+        continue;
+      }
 
-      const success = await addConnectionToSource(relatedSourceId, reverseConnection);
-      if (success) {
-        console.log(`Added reverse connection to ${relatedSourceId}`);
+      const existingConnections = relatedSource.connections || [];
+
+      // Ask AI to merge the new source into existing connections
+      console.log(`Merging into ${relatedSourceId}'s connections...`);
+      const mergedConnections = await mergeSourceIntoConnections(
+        existingConnections,
+        { id: newSourceId, title: newSourceTitle, summary: newSourceSummary },
+        relatedSource.title
+      );
+
+      // Save the merged connections
+      await setSourceConnections(relatedSourceId, mergedConnections);
+      console.log(`Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
+    } catch (error) {
+      console.error(`Failed to merge into ${relatedSourceId}:`, error);
+    }
+  }
+}
+
+/**
+ * Load a source's title and connections for merge operation
+ */
+async function loadSourceForMerge(
+  sourceId: string
+): Promise<{ title: string; connections: Connection[] } | null> {
+  try {
+    const sourcePath = await findSourcePath(sourceId);
+    if (!sourcePath) return null;
+
+    // Load title from content.md
+    let title = sourceId;
+    try {
+      const contentMd = await fs.readFile(path.join(sourcePath, "content.md"), "utf-8");
+      const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+      if (titleMatch) title = titleMatch[1];
+    } catch {
+      try {
+        const originalJson = await fs.readFile(path.join(sourcePath, "original.json"), "utf-8");
+        const original = JSON.parse(originalJson);
+        title = original.original_title || sourceId;
+      } catch {
+        // Use sourceId as fallback
       }
     }
+
+    // Load connections from analysis.json
+    let connections: Connection[] = [];
+    try {
+      const analysisJson = await fs.readFile(path.join(sourcePath, "analysis.json"), "utf-8");
+      const analysis = JSON.parse(analysisJson);
+      connections = analysis.connections || [];
+    } catch {
+      // No analysis or connections yet
+    }
+
+    return { title, connections };
+  } catch {
+    return null;
   }
 }
