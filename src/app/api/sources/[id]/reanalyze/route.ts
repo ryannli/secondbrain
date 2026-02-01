@@ -79,10 +79,16 @@ export async function POST(
 
     // Find connections with existing sources
     console.log("Finding connections...");
-    const connections = await findConnectionsForSource(id, newTitle, analysis);
-    if (connections.length > 0) {
+    let connectionError: string | undefined;
+    const { connections, error: connError } = await findConnectionsForSource(id, newTitle, analysis);
+    if (connError) {
+      connectionError = connError;
+      console.error(`Connection error: ${connError}`);
+    } else if (connections.length > 0) {
       analysis.connections = connections;
       console.log(`Found ${connections.length} connections`);
+    } else {
+      console.log("No connections found");
     }
 
     // Write content.md (derived content, can be regenerated)
@@ -123,6 +129,7 @@ ${newContent}
     return NextResponse.json({
       success: true,
       source: updatedSource,
+      connectionError, // Include any connection errors for UI to display
     });
   } catch (error) {
     console.error("Error re-processing source:", error);
@@ -143,7 +150,7 @@ async function findConnectionsForSource(
   sourceId: string,
   title: string,
   analysis: { digest: { summary: string; highlights: { text: string }[]; concepts: { term: string; definition: string; status?: "knew" | "learned" }[] } }
-): Promise<Connection[]> {
+): Promise<{ connections: Connection[]; error?: string }> {
   try {
     // Load all existing sources with their analysis
     console.log(`[${sourceId}] Loading existing sources for connections...`);
@@ -152,7 +159,7 @@ async function findConnectionsForSource(
 
     if (existingSources.length === 0) {
       console.log(`[${sourceId}] No existing sources to compare`);
-      return [];
+      return { connections: [] };
     }
 
     // Phase 1: Find potentially related sources using summaries only
@@ -165,7 +172,7 @@ async function findConnectionsForSource(
 
     if (relatedIds.length === 0) {
       console.log(`[${sourceId}] No related sources found`);
-      return [];
+      return { connections: [] };
     }
 
     console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
@@ -212,10 +219,11 @@ async function findConnectionsForSource(
       await createReverseConnections(sourceId, title, connections);
     }
 
-    return connections;
+    return { connections };
   } catch (error) {
     console.error("Failed to find connections:", error);
-    return []; // Graceful degradation - continue without connections
+    const errorMsg = error instanceof Error ? error.message : "Unknown error finding connections";
+    return { connections: [], error: errorMsg };
   }
 }
 
