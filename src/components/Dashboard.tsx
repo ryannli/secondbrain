@@ -261,7 +261,7 @@ export function Dashboard({
             className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
             style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
           >
-            Processing...
+            <ProcessingTimer createdAt={source.meta.createdAt} />
           </span>
         ) : isFailed ? (
           <span
@@ -380,4 +380,33 @@ export function Dashboard({
       )}
     </div>
   );
+}
+
+/**
+ * Timer component showing elapsed time since processing started
+ */
+function ProcessingTimer({ createdAt }: { createdAt: string }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const startTime = new Date(createdAt).getTime();
+
+    const updateElapsed = () => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
+  return <span>{formatTime(elapsed)}</span>;
 }

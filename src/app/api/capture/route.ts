@@ -39,6 +39,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     await ensureLibraryExists();
 
+    // Check if URL is a direct PDF link (like arXiv)
+    if (url && isPdfUrl(url)) {
+      console.log(`Detected PDF URL: ${url}`);
+      return handlePdfUrl(url, title);
+    }
+
     // Determine initial title and type for immediate display
     let initialTitle: string;
     let sourceType: SourceType;
@@ -465,5 +471,107 @@ async function loadSourceForMerge(
     return { title, connections };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Check if URL is a direct PDF link
+ */
+function isPdfUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname.toLowerCase();
+
+    // Direct .pdf extension
+    if (pathname.endsWith(".pdf")) {
+      return true;
+    }
+
+    // arXiv PDF URLs: arxiv.org/pdf/xxxx
+    if (parsedUrl.hostname.includes("arxiv.org") && pathname.includes("/pdf/")) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Handle PDF URL by downloading and processing as a file
+ */
+async function handlePdfUrl(url: string, title?: string): Promise<NextResponse> {
+  try {
+    console.log(`Downloading PDF from: ${url}`);
+
+    // Download the PDF
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Extract filename from URL or use default
+    let filename = "document.pdf";
+    try {
+      const parsedUrl = new URL(url);
+      const pathname = parsedUrl.pathname;
+
+      // Try to get a meaningful name from the URL
+      if (parsedUrl.hostname.includes("arxiv.org")) {
+        // arXiv: extract paper ID (e.g., 2401.12345)
+        const match = pathname.match(/(\d+\.\d+)/);
+        if (match) {
+          filename = `arxiv-${match[1]}.pdf`;
+        }
+      } else if (pathname.endsWith(".pdf")) {
+        filename = pathname.split("/").pop() || filename;
+      }
+    } catch {
+      // Use default filename
+    }
+
+    const initialTitle = title || filename.replace(/\.pdf$/i, "");
+    const originalFileName = "original.pdf";
+
+    console.log(`Creating pending source for PDF: ${filename}`);
+    const { id, meta } = await createPendingSource(
+      {
+        title: initialTitle,
+        type: "document",
+        sourceUrl: url,
+      },
+      buffer,
+      { originalFileName }
+    );
+
+    // Return immediately
+    const pendingResponse = NextResponse.json({
+      success: true,
+      source: {
+        meta,
+        content: "Processing...",
+        originalContent: `[PDF: ${filename}]`,
+      },
+    }, { headers: corsHeaders });
+
+    // Process in background
+    processFileInBackground(id, originalFileName, "document", filename).catch((error) => {
+      console.error(`Background PDF processing failed for ${id}:`, error);
+    });
+
+    return pendingResponse;
+  } catch (error) {
+    console.error("PDF download error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to download PDF",
+      },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }
