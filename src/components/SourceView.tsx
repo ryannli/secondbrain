@@ -11,7 +11,8 @@ import {
   Pencil,
   Check,
   X,
-  ExternalLink,
+  FileText,
+  Eye,
 } from "lucide-react";
 import { Source, ActionType, Highlight } from "@/lib/types";
 
@@ -48,13 +49,18 @@ export function SourceView({
   const [editedContent, setEditedContent] = useState(content);
   const [editedTitle, setEditedTitle] = useState(meta.title);
   const [isSaving, setIsSaving] = useState(false);
+  const [viewOriginal, setViewOriginal] = useState(false);
 
-  // Reset edit state when source changes
+  // Reset state when source changes
   useEffect(() => {
     setEditedContent(content);
     setEditedTitle(meta.title);
     setIsEditing(false);
+    setViewOriginal(false);
   }, [source.meta.id, content, meta.title]);
+
+  // Get original file URL
+  const originalUrl = meta.sourceUrl || `/api/sources/${meta.id}/original`;
 
   const handleSave = async () => {
     // Check if anything changed
@@ -164,19 +170,21 @@ export function SourceView({
                     </div>
                   </div>
                   <div className="relative group">
-                    <a
-                      href={meta.sourceUrl || `/api/sources/${meta.id}/original`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors block"
-                      style={{ borderColor: theme.border, color: theme.textMuted }}
+                    <button
+                      onClick={() => setViewOriginal(!viewOriginal)}
+                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors"
+                      style={{
+                        borderColor: viewOriginal ? palette[500] : theme.border,
+                        color: viewOriginal ? palette[600] : theme.textMuted,
+                        backgroundColor: viewOriginal ? `${palette[500]}10` : undefined,
+                      }}
                     >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                      {viewOriginal ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                     <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                      <p className="font-medium mb-1">View original</p>
+                      <p className="font-medium mb-1">{viewOriginal ? "View extracted" : "View original"}</p>
                       <p className="text-gray-300">
-                        {meta.sourceUrl ? "Open the original web page." : "View the original file."}
+                        {viewOriginal ? "Switch to AI-extracted content." : "View the original source file."}
                       </p>
                     </div>
                   </div>
@@ -206,6 +214,22 @@ export function SourceView({
                 style={{ borderColor: theme.border }}
                 placeholder="Markdown content..."
               />
+            ) : viewOriginal ? (
+              <div className="h-full w-full rounded-lg overflow-hidden border" style={{ borderColor: theme.border }}>
+                {meta.type === "image" ? (
+                  <img
+                    src={originalUrl}
+                    alt={meta.title}
+                    className="w-full h-full object-contain bg-gray-50"
+                  />
+                ) : (
+                  <iframe
+                    src={originalUrl}
+                    className="w-full h-full"
+                    title="Original source"
+                  />
+                )}
+              </div>
             ) : (
               <div className="prose prose-sm prose-neutral max-w-none h-full overflow-y-auto">
                 <ReactMarkdown
