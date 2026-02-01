@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
 import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections } from "@/lib/storage";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis } from "@/lib/storage";
 import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
@@ -111,22 +111,18 @@ async function processSourceInBackground(
     let extractedTitle: string;
     let content: string;
 
+    // Step 1: Extract content
     if (html) {
-      // Extract content from pre-rendered HTML (from browser extension)
       console.log(`[${id}] Extracting content from HTML (${html.length} chars)...`);
       const extracted = await extractFromHtml(html, url);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else if (url) {
-      // Extract content from URL
       console.log(`[${id}] Extracting content from: ${url}`);
       const extracted = await extractFromUrl(url);
       extractedTitle = extracted.title;
       content = extracted.content;
-      // Note: originalContent was empty, but extractFromUrl fetches it
-      // We already saved during createPendingSource, need to update it
     } else {
-      // Format the provided text
       console.log(`[${id}] Formatting text content...`);
       content = await formatTextContent(text!);
       if (title) {
@@ -138,21 +134,28 @@ async function processSourceInBackground(
       }
     }
 
-    // Analyze with Claude
+    // Progressive save: content is now visible to user
+    console.log(`[${id}] Saving content (progressive step 1)...`);
+    await saveSourceContent(id, content, extractedTitle);
+
+    // Step 2: Analyze with Claude
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, url);
 
-    // Find connections with existing sources
+    // Progressive save: analysis is now visible to user
+    console.log(`[${id}] Saving analysis (progressive step 2)...`);
+    await saveSourceAnalysis(id, analysis);
+
+    // Step 3: Find connections with existing sources (can be slower)
     console.log(`[${id}] Finding connections...`);
     const connections = await findConnectionsForSource(id, extractedTitle, analysis);
     if (connections.length > 0) {
       analysis.connections = connections;
       console.log(`[${id}] Found ${connections.length} connections`);
+      // Progressive save: connections now visible
+      console.log(`[${id}] Saving connections (progressive step 3)...`);
+      await saveSourceAnalysis(id, analysis);
     }
-
-    // Complete the source
-    console.log(`[${id}] Completing source: ${extractedTitle}`);
-    await completeSource(id, content, analysis, extractedTitle);
 
     console.log(`[${id}] Source processing complete`);
   } catch (error) {
@@ -242,35 +245,40 @@ async function processFileInBackground(
     let content: string;
     let extractedTitle: string;
 
+    // Step 1: Extract content from file
     if (sourceType === "image" || sourceType === "document") {
-      // Use Claude Read tool to analyze the file (works for both images and PDFs)
-      // File is already saved in library at: user_data/library/{id}/{originalFileName}
       console.log(`[${id}] Analyzing ${sourceType} with Claude...`);
       const fileResult = await analyzeFile(id, originalFileName);
       content = fileResult.content;
       extractedTitle = fileResult.title;
     } else {
-      // Unsupported file type
       console.log(`[${id}] Unsupported file type: ${sourceType}`);
       content = `File: ${displayName}\n\n[Content extraction for this file type is not yet supported]`;
       extractedTitle = displayName.replace(/\.[^.]+$/, "");
     }
 
-    // Analyze with Claude
+    // Progressive save: content is now visible to user
+    console.log(`[${id}] Saving content (progressive step 1)...`);
+    await saveSourceContent(id, content, extractedTitle);
+
+    // Step 2: Analyze with Claude
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content);
 
-    // Find connections with existing sources
+    // Progressive save: analysis is now visible to user
+    console.log(`[${id}] Saving analysis (progressive step 2)...`);
+    await saveSourceAnalysis(id, analysis);
+
+    // Step 3: Find connections with existing sources
     console.log(`[${id}] Finding connections...`);
     const connections = await findConnectionsForSource(id, extractedTitle, analysis);
     if (connections.length > 0) {
       analysis.connections = connections;
       console.log(`[${id}] Found ${connections.length} connections`);
+      // Progressive save: connections now visible
+      console.log(`[${id}] Saving connections (progressive step 3)...`);
+      await saveSourceAnalysis(id, analysis);
     }
-
-    // Complete the source
-    console.log(`[${id}] Completing source: ${extractedTitle}`);
-    await completeSource(id, content, analysis, extractedTitle);
 
     console.log(`[${id}] File processing complete`);
   } catch (error) {
@@ -289,7 +297,9 @@ async function findConnectionsForSource(
 ): Promise<Connection[]> {
   try {
     // Load all existing sources with their analysis
+    console.log(`[${sourceId}] Loading existing sources for connections...`);
     const existingSources = await listSourcesForConnections(sourceId);
+    console.log(`[${sourceId}] Loaded ${existingSources.length} existing sources`);
 
     if (existingSources.length === 0) {
       console.log(`[${sourceId}] No existing sources to compare`);
@@ -297,10 +307,12 @@ async function findConnectionsForSource(
     }
 
     // Phase 1: Find potentially related sources using summaries only
+    console.log(`[${sourceId}] Calling findRelatedSources...`);
     const relatedIds = await findRelatedSources(
       analysis.digest.summary,
       existingSources.map((s) => ({ id: s.id, title: s.title, summary: s.summary }))
     );
+    console.log(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
 
     if (relatedIds.length === 0) {
       console.log(`[${sourceId}] No related sources found`);
@@ -345,9 +357,81 @@ async function findConnectionsForSource(
       learnedConcepts
     );
 
+    // Create reverse connections for related sources
+    if (connections.length > 0) {
+      console.log(`[${sourceId}] Creating reverse connections...`);
+      await createReverseConnections(sourceId, title, connections);
+    }
+
     return connections;
   } catch (error) {
     console.error(`[${sourceId}] Failed to find connections:`, error);
     return []; // Graceful degradation - continue without connections
   }
+}
+
+/**
+ * Create reverse connections in related sources
+ * e.g., if A "builds_on" B, then B gets "extended_by" A
+ */
+async function createReverseConnections(
+  newSourceId: string,
+  newSourceTitle: string,
+  connections: Connection[]
+): Promise<void> {
+  // Map connection types to their reverse (all symmetric now)
+  const reverseType: Record<string, Connection["type"]> = {
+    redundant: "redundant",
+    contradicts: "contradicts",
+    related: "related",
+  };
+
+  // Group connections by related source to avoid updating the same source multiple times
+  const connectionsBySource = new Map<string, Connection[]>();
+
+  for (const conn of connections) {
+    for (const relatedId of conn.relatedSourceIds) {
+      if (!connectionsBySource.has(relatedId)) {
+        connectionsBySource.set(relatedId, []);
+      }
+      connectionsBySource.get(relatedId)!.push(conn);
+    }
+  }
+
+  // Create reverse connections for each related source
+  for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
+    for (const conn of sourceConnections) {
+      // Rewrite summary to reference the new source title instead of the original
+      // The original summary references the related source, so we need to flip the perspective
+      const reverseSummary = rewriteSummaryForReverse(conn.summary, conn.relatedSourceTitles, newSourceTitle);
+
+      const reverseConnection: Connection = {
+        id: `rev-${conn.id}-${newSourceId}`,
+        type: reverseType[conn.type] || conn.type,
+        summary: reverseSummary,
+        details: conn.details,
+        relatedSourceIds: [newSourceId],
+        relatedSourceTitles: [newSourceTitle],
+        conceptTerms: conn.conceptTerms,
+      };
+
+      const success = await addConnectionToSource(relatedSourceId, reverseConnection);
+      if (success) {
+        console.log(`[${newSourceId}] Added reverse connection to ${relatedSourceId}`);
+      }
+    }
+  }
+}
+
+/**
+ * Rewrite a connection summary to reference the new source instead of the original
+ */
+function rewriteSummaryForReverse(
+  originalSummary: string,
+  originalTitles: string[],
+  newSourceTitle: string
+): string {
+  // Simply reference the new source title for the reverse connection
+  // The summary will point to the new source that has a connection back
+  return `Related to "${newSourceTitle}"`;
 }

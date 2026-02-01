@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource, findSourcePath, listSourcesForConnections } from "@/lib/storage";
+import { loadSource, findSourcePath, listSourcesForConnections, addConnectionToSource } from "@/lib/storage";
 import { analyzeContent, formatTextContent, findRelatedSources, analyzeConnections } from "@/lib/claude";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { Connection } from "@/lib/types";
@@ -146,25 +146,29 @@ async function findConnectionsForSource(
 ): Promise<Connection[]> {
   try {
     // Load all existing sources with their analysis
+    console.log(`[${sourceId}] Loading existing sources for connections...`);
     const existingSources = await listSourcesForConnections(sourceId);
+    console.log(`[${sourceId}] Found ${existingSources.length} existing sources`);
 
     if (existingSources.length === 0) {
-      console.log("No existing sources to compare");
+      console.log(`[${sourceId}] No existing sources to compare`);
       return [];
     }
 
     // Phase 1: Find potentially related sources using summaries only
+    console.log(`[${sourceId}] Calling findRelatedSources with summary: "${analysis.digest.summary.slice(0, 100)}..."`);
     const relatedIds = await findRelatedSources(
       analysis.digest.summary,
       existingSources.map((s) => ({ id: s.id, title: s.title, summary: s.summary }))
     );
+    console.log(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
 
     if (relatedIds.length === 0) {
-      console.log("No related sources found");
+      console.log(`[${sourceId}] No related sources found`);
       return [];
     }
 
-    console.log(`Found ${relatedIds.length} potentially related sources`);
+    console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
 
     // Phase 2: Get detailed analysis of related sources
     const relatedSources = existingSources.filter((s) => relatedIds.includes(s.id));
@@ -202,9 +206,63 @@ async function findConnectionsForSource(
       learnedConcepts
     );
 
+    // Create reverse connections for related sources
+    if (connections.length > 0) {
+      console.log("Creating reverse connections...");
+      await createReverseConnections(sourceId, title, connections);
+    }
+
     return connections;
   } catch (error) {
     console.error("Failed to find connections:", error);
     return []; // Graceful degradation - continue without connections
+  }
+}
+
+/**
+ * Create reverse connections in related sources
+ */
+async function createReverseConnections(
+  newSourceId: string,
+  newSourceTitle: string,
+  connections: Connection[]
+): Promise<void> {
+  const reverseType: Record<string, Connection["type"]> = {
+    redundant: "redundant",
+    contradicts: "contradicts",
+    related: "related",
+  };
+
+  const connectionsBySource = new Map<string, Connection[]>();
+
+  for (const conn of connections) {
+    for (const relatedId of conn.relatedSourceIds) {
+      if (!connectionsBySource.has(relatedId)) {
+        connectionsBySource.set(relatedId, []);
+      }
+      connectionsBySource.get(relatedId)!.push(conn);
+    }
+  }
+
+  for (const [relatedSourceId, sourceConnections] of connectionsBySource) {
+    for (const conn of sourceConnections) {
+      // Create a simple summary that references the new source title
+      const reverseSummary = `Related to "${newSourceTitle}"`;
+
+      const reverseConnection: Connection = {
+        id: `rev-${conn.id}-${newSourceId}`,
+        type: reverseType[conn.type] || conn.type,
+        summary: reverseSummary,
+        details: conn.details,
+        relatedSourceIds: [newSourceId],
+        relatedSourceTitles: [newSourceTitle],
+        conceptTerms: conn.conceptTerms,
+      };
+
+      const success = await addConnectionToSource(relatedSourceId, reverseConnection);
+      if (success) {
+        console.log(`Added reverse connection to ${relatedSourceId}`);
+      }
+    }
   }
 }

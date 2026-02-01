@@ -375,15 +375,21 @@ Maximum 5 sources. If no relevant connections exist, return an empty array.
 Respond with ONLY the JSON array, no explanation.
 Example: ["abc123", "def456"]`;
 
+  console.log("[findRelatedSources] Calling Claude...");
   const responseText = await callClaude(prompt);
+  console.log("[findRelatedSources] Claude response:", responseText.slice(0, 300));
 
   try {
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
+    if (!jsonMatch) {
+      console.log("[findRelatedSources] No JSON array found in response");
+      return [];
+    }
     const ids = JSON.parse(jsonMatch[0]);
+    console.log("[findRelatedSources] Parsed IDs:", ids);
     return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === "string").slice(0, 5) : [];
-  } catch {
-    console.error("Failed to parse related sources:", responseText.slice(0, 200));
+  } catch (err) {
+    console.error("[findRelatedSources] Failed to parse:", responseText.slice(0, 200), err);
     return [];
   }
 }
@@ -437,13 +443,13 @@ Identify specific, meaningful connections between the new source and the related
 ## Connection Types
 1. **redundant** - The new source covers similar ground as an existing source. User can skip one.
 2. **contradicts** - The new source contradicts or presents opposing viewpoints to an existing source. User should read critically.
-3. **builds_on** - The new source extends concepts the user has already learned. Worth reading to expand knowledge.
+3. **related** - The sources share concepts, build on each other, or discuss related topics. Worth reading together.
 
 ## Rules
-- Be specific about what conflicts, overlaps, or extends
+- Be specific about what conflicts, overlaps, or relates
 - Reference specific claims, highlights, or concepts
-- For "builds_on" type, especially note if extending a concept the user marked as "learned"
 - Keep summaries concise (one sentence)
+- IMPORTANT: In the summary field, always refer to sources by their TITLE, not their ID. For example, write "Overlaps with 'Article Title'" instead of "Overlaps with ID abc123"
 - Provide enough detail for user to understand without reading both sources
 - Only report meaningful connections, not superficial topic overlaps
 - A single connection can reference multiple related sources if they all relate to the same point
@@ -453,12 +459,12 @@ Return a JSON array of connections:
   "connections": [
     {
       "id": "conn1",
-      "type": "redundant|contradicts|builds_on",
+      "type": "redundant|contradicts|related",
       "summary": "One-line description of the connection",
       "details": "2-3 sentences explaining the connection with specific references",
       "relatedSourceIds": ["id1", "id2"],
       "relatedSourceTitles": ["Title 1", "Title 2"],
-      "conceptTerms": ["term1", "term2"]  // Only for builds_on type
+      "conceptTerms": ["term1", "term2"]  // Optional: key concepts involved
     }
   ]
 }

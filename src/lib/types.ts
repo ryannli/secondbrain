@@ -101,7 +101,7 @@ export interface CritiqueAnalysis {
   biasIndicators: string[];
 }
 
-export type ConnectionType = "redundant" | "contradicts" | "builds_on";
+export type ConnectionType = "redundant" | "contradicts" | "related";
 
 export interface Connection {
   id: string;

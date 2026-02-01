@@ -211,6 +211,71 @@ ${currentContent}
 }
 
 /**
+ * Save content.md for a source (progressive update - step 1)
+ * This makes the content visible to the user immediately.
+ */
+export async function saveSourceContent(
+  id: string,
+  content: string,
+  title: string,
+  libraryPath = getLibraryPath()
+): Promise<void> {
+  const sourceDir = path.join(libraryPath, id);
+  const contentMd = `---
+title: "${title.replace(/"/g, '\\"')}"
+---
+
+${content}
+`;
+  await fs.writeFile(path.join(sourceDir, "content.md"), contentMd, "utf-8");
+}
+
+/**
+ * Save analysis.json for a source (progressive update - step 2)
+ * Also generates README.md
+ */
+export async function saveSourceAnalysis(
+  id: string,
+  analysis: Analysis,
+  libraryPath = getLibraryPath()
+): Promise<void> {
+  const sourceDir = path.join(libraryPath, id);
+
+  // Load original.json for metadata
+  const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
+  const originalData: OriginalData = JSON.parse(originalJson);
+
+  // Load title from content.md if it exists
+  let title = originalData.original_title;
+  try {
+    const contentMd = await fs.readFile(path.join(sourceDir, "content.md"), "utf-8");
+    const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+    if (titleMatch) title = titleMatch[1];
+  } catch {
+    // content.md doesn't exist yet
+  }
+
+  // Save analysis.json
+  await fs.writeFile(
+    path.join(sourceDir, "analysis.json"),
+    JSON.stringify(analysis, null, 2),
+    "utf-8"
+  );
+
+  // Generate and save README.md
+  const meta: SourceMeta = {
+    id: originalData.id,
+    title,
+    type: originalData.type,
+    sourceUrl: originalData.source_url,
+    createdAt: originalData.created_at,
+    processingStatus: "ready",
+  };
+  const readme = generateReadme(meta, analysis);
+  await fs.writeFile(path.join(sourceDir, "README.md"), readme, "utf-8");
+}
+
+/**
  * Complete a pending source with processed content and analysis
  *
  * Creates:
@@ -464,6 +529,63 @@ export async function updateAnalysis(
     JSON.stringify(analysis, null, 2),
     "utf-8"
   );
+}
+
+/**
+ * Add a connection to an existing source's analysis
+ * Used for creating reverse connections when a new source is added
+ */
+export async function addConnectionToSource(
+  id: string,
+  connection: Connection,
+  libraryPath = getLibraryPath()
+): Promise<boolean> {
+  try {
+    // Find source directory
+    let sourceDir = path.join(libraryPath, id);
+    try {
+      await fs.access(path.join(sourceDir, "analysis.json"));
+    } catch {
+      const foundPath = await findSourcePath(id, libraryPath);
+      if (!foundPath) return false;
+      sourceDir = foundPath;
+    }
+
+    // Load existing analysis
+    const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
+    const analysis: Analysis = JSON.parse(analysisJson);
+
+    // Initialize connections array if needed
+    if (!analysis.connections) {
+      analysis.connections = [];
+    }
+
+    // Check if this connection already exists (same source pair)
+    const existingIndex = analysis.connections.findIndex(
+      (c) => c.relatedSourceIds.length === connection.relatedSourceIds.length &&
+             c.relatedSourceIds.every((id) => connection.relatedSourceIds.includes(id))
+    );
+
+    if (existingIndex >= 0) {
+      // Update existing connection
+      analysis.connections[existingIndex] = connection;
+    } else {
+      // Add new connection
+      analysis.connections.push(connection);
+    }
+
+    // Save updated analysis
+    await fs.writeFile(
+      path.join(sourceDir, "analysis.json"),
+      JSON.stringify(analysis, null, 2),
+      "utf-8"
+    );
+
+    return true;
+  } catch (error) {
+    console.error(`Failed to add connection to source ${id}:`, error);
+    return false;
+  }
 }
 
 /**
@@ -924,8 +1046,67 @@ export async function deleteSource(
     throw new Error("Security error: path is outside library");
   }
 
+  // Clean up connections in other sources that reference this source
+  await removeConnectionsToSource(id, libraryPath);
+
   await fs.rm(sourcePath, { recursive: true });
   return true;
+}
+
+/**
+ * Remove all connections referencing a specific source from all other sources
+ * Called when a source is deleted to clean up orphaned connections
+ */
+async function removeConnectionsToSource(
+  deletedSourceId: string,
+  libraryPath: string
+): Promise<void> {
+  // Scan all sources and remove connections that reference the deleted source
+  async function scanAndClean(dir: string): Promise<void> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+
+      // Check if this is a source directory
+      try {
+        await fs.access(path.join(fullPath, "original.json"));
+
+        // Skip the source being deleted
+        if (entry.name === deletedSourceId) continue;
+
+        // Check if this source has an analysis.json
+        try {
+          const analysisPath = path.join(fullPath, "analysis.json");
+          const analysisJson = await fs.readFile(analysisPath, "utf-8");
+          const analysis: Analysis = JSON.parse(analysisJson);
+
+          if (analysis.connections && analysis.connections.length > 0) {
+            // Filter out connections that reference the deleted source
+            const filteredConnections = analysis.connections.filter(
+              (conn) => !conn.relatedSourceIds.includes(deletedSourceId)
+            );
+
+            // Only update if we removed something
+            if (filteredConnections.length < analysis.connections.length) {
+              analysis.connections = filteredConnections;
+              await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
+              console.log(`Cleaned up connections in source ${entry.name}`);
+            }
+          }
+        } catch {
+          // No analysis.json, skip
+        }
+      } catch {
+        // Not a source directory - recurse into it
+        await scanAndClean(fullPath);
+      }
+    }
+  }
+
+  await scanAndClean(libraryPath);
 }
 
 /**

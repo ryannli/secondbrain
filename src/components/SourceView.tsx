@@ -338,7 +338,7 @@ export function SourceView({
       </div>
 
       {/* Analysis Panel */}
-      {analysis && (
+      {analysis ? (
         <div className="w-[420px] flex-shrink-0">
             {/* Triage Card */}
             {(() => {
@@ -513,6 +513,91 @@ export function SourceView({
               )}
 
             </div>
+        </div>
+      ) : (
+        /* Analysis Loading - Futuristic particle effect */
+        <div className="w-[420px] flex-shrink-0 h-[calc(100vh-140px)]">
+          <div
+            className="h-full rounded-xl relative overflow-hidden"
+            style={{ background: "#0f0f14" }}
+          >
+            {/* Corner particle clusters */}
+            <div className="absolute inset-0">
+              {/* Top-left cluster */}
+              <div className="absolute top-0 left-0 w-40 h-40">
+                {[...Array(12)].map((_, i) => (
+                  <div
+                    key={`tl-${i}`}
+                    className="absolute rounded-full animate-particle"
+                    style={{
+                      width: `${2 + Math.random() * 4}px`,
+                      height: `${2 + Math.random() * 4}px`,
+                      background: `rgba(139, 92, 246, ${0.3 + Math.random() * 0.5})`,
+                      top: `${Math.random() * 100}%`,
+                      left: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 3}s`,
+                      animationDuration: `${3 + Math.random() * 4}s`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Bottom-right cluster */}
+              <div className="absolute bottom-0 right-0 w-48 h-48">
+                {[...Array(15)].map((_, i) => (
+                  <div
+                    key={`br-${i}`}
+                    className="absolute rounded-full animate-particle"
+                    style={{
+                      width: `${2 + Math.random() * 4}px`,
+                      height: `${2 + Math.random() * 4}px`,
+                      background: `rgba(99, 102, 241, ${0.3 + Math.random() * 0.5})`,
+                      top: `${Math.random() * 100}%`,
+                      left: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 3}s`,
+                      animationDuration: `${3 + Math.random() * 4}s`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Top-right accent */}
+              <div className="absolute top-8 right-8 w-24 h-24">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={`tr-${i}`}
+                    className="absolute rounded-full animate-particle"
+                    style={{
+                      width: `${1 + Math.random() * 3}px`,
+                      height: `${1 + Math.random() * 3}px`,
+                      background: `rgba(167, 139, 250, ${0.2 + Math.random() * 0.4})`,
+                      top: `${Math.random() * 100}%`,
+                      left: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 3}s`,
+                      animationDuration: `${4 + Math.random() * 3}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Subtle gradient glow */}
+            <div
+              className="absolute bottom-0 right-0 w-64 h-64 rounded-full blur-3xl opacity-20"
+              style={{ background: "radial-gradient(circle, #6366f1 0%, transparent 70%)" }}
+            />
+            <div
+              className="absolute top-0 left-0 w-48 h-48 rounded-full blur-3xl opacity-15"
+              style={{ background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)" }}
+            />
+
+            {/* Content */}
+            <div className="relative h-full flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: "#8b5cf6" }} />
+              <p className="text-base font-medium mb-1" style={{ color: "#e2e2e8" }}>Analyzing</p>
+              <p className="text-sm" style={{ color: "#6b6b7b" }}>AI is reading and understanding...</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -716,8 +801,18 @@ function ConnectionsSection({
   const connectionConfig: Record<ConnectionType, { icon: string; label: string; color: string }> = {
     redundant: { icon: "🔄", label: "Overlaps", color: "#f59e0b" },
     contradicts: { icon: "⚡", label: "Contradicts", color: "#ef4444" },
-    builds_on: { icon: "🌱", label: "Builds On", color: palette[500] },
+    related: { icon: "🔗", label: "Related", color: palette[500] },
   };
+
+  // Sort by priority (contradicts > redundant > related) and limit to 5
+  const typePriority: Record<ConnectionType, number> = {
+    contradicts: 0,
+    redundant: 1,
+    related: 2,
+  };
+  const sortedConnections = [...connections]
+    .sort((a, b) => typePriority[a.type] - typePriority[b.type])
+    .slice(0, 5);
 
   const toggleConnection = (connId: string) => {
     setExpandedConnections((prev) => {
@@ -746,7 +841,7 @@ function ConnectionsSection({
             className="px-1.5 py-0.5 text-xs rounded-full"
             style={{ backgroundColor: `${palette[500]}20`, color: palette[600] }}
           >
-            {connections.length}
+            {sortedConnections.length}
           </span>
         </div>
         {isExpanded ? (
@@ -758,7 +853,7 @@ function ConnectionsSection({
 
       {isExpanded && (
         <div className="mt-3 space-y-2">
-          {connections.map((conn) => {
+          {sortedConnections.map((conn) => {
             const config = connectionConfig[conn.type];
             const isOpen = expandedConnections.has(conn.id);
 
@@ -802,29 +897,18 @@ function ConnectionsSection({
                       {conn.details}
                     </p>
 
-                    {conn.conceptTerms && conn.conceptTerms.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {conn.conceptTerms.map((term, i) => (
-                          <span
-                            key={i}
-                            className="text-xs px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
-                          >
-                            {term}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
                     <div className="flex flex-wrap gap-2">
                       {conn.relatedSourceIds.map((sourceId, i) => (
                         <button
                           key={sourceId}
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
+                            console.log("[Connection] Navigate to:", sourceId, "onNavigate:", !!onNavigate);
                             onNavigate?.(sourceId);
                           }}
-                          className="text-xs px-2 py-1 rounded border hover:bg-black/5 transition-colors flex items-center gap-1"
+                          className="text-xs px-2 py-1 rounded border hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
                           style={{ borderColor: theme.border, color: palette[600] }}
                         >
                           <LinkIcon className="w-3 h-3" />
