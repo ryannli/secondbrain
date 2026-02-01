@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -586,6 +586,88 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
   summaries.sort((a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime());
 
   return summaries;
+}
+
+/**
+ * Source data for connection analysis
+ */
+export interface SourceForConnections {
+  id: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  concepts: { term: string; definition: string; status?: "knew" | "learned" }[];
+}
+
+/**
+ * Load all sources with their analysis summaries for connection finding
+ * Returns minimal data needed for connections analysis
+ */
+export async function listSourcesForConnections(
+  excludeId?: string,
+  libraryPath = getLibraryPath()
+): Promise<SourceForConnections[]> {
+  await ensureLibraryExists(libraryPath);
+  const sources: SourceForConnections[] = [];
+
+  async function scanDir(dir: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+
+      try {
+        await fs.access(path.join(fullPath, "original.json"));
+        // It's a source directory
+        if (entry.name === excludeId) continue;
+
+        // Load analysis.json
+        try {
+          const analysisJson = await fs.readFile(path.join(fullPath, "analysis.json"), "utf-8");
+          const analysis: Analysis = JSON.parse(analysisJson);
+
+          // Load title from content.md
+          let title = entry.name;
+          try {
+            const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
+            const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+            if (titleMatch) title = titleMatch[1];
+          } catch {
+            // Use original.json title as fallback
+            try {
+              const originalJson = await fs.readFile(path.join(fullPath, "original.json"), "utf-8");
+              const original = JSON.parse(originalJson);
+              title = original.original_title || entry.name;
+            } catch {
+              // Keep entry.name as title
+            }
+          }
+
+          sources.push({
+            id: entry.name,
+            title,
+            summary: analysis.digest?.summary ?? "",
+            highlights: (analysis.digest?.highlights ?? []).map((h) => h.text),
+            concepts: (analysis.digest?.concepts ?? []).map((c) => ({
+              term: c.term,
+              definition: c.definition,
+              status: c.status,
+            })),
+          });
+        } catch {
+          // No analysis.json - source still processing, skip
+        }
+      } catch {
+        // Not a source directory - recurse into it
+        await scanDir(fullPath);
+      }
+    }
+  }
+
+  await scanDir(libraryPath);
+  return sources;
 }
 
 /**

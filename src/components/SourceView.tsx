@@ -13,8 +13,15 @@ import {
   X,
   FileText,
   Eye,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Link as LinkIcon,
 } from "lucide-react";
-import { Source, ActionType, Highlight } from "@/lib/types";
+import { Source, ActionType, Highlight, Connection, ConnectionType } from "@/lib/types";
 
 export interface SourceViewProps {
   source: Source;
@@ -24,6 +31,7 @@ export interface SourceViewProps {
   onReanalyze: () => void;
   onReaction: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
   onSourceUpdated: () => void;
+  onNavigateToSource?: (sourceId: string) => void;
   isReanalyzing: boolean;
   palette: Record<number, string>;
   theme: Record<string, string>;
@@ -38,6 +46,7 @@ export function SourceView({
   onReanalyze,
   onReaction,
   onSourceUpdated,
+  onNavigateToSource,
   isReanalyzing,
   palette,
   theme,
@@ -50,6 +59,7 @@ export function SourceView({
   const [editedTitle, setEditedTitle] = useState(meta.title);
   const [isSaving, setIsSaving] = useState(false);
   const [viewOriginal, setViewOriginal] = useState(false);
+  const [zoom, setZoom] = useState(100); // percentage
 
   // Reset state when source changes
   useEffect(() => {
@@ -57,10 +67,15 @@ export function SourceView({
     setEditedTitle(meta.title);
     setIsEditing(false);
     setViewOriginal(false);
+    setZoom(100);
   }, [source.meta.id, content, meta.title]);
 
-  // Get original file URL
-  const originalUrl = meta.sourceUrl || `/api/sources/${meta.id}/original`;
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
+  const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
+  const handleZoomReset = () => setZoom(100);
+
+  // Always use local file for inline viewing (we have the original saved locally)
+  const originalFileUrl = `/api/sources/${meta.id}/original`;
 
   const handleSave = async () => {
     // Check if anything changed
@@ -170,21 +185,39 @@ export function SourceView({
                     </div>
                   </div>
                   <div className="relative group">
-                    <button
-                      onClick={() => setViewOriginal(!viewOriginal)}
-                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors"
-                      style={{
-                        borderColor: viewOriginal ? palette[500] : theme.border,
-                        color: viewOriginal ? palette[600] : theme.textMuted,
-                        backgroundColor: viewOriginal ? `${palette[500]}10` : undefined,
-                      }}
-                    >
-                      {viewOriginal ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                    {meta.sourceUrl ? (
+                      // External source: open in new tab
+                      <a
+                        href={meta.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg border hover:bg-black/5 transition-colors inline-flex"
+                        style={{ borderColor: theme.border, color: theme.textMuted }}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    ) : (
+                      // Local file: toggle inline view
+                      <button
+                        onClick={() => setViewOriginal(!viewOriginal)}
+                        className="p-2 rounded-lg border hover:bg-black/5 transition-colors"
+                        style={{
+                          borderColor: viewOriginal ? palette[500] : theme.border,
+                          color: viewOriginal ? palette[600] : theme.textMuted,
+                          backgroundColor: viewOriginal ? `${palette[500]}10` : undefined,
+                        }}
+                      >
+                        {viewOriginal ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
                     <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                      <p className="font-medium mb-1">{viewOriginal ? "View extracted" : "View original"}</p>
+                      <p className="font-medium mb-1">
+                        {meta.sourceUrl ? "Open original" : (viewOriginal ? "View extracted" : "View original")}
+                      </p>
                       <p className="text-gray-300">
-                        {viewOriginal ? "Switch to AI-extracted content." : "View the original source file."}
+                        {meta.sourceUrl
+                          ? "Open the source URL in a new tab."
+                          : (viewOriginal ? "Switch to AI-extracted content." : "View the original file.")}
                       </p>
                     </div>
                   </div>
@@ -215,20 +248,68 @@ export function SourceView({
                 placeholder="Markdown content..."
               />
             ) : viewOriginal ? (
-              <div className="h-full w-full rounded-lg overflow-hidden border" style={{ borderColor: theme.border }}>
-                {meta.type === "image" ? (
-                  <img
-                    src={originalUrl}
-                    alt={meta.title}
-                    className="w-full h-full object-contain bg-gray-50"
-                  />
-                ) : (
-                  <iframe
-                    src={originalUrl}
-                    className="w-full h-full"
-                    title="Original source"
-                  />
-                )}
+              <div className="h-full w-full flex flex-col rounded-lg overflow-hidden border" style={{ borderColor: theme.border }}>
+                {/* Zoom controls */}
+                <div
+                  className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0"
+                  style={{ borderColor: theme.border, backgroundColor: theme.borderLight }}
+                >
+                  <span className="text-xs font-medium" style={{ color: theme.textMuted }}>
+                    {zoom}%
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleZoomOut}
+                      disabled={zoom <= 50}
+                      className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30"
+                      title="Zoom out"
+                    >
+                      <ZoomOut className="w-4 h-4" style={{ color: theme.textMuted }} />
+                    </button>
+                    <button
+                      onClick={handleZoomReset}
+                      disabled={zoom === 100}
+                      className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30"
+                      title="Reset zoom"
+                    >
+                      <RotateCcw className="w-4 h-4" style={{ color: theme.textMuted }} />
+                    </button>
+                    <button
+                      onClick={handleZoomIn}
+                      disabled={zoom >= 200}
+                      className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30"
+                      title="Zoom in"
+                    >
+                      <ZoomIn className="w-4 h-4" style={{ color: theme.textMuted }} />
+                    </button>
+                  </div>
+                </div>
+                {/* Content with zoom */}
+                <div className="flex-1 overflow-auto bg-gray-50">
+                  {meta.type === "image" ? (
+                    <img
+                      src={originalFileUrl}
+                      alt={meta.title}
+                      className="transition-transform origin-top-left"
+                      style={{
+                        transform: `scale(${zoom / 100})`,
+                        maxWidth: zoom <= 100 ? '100%' : 'none',
+                      }}
+                    />
+                  ) : (
+                    <iframe
+                      key={originalFileUrl}
+                      src={originalFileUrl}
+                      className="bg-white origin-top-left"
+                      title="Original source"
+                      style={{
+                        width: `${10000 / zoom}%`,
+                        height: `${10000 / zoom}%`,
+                        transform: `scale(${zoom / 100})`,
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="prose prose-sm prose-neutral max-w-none h-full overflow-y-auto">
@@ -314,6 +395,16 @@ export function SourceView({
                 </div>
               );
             })()}
+
+            {/* Connections Section */}
+            {analysis.connections && analysis.connections.length > 0 && (
+              <ConnectionsSection
+                connections={analysis.connections}
+                onNavigate={onNavigateToSource}
+                palette={palette}
+                theme={theme}
+              />
+            )}
 
             {/* Tabs */}
             <div
@@ -604,6 +695,150 @@ function ConceptsSection({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ConnectionsSection({
+  connections,
+  onNavigate,
+  palette,
+  theme,
+}: {
+  connections: Connection[];
+  onNavigate?: (sourceId: string) => void;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedConnections, setExpandedConnections] = useState<Set<string>>(new Set());
+
+  const connectionConfig: Record<ConnectionType, { icon: string; label: string; color: string }> = {
+    redundant: { icon: "🔄", label: "Overlaps", color: "#f59e0b" },
+    contradicts: { icon: "⚡", label: "Contradicts", color: "#ef4444" },
+    builds_on: { icon: "🌱", label: "Builds On", color: palette[500] },
+  };
+
+  const toggleConnection = (connId: string) => {
+    setExpandedConnections((prev) => {
+      const next = new Set(prev);
+      if (next.has(connId)) {
+        next.delete(connId);
+      } else {
+        next.add(connId);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div
+      className="p-4 mb-4 rounded-xl border"
+      style={{ borderColor: theme.border }}
+    >
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Connections</span>
+          <span
+            className="px-1.5 py-0.5 text-xs rounded-full"
+            style={{ backgroundColor: `${palette[500]}20`, color: palette[600] }}
+          >
+            {connections.length}
+          </span>
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4" style={{ color: theme.textMuted }} />
+        ) : (
+          <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="mt-3 space-y-2">
+          {connections.map((conn) => {
+            const config = connectionConfig[conn.type];
+            const isOpen = expandedConnections.has(conn.id);
+
+            return (
+              <div
+                key={conn.id}
+                className="rounded-lg border overflow-hidden"
+                style={{ borderColor: theme.border }}
+              >
+                <button
+                  onClick={() => toggleConnection(conn.id)}
+                  className="w-full p-3 flex items-start gap-2 text-left hover:bg-black/5 transition-colors"
+                >
+                  <span className="text-base flex-shrink-0">{config.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="text-xs font-medium px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: `${config.color}20`, color: config.color }}
+                      >
+                        {config.label}
+                      </span>
+                    </div>
+                    <p className="text-sm" style={{ color: theme.textMuted }}>
+                      {conn.summary}
+                    </p>
+                  </div>
+                  {isOpen ? (
+                    <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textLight }} />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: theme.textLight }} />
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div
+                    className="px-3 pb-3 pt-0"
+                    style={{ borderTop: `1px solid ${theme.border}` }}
+                  >
+                    <p className="text-sm mt-3 mb-3" style={{ color: theme.text }}>
+                      {conn.details}
+                    </p>
+
+                    {conn.conceptTerms && conn.conceptTerms.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {conn.conceptTerms.map((term, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                          >
+                            {term}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {conn.relatedSourceIds.map((sourceId, i) => (
+                        <button
+                          key={sourceId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate?.(sourceId);
+                          }}
+                          className="text-xs px-2 py-1 rounded border hover:bg-black/5 transition-colors flex items-center gap-1"
+                          style={{ borderColor: theme.border, color: palette[600] }}
+                        >
+                          <LinkIcon className="w-3 h-3" />
+                          {conn.relatedSourceTitles[i] || sourceId}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

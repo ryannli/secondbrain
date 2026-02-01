@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
-import { analyzeContent, generateTitle, formatTextContent, analyzeFile } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists } from "@/lib/storage";
-import { SourceType } from "@/lib/types";
+import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections } from "@/lib/claude";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections } from "@/lib/storage";
+import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -142,6 +142,14 @@ async function processSourceInBackground(
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, url);
 
+    // Find connections with existing sources
+    console.log(`[${id}] Finding connections...`);
+    const connections = await findConnectionsForSource(id, extractedTitle, analysis);
+    if (connections.length > 0) {
+      analysis.connections = connections;
+      console.log(`[${id}] Found ${connections.length} connections`);
+    }
+
     // Complete the source
     console.log(`[${id}] Completing source: ${extractedTitle}`);
     await completeSource(id, content, analysis, extractedTitle);
@@ -252,6 +260,14 @@ async function processFileInBackground(
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content);
 
+    // Find connections with existing sources
+    console.log(`[${id}] Finding connections...`);
+    const connections = await findConnectionsForSource(id, extractedTitle, analysis);
+    if (connections.length > 0) {
+      analysis.connections = connections;
+      console.log(`[${id}] Found ${connections.length} connections`);
+    }
+
     // Complete the source
     console.log(`[${id}] Completing source: ${extractedTitle}`);
     await completeSource(id, content, analysis, extractedTitle);
@@ -260,5 +276,78 @@ async function processFileInBackground(
   } catch (error) {
     console.error(`[${id}] File processing failed:`, error);
     await failSource(id, error instanceof Error ? error.message : "Unknown error");
+  }
+}
+
+/**
+ * Find connections between a new source and existing sources
+ */
+async function findConnectionsForSource(
+  sourceId: string,
+  title: string,
+  analysis: { digest: { summary: string; highlights: { text: string }[]; concepts: { term: string; definition: string; status?: "knew" | "learned" }[] } }
+): Promise<Connection[]> {
+  try {
+    // Load all existing sources with their analysis
+    const existingSources = await listSourcesForConnections(sourceId);
+
+    if (existingSources.length === 0) {
+      console.log(`[${sourceId}] No existing sources to compare`);
+      return [];
+    }
+
+    // Phase 1: Find potentially related sources using summaries only
+    const relatedIds = await findRelatedSources(
+      analysis.digest.summary,
+      existingSources.map((s) => ({ id: s.id, title: s.title, summary: s.summary }))
+    );
+
+    if (relatedIds.length === 0) {
+      console.log(`[${sourceId}] No related sources found`);
+      return [];
+    }
+
+    console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
+
+    // Phase 2: Get detailed analysis of related sources
+    const relatedSources = existingSources.filter((s) => relatedIds.includes(s.id));
+
+    // Collect learned concepts from all sources
+    const learnedConcepts: { term: string; sourceId: string; sourceTitle: string }[] = [];
+    for (const source of existingSources) {
+      for (const concept of source.concepts) {
+        if (concept.status === "learned") {
+          learnedConcepts.push({
+            term: concept.term,
+            sourceId: source.id,
+            sourceTitle: source.title,
+          });
+        }
+      }
+    }
+
+    // Analyze connections
+    const connections = await analyzeConnections(
+      {
+        id: sourceId,
+        title,
+        summary: analysis.digest.summary,
+        highlights: analysis.digest.highlights.map((h) => h.text),
+        concepts: analysis.digest.concepts.map((c) => ({ term: c.term, definition: c.definition })),
+      },
+      relatedSources.map((s) => ({
+        id: s.id,
+        title: s.title,
+        summary: s.summary,
+        highlights: s.highlights,
+        concepts: s.concepts.map((c) => ({ term: c.term, definition: c.definition })),
+      })),
+      learnedConcepts
+    );
+
+    return connections;
+  } catch (error) {
+    console.error(`[${sourceId}] Failed to find connections:`, error);
+    return []; // Graceful degradation - continue without connections
   }
 }

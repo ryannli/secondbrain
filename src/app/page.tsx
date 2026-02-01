@@ -918,6 +918,7 @@ function HomeContent() {
                     loadSources(); // Also refresh sidebar
                   }
                 }}
+                onNavigateToSource={navigateToSource}
                 isReanalyzing={reanalyzingId === selectedSource.meta.id}
                 palette={palette}
                 theme={theme}

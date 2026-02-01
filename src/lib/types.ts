@@ -101,10 +101,23 @@ export interface CritiqueAnalysis {
   biasIndicators: string[];
 }
 
+export type ConnectionType = "redundant" | "contradicts" | "builds_on";
+
+export interface Connection {
+  id: string;
+  type: ConnectionType;
+  summary: string;              // One-line description
+  details: string;              // Detailed explanation
+  relatedSourceIds: string[];   // IDs of related sources
+  relatedSourceTitles: string[]; // Titles for display
+  conceptTerms?: string[];      // Related concept terms (for builds_on type)
+}
+
 export interface Analysis {
   triage: TriageCard;
   digest: DigestAnalysis;
   critique: CritiqueAnalysis;
+  connections?: Connection[];   // Cross-source connections (optional for backward compatibility)
   analyzedAt: string;
 }
 

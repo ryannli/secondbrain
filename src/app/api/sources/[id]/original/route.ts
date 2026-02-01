@@ -52,12 +52,18 @@ export async function GET(
     };
     const contentType = contentTypes[ext] || "application/octet-stream";
 
-    return new NextResponse(fileBuffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${originalFileName}"`,
-      },
-    });
+    // Build response headers
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Disposition": `inline; filename="${originalFileName}"`,
+    };
+
+    // For HTML files, add CSP to disable JavaScript (prevents refresh loops from sites like Twitter)
+    if (ext === "html") {
+      headers["Content-Security-Policy"] = "script-src 'none'";
+    }
+
+    return new NextResponse(fileBuffer, { headers });
   } catch (error) {
     console.error("Error serving original file:", error);
     return NextResponse.json(

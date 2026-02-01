@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { Analysis, Highlight } from "./types";
+import { Analysis, Highlight, Connection, Concept } from "./types";
 import path from "path";
 
 /**
@@ -319,4 +319,180 @@ Respond with ONLY the JSON object.`;
     },
     analyzedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Source summary for connection finding (minimal data for coarse filter)
+ */
+interface SourceSummaryForConnections {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+/**
+ * Full source analysis for detailed connection analysis
+ */
+interface SourceAnalysisForConnections {
+  id: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  concepts: { term: string; definition: string }[];
+}
+
+/**
+ * Find sources that are potentially related to the new source (Phase 1: Coarse filter)
+ */
+export async function findRelatedSources(
+  newSourceSummary: string,
+  existingSources: SourceSummaryForConnections[]
+): Promise<string[]> {
+  if (existingSources.length === 0) return [];
+
+  const sourcesContext = existingSources
+    .map((s) => `- ID: ${s.id}\n  Title: ${s.title}\n  Summary: ${s.summary}`)
+    .join("\n\n");
+
+  const prompt = `You are analyzing a knowledge library to find connections between articles.
+
+## New Source Summary
+${newSourceSummary}
+
+## Existing Sources in Library
+${sourcesContext}
+
+## Task
+Identify which existing sources might have meaningful connections with the new source. Look for:
+1. **Topic overlap** - Similar subjects, concepts, or domains
+2. **Potential contradictions** - Opposing viewpoints or conflicting claims
+3. **Conceptual extensions** - The new source builds on ideas from existing sources
+4. **Supporting/related evidence** - Sources that support or relate to each other
+
+Return a JSON array of source IDs that have potential connections, ordered by relevance.
+Maximum 5 sources. If no relevant connections exist, return an empty array.
+
+Respond with ONLY the JSON array, no explanation.
+Example: ["abc123", "def456"]`;
+
+  const responseText = await callClaude(prompt);
+
+  try {
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+    const ids = JSON.parse(jsonMatch[0]);
+    return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === "string").slice(0, 5) : [];
+  } catch {
+    console.error("Failed to parse related sources:", responseText.slice(0, 200));
+    return [];
+  }
+}
+
+/**
+ * Analyze specific connections between new source and related sources (Phase 2: Detailed analysis)
+ */
+export async function analyzeConnections(
+  newSource: SourceAnalysisForConnections,
+  relatedSources: SourceAnalysisForConnections[],
+  learnedConcepts: { term: string; sourceId: string; sourceTitle: string }[]
+): Promise<Connection[]> {
+  if (relatedSources.length === 0) return [];
+
+  const relatedContext = relatedSources
+    .map((s) => {
+      const highlights = s.highlights.map((h) => `  - ${h}`).join("\n");
+      const concepts = s.concepts.map((c) => `  - ${c.term}: ${c.definition}`).join("\n");
+      return `### ${s.title} (ID: ${s.id})
+Summary: ${s.summary}
+Highlights:
+${highlights}
+Concepts:
+${concepts}`;
+    })
+    .join("\n\n");
+
+  const learnedContext = learnedConcepts.length > 0
+    ? `\n## Your Previously Learned Concepts\n${learnedConcepts.map((c) => `- "${c.term}" (from: ${c.sourceTitle})`).join("\n")}`
+    : "";
+
+  const newSourceContext = `
+Summary: ${newSource.summary}
+Highlights:
+${newSource.highlights.map((h) => `  - ${h}`).join("\n")}
+Concepts:
+${newSource.concepts.map((c) => `  - ${c.term}: ${c.definition}`).join("\n")}`;
+
+  const prompt = `You are analyzing connections between a new article and existing sources in a knowledge library.
+
+## New Source: ${newSource.title}
+${newSourceContext}
+
+## Related Sources
+${relatedContext}
+${learnedContext}
+
+## Task
+Identify specific, meaningful connections between the new source and the related sources.
+
+## Connection Types
+1. **redundant** - The new source covers similar ground as an existing source. User can skip one.
+2. **contradicts** - The new source contradicts or presents opposing viewpoints to an existing source. User should read critically.
+3. **builds_on** - The new source extends concepts the user has already learned. Worth reading to expand knowledge.
+
+## Rules
+- Be specific about what conflicts, overlaps, or extends
+- Reference specific claims, highlights, or concepts
+- For "builds_on" type, especially note if extending a concept the user marked as "learned"
+- Keep summaries concise (one sentence)
+- Provide enough detail for user to understand without reading both sources
+- Only report meaningful connections, not superficial topic overlaps
+- A single connection can reference multiple related sources if they all relate to the same point
+
+Return a JSON array of connections:
+{
+  "connections": [
+    {
+      "id": "conn1",
+      "type": "redundant|contradicts|builds_on",
+      "summary": "One-line description of the connection",
+      "details": "2-3 sentences explaining the connection with specific references",
+      "relatedSourceIds": ["id1", "id2"],
+      "relatedSourceTitles": ["Title 1", "Title 2"],
+      "conceptTerms": ["term1", "term2"]  // Only for builds_on type
+    }
+  ]
+}
+
+If no meaningful connections exist, return: { "connections": [] }
+
+Respond with ONLY the JSON object.`;
+
+  const responseText = await callClaude(prompt);
+
+  try {
+    let jsonText = responseText;
+    const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return [];
+
+    const result = JSON.parse(jsonMatch[0]);
+    const connections = result.connections ?? [];
+
+    return connections.map((c: Partial<Connection>, i: number) => ({
+      id: c.id ?? `conn${i + 1}`,
+      type: c.type ?? "redundant",
+      summary: c.summary ?? "",
+      details: c.details ?? "",
+      relatedSourceIds: c.relatedSourceIds ?? [],
+      relatedSourceTitles: c.relatedSourceTitles ?? [],
+      conceptTerms: c.conceptTerms,
+    }));
+  } catch {
+    console.error("Failed to parse connections:", responseText.slice(0, 200));
+    return [];
+  }
 }
