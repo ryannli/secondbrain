@@ -82,6 +82,9 @@ function HomeContent() {
   const [fontFamily, setFontFamily] = useState("outfit");
   const [rootPath, setRootPath] = useState("");
 
+  // Debug state for previewing loading UI
+  const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
+
   // Generate palette based on accent color
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
 
@@ -702,6 +705,33 @@ function HomeContent() {
               <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
             </div>
 
+            {/* Debug Loading Mode */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Debug: Preview Loading UI</label>
+              <div className="flex gap-2">
+                {[
+                  { id: "none", label: "Off" },
+                  { id: "analysis", label: "Analysis" },
+                  { id: "connections", label: "Connections" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setDebugLoadingMode(option.id as "none" | "analysis" | "connections")}
+                    className="px-3 py-1.5 rounded-lg border text-sm transition-all"
+                    style={{
+                      borderColor: debugLoadingMode === option.id ? palette[500] : theme.border,
+                      backgroundColor: debugLoadingMode === option.id ? `${palette[500]}10` : "transparent",
+                      color: debugLoadingMode === option.id ? palette[600] : theme.textMuted,
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
+            </div>
+
+
             {/* Close Button */}
             <button
               onClick={() => setIsSettingsOpen(false)}
@@ -924,6 +954,7 @@ function HomeContent() {
                 theme={theme}
                 getActionConfig={getActionConfig}
                 getScoreColor={getScoreColor}
+                debugLoadingMode={debugLoadingMode}
               />
             ) : (
               <Dashboard

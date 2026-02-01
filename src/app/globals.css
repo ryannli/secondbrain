@@ -95,9 +95,57 @@ body {
 .animate-float-medium { animation: float-medium 8s ease-in-out infinite; }
 .animate-float-fast { animation: float-fast 5s ease-in-out infinite; }
 
-/* Particle animation for loading state */
-@keyframes particle {
-  0%, 100% { opacity: 0.3; transform: translate(0, 0) scale(1); }
-  50% { opacity: 0.8; transform: translate(10px, -10px) scale(1.2); }
+/* Water fill - progress from left to right */
+@keyframes water-fill {
+  0% { width: 5%; }
+  100% { width: 92%; }
 }
-.animate-particle { animation: particle 4s ease-in-out infinite; }
+.animate-water-fill {
+  animation: water-fill 18s ease-out forwards;
+}
+
+/* Particle flow - data points moving left to right */
+@keyframes particle-flow {
+  0% {
+    left: -10px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    left: calc(100% + 10px);
+    opacity: 0;
+  }
+}
+.animate-particle-flow {
+  animation: particle-flow 3s ease-in-out infinite;
+}
+
+/* Wave animation - slow, organic movement */
+@keyframes wave-move-1 {
+  0% { transform: translateY(0); }
+  8% { transform: translateY(-6px); }
+  18% { transform: translateY(3px); }
+  31% { transform: translateY(-10px); }
+  42% { transform: translateY(-2px); }
+  56% { transform: translateY(7px); }
+  67% { transform: translateY(-4px); }
+  79% { transform: translateY(9px); }
+  91% { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+}
+.animate-wave-1 { animation: wave-move-1 8s ease-in-out infinite; }
+
+/* Corner glow pulses - each corner different timing */
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+.animate-corner-pulse { animation: corner-pulse 4s ease-in-out infinite; }
+.animate-corner-pulse-2 { animation: corner-pulse 5s ease-in-out infinite; animation-delay: 1s; }
+.animate-corner-pulse-3 { animation: corner-pulse 4.5s ease-in-out infinite; animation-delay: 2s; }
+.animate-corner-pulse-4 { animation: corner-pulse 3.5s ease-in-out infinite; animation-delay: 0.5s; }

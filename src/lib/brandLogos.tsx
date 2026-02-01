@@ -39,16 +39,16 @@ export function GoogleLogo({ className, style }: LogoProps) {
   );
 }
 
-// Gmail logo (envelope with M)
+// Gmail logo
 export function GmailLogo({ className, style }: LogoProps) {
   return (
-    <svg viewBox="0 0 24 24" className={className} style={style}>
-      <path fill="#4285F4" d="M2 6.5V18c0 1.1.9 2 2 2h1V7.3L12 13l7-5.7V20h1c1.1 0 2-.9 2-2V6.5l-1.5-1.4-1 .8L12 11 4.5 5.9l-1-.8L2 6.5z" />
-      <path fill="#EA4335" d="M23 6.5V6l-1.5-1.4L12 11 2.5 4.6 1 6v.5l1.5-1.4 1 .8L12 11l7-5.7 1-.8L23 6.5z" />
-      <path fill="#34A853" d="M5 20h1V7.3L12 13l-7 5.7V20z" />
-      <path fill="#FBBC05" d="M19 20h1v-1.3L13 13l6 5.7V20z" />
-      <path fill="#C5221F" d="M22 6l-1.5-1.4L12 11 3.5 4.6 2 6l10 8 10-8z" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/favicons/gmail.png"
+      alt="Gmail"
+      className={className}
+      style={style}
+    />
   );
 }
 
@@ -477,16 +477,27 @@ export function getBrandFromUrl(url?: string): BrandConfig | null {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, "");
 
-    // More specific match first (news.ycombinator.com before ycombinator.com)
-    const sortedBrands = Object.values(brandLogos).sort(
-      (a, b) => Math.max(...b.domains.map((d) => d.length)) - Math.max(...a.domains.map((d) => d.length))
-    );
-
-    for (const brand of sortedBrands) {
+    // Flatten all domains with their brands, sorted by domain length (longest first)
+    // This ensures mail.google.com matches before google.com
+    const allDomains: { domain: string; brand: BrandConfig }[] = [];
+    for (const brand of Object.values(brandLogos)) {
       for (const domain of brand.domains) {
-        if (hostname === domain || hostname.endsWith("." + domain)) {
-          return brand;
-        }
+        allDomains.push({ domain, brand });
+      }
+    }
+    allDomains.sort((a, b) => b.domain.length - a.domain.length);
+
+    // First pass: exact matches only
+    for (const { domain, brand } of allDomains) {
+      if (hostname === domain) {
+        return brand;
+      }
+    }
+
+    // Second pass: subdomain matches
+    for (const { domain, brand } of allDomains) {
+      if (hostname.endsWith("." + domain)) {
+        return brand;
       }
     }
   } catch {

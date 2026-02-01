@@ -121,6 +121,7 @@ export interface Analysis {
   digest: DigestAnalysis;
   critique: CritiqueAnalysis;
   connections?: Connection[];   // Cross-source connections (optional for backward compatibility)
+  connectionError?: string;     // Error message if connection analysis failed
   analyzedAt: string;
 }
 

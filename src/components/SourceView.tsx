@@ -37,6 +37,7 @@ export interface SourceViewProps {
   theme: Record<string, string>;
   getActionConfig: (action: ActionType) => { icon: React.ReactNode; label: string; description: string; color: string };
   getScoreColor: (score: number) => string;
+  debugLoadingMode?: "none" | "analysis" | "connections";
 }
 
 export function SourceView({
@@ -52,8 +53,17 @@ export function SourceView({
   theme,
   getActionConfig,
   getScoreColor,
+  debugLoadingMode = "none",
 }: SourceViewProps) {
-  const { meta, content, analysis } = source;
+  const { meta, content, analysis: realAnalysis } = source;
+
+  // Apply debug mode from settings
+  const analysis = debugLoadingMode === "analysis"
+    ? undefined
+    : debugLoadingMode === "connections" && realAnalysis
+    ? { ...realAnalysis, connections: undefined }
+    : realAnalysis;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
   const [editedTitle, setEditedTitle] = useState(meta.title);
@@ -396,15 +406,51 @@ export function SourceView({
               );
             })()}
 
-            {/* Connections Section */}
-            {analysis.connections && analysis.connections.length > 0 && (
+            {/* Connections Section - show loading, error, or connections */}
+            {analysis.connections === undefined && !analysis.connectionError ? (
+              /* Connections still loading */
+              <div
+                className="p-4 mb-4 rounded-xl border"
+                style={{ borderColor: theme.border }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center animate-pulse-bubble"
+                    style={{ backgroundColor: `${palette[500]}15` }}
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: palette[500] }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: theme.text }}>
+                      Finding connections
+                    </p>
+                    <p className="text-xs" style={{ color: theme.textMuted }}>
+                      Linking to existing sources...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : analysis.connectionError ? (
+              /* Connection error */
+              <div
+                className="p-3 mb-4 rounded-xl border text-sm"
+                style={{ borderColor: "#fecaca", backgroundColor: "#fef2f2", color: "#b91c1c" }}
+              >
+                <p className="font-medium mb-1">Connection analysis failed</p>
+                <p className="text-xs opacity-80">{analysis.connectionError}</p>
+              </div>
+            ) : analysis.connections && analysis.connections.length > 0 ? (
+              /* Connections found */
               <ConnectionsSection
                 connections={analysis.connections as ResolvedConnection[]}
                 onNavigate={onNavigateToSource}
                 palette={palette}
                 theme={theme}
               />
-            )}
+            ) : null}
 
             {/* Tabs */}
             <div
@@ -515,90 +561,8 @@ export function SourceView({
             </div>
         </div>
       ) : (
-        /* Analysis Loading - Futuristic particle effect */
-        <div className="w-[420px] flex-shrink-0 h-[calc(100vh-140px)]">
-          <div
-            className="h-full rounded-xl relative overflow-hidden"
-            style={{ background: "#0f0f14" }}
-          >
-            {/* Corner particle clusters */}
-            <div className="absolute inset-0">
-              {/* Top-left cluster */}
-              <div className="absolute top-0 left-0 w-40 h-40">
-                {[...Array(12)].map((_, i) => (
-                  <div
-                    key={`tl-${i}`}
-                    className="absolute rounded-full animate-particle"
-                    style={{
-                      width: `${2 + Math.random() * 4}px`,
-                      height: `${2 + Math.random() * 4}px`,
-                      background: `rgba(139, 92, 246, ${0.3 + Math.random() * 0.5})`,
-                      top: `${Math.random() * 100}%`,
-                      left: `${Math.random() * 100}%`,
-                      animationDelay: `${Math.random() * 3}s`,
-                      animationDuration: `${3 + Math.random() * 4}s`,
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Bottom-right cluster */}
-              <div className="absolute bottom-0 right-0 w-48 h-48">
-                {[...Array(15)].map((_, i) => (
-                  <div
-                    key={`br-${i}`}
-                    className="absolute rounded-full animate-particle"
-                    style={{
-                      width: `${2 + Math.random() * 4}px`,
-                      height: `${2 + Math.random() * 4}px`,
-                      background: `rgba(99, 102, 241, ${0.3 + Math.random() * 0.5})`,
-                      top: `${Math.random() * 100}%`,
-                      left: `${Math.random() * 100}%`,
-                      animationDelay: `${Math.random() * 3}s`,
-                      animationDuration: `${3 + Math.random() * 4}s`,
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Top-right accent */}
-              <div className="absolute top-8 right-8 w-24 h-24">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={`tr-${i}`}
-                    className="absolute rounded-full animate-particle"
-                    style={{
-                      width: `${1 + Math.random() * 3}px`,
-                      height: `${1 + Math.random() * 3}px`,
-                      background: `rgba(167, 139, 250, ${0.2 + Math.random() * 0.4})`,
-                      top: `${Math.random() * 100}%`,
-                      left: `${Math.random() * 100}%`,
-                      animationDelay: `${Math.random() * 3}s`,
-                      animationDuration: `${4 + Math.random() * 3}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Subtle gradient glow */}
-            <div
-              className="absolute bottom-0 right-0 w-64 h-64 rounded-full blur-3xl opacity-20"
-              style={{ background: "radial-gradient(circle, #6366f1 0%, transparent 70%)" }}
-            />
-            <div
-              className="absolute top-0 left-0 w-48 h-48 rounded-full blur-3xl opacity-15"
-              style={{ background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)" }}
-            />
-
-            {/* Content */}
-            <div className="relative h-full flex flex-col items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: "#8b5cf6" }} />
-              <p className="text-base font-medium mb-1" style={{ color: "#e2e2e8" }}>Analyzing</p>
-              <p className="text-sm" style={{ color: "#6b6b7b" }}>AI is reading and understanding...</p>
-            </div>
-          </div>
-        </div>
+        /* Analysis Loading */
+        <AnalysisLoader palette={palette} theme={theme} />
       )}
     </div>
   );
@@ -779,6 +743,104 @@ function ConceptsSection({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Loading animation component
+function AnalysisLoader({
+  palette,
+  theme,
+}: {
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  return (
+    <div className="w-[420px] flex-shrink-0">
+      <div className="relative">
+        {/* Corner glows */}
+        <div
+          className="absolute -top-8 -left-8 w-28 h-28 rounded-full blur-2xl animate-corner-pulse pointer-events-none"
+          style={{ background: `${palette[400]}50` }}
+        />
+        <div
+          className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl animate-corner-pulse-2 pointer-events-none"
+          style={{ background: "rgba(139, 92, 246, 0.35)" }}
+        />
+        <div
+          className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full blur-2xl animate-corner-pulse-3 pointer-events-none"
+          style={{ background: "rgba(99, 102, 241, 0.35)" }}
+        />
+        <div
+          className="absolute -bottom-8 -right-8 w-28 h-28 rounded-full blur-2xl animate-corner-pulse-4 pointer-events-none"
+          style={{ background: `${palette[500]}45` }}
+        />
+
+        <div
+          className="rounded-xl border relative overflow-hidden h-[140px]"
+          style={{ borderColor: theme.border, backgroundColor: "white" }}
+        >
+          {/* Perspective grid background */}
+          <div className="absolute inset-0 overflow-hidden opacity-[0.07]">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  linear-gradient(${palette[500]} 1px, transparent 1px),
+                  linear-gradient(90deg, ${palette[500]} 1px, transparent 1px)
+                `,
+                backgroundSize: "24px 24px",
+                transform: "perspective(200px) rotateX(30deg) scale(2)",
+                transformOrigin: "center top",
+              }}
+            />
+          </div>
+
+          {/* Floating data particles */}
+          <div className="absolute inset-0 overflow-hidden">
+            {[...Array(12)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute rounded-full animate-particle-flow"
+                style={{
+                  width: `${3 + (i % 3) * 2}px`,
+                  height: `${3 + (i % 3) * 2}px`,
+                  background: i % 2 === 0 ? palette[500] : palette[400],
+                  opacity: 0.4 + (i % 3) * 0.2,
+                  top: `${15 + (i * 7) % 70}%`,
+                  animationDelay: `${i * 0.3}s`,
+                  animationDuration: `${2.5 + (i % 3) * 0.5}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Water fill progress */}
+          <div
+            className="absolute inset-y-0 left-0 animate-water-fill"
+            style={{ background: `linear-gradient(to right, ${palette[500]}08, ${palette[500]}20)` }}
+          >
+            {/* Wavy line at the edge */}
+            <svg
+              className="absolute right-0 top-1/2 -translate-y-1/2 h-[300%]"
+              style={{ width: "20px", marginRight: "-10px" }}
+              viewBox="0 0 20 100"
+            >
+              <path
+                className="animate-wave-1"
+                d="M10,-60 Q18,-40 10,-20 Q2,0 10,20 Q18,40 10,60 Q2,80 10,100 Q18,120 10,140 Q2,160 10,180"
+                fill="none" stroke={palette[500]} strokeWidth="2" strokeOpacity="0.7"
+              />
+            </svg>
+          </div>
+
+          {/* Text */}
+          <div className="relative h-full flex flex-col justify-center px-6 z-10">
+            <p className="text-sm font-medium mb-1" style={{ color: theme.text }}>Analyzing</p>
+            <p className="text-xs" style={{ color: theme.textMuted }}>Reading and understanding content...</p>
+          </div>
+        </div>
       </div>
     </div>
   );

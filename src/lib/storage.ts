@@ -297,6 +297,31 @@ export async function setSourceConnections(
 
   // Update only connections
   analysis.connections = connections;
+  // Clear any previous connection error
+  delete analysis.connectionError;
+
+  // Write back
+  await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
+}
+
+/**
+ * Save a connection error to analysis.json
+ * This allows the UI to show the error to the user
+ */
+export async function saveConnectionError(
+  id: string,
+  error: string,
+  libraryPath = getLibraryPath()
+): Promise<void> {
+  const sourceDir = path.join(libraryPath, id);
+  const analysisPath = path.join(sourceDir, "analysis.json");
+
+  // Read current analysis
+  const analysisJson = await fs.readFile(analysisPath, "utf-8");
+  const analysis: Analysis = JSON.parse(analysisJson);
+
+  // Set the error
+  analysis.connectionError = error;
 
   // Write back
   await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");

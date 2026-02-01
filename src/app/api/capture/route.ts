@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
 import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, findSourcePath } from "@/lib/storage";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, findSourcePath } from "@/lib/storage";
 import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
@@ -156,10 +156,15 @@ async function processSourceInBackground(
 
     // Step 3: Find connections with existing sources (can be slower)
     console.log(`[${id}] Finding connections...`);
-    const connections = await findConnectionsForSource(id, extractedTitle, analysis);
-    if (connections.length > 0) {
+    const { connections, error: connectionError } = await findConnectionsForSource(id, extractedTitle, analysis);
+    if (connectionError) {
+      console.error(`[${id}] Connection error: ${connectionError}`);
+      // Save error to analysis.json so UI can display it
+      await saveConnectionError(id, connectionError);
+    } else {
+      // Always save connections (even if empty) so UI knows loading is done
+      // undefined = still loading, [] = no connections found
       console.log(`[${id}] Found ${connections.length} connections`);
-      // Use setSourceConnections for safe read-modify-write (avoids race conditions)
       console.log(`[${id}] Saving connections (progressive step 3)...`);
       await setSourceConnections(id, connections);
     }
@@ -278,10 +283,13 @@ async function processFileInBackground(
 
     // Step 3: Find connections with existing sources
     console.log(`[${id}] Finding connections...`);
-    const connections = await findConnectionsForSource(id, extractedTitle, analysis);
-    if (connections.length > 0) {
+    const { connections, error: connectionError } = await findConnectionsForSource(id, extractedTitle, analysis);
+    if (connectionError) {
+      console.error(`[${id}] Connection error: ${connectionError}`);
+      await saveConnectionError(id, connectionError);
+    } else {
+      // Always save connections (even if empty) so UI knows loading is done
       console.log(`[${id}] Found ${connections.length} connections`);
-      // Use setSourceConnections for safe read-modify-write (avoids race conditions)
       console.log(`[${id}] Saving connections (progressive step 3)...`);
       await setSourceConnections(id, connections);
     }
@@ -295,12 +303,13 @@ async function processFileInBackground(
 
 /**
  * Find connections between a new source and existing sources
+ * Returns { connections, error } - error is set if connection analysis failed
  */
 async function findConnectionsForSource(
   sourceId: string,
   title: string,
   analysis: { digest: { summary: string; highlights: { text: string }[]; concepts: { term: string; definition: string; status?: "knew" | "learned" }[] } }
-): Promise<Connection[]> {
+): Promise<{ connections: Connection[]; error?: string }> {
   try {
     // Load all existing sources with their analysis
     console.log(`[${sourceId}] Loading existing sources for connections...`);
@@ -309,7 +318,7 @@ async function findConnectionsForSource(
 
     if (existingSources.length === 0) {
       console.log(`[${sourceId}] No existing sources to compare`);
-      return [];
+      return { connections: [] };
     }
 
     // Phase 1: Find potentially related sources using summaries only
@@ -322,7 +331,7 @@ async function findConnectionsForSource(
 
     if (relatedIds.length === 0) {
       console.log(`[${sourceId}] No related sources found`);
-      return [];
+      return { connections: [] };
     }
 
     console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
@@ -374,10 +383,11 @@ async function findConnectionsForSource(
       );
     }
 
-    return connections;
+    return { connections };
   } catch (error) {
-    console.error(`[${sourceId}] Failed to find connections:`, error);
-    return []; // Graceful degradation - continue without connections
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[${sourceId}] Failed to find connections:`, errorMsg);
+    return { connections: [], error: `Connection analysis failed: ${errorMsg}` };
   }
 }
 
