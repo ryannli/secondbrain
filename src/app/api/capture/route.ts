@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
 import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, findSourcePath } from "@/lib/storage";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, findSourcePath, saveOriginalHtml } from "@/lib/storage";
 import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
@@ -126,10 +126,15 @@ async function processSourceInBackground(
       extractedTitle = extracted.title;
       content = extracted.content;
     } else if (url) {
-      console.log(`[${id}] Extracting content from: ${url}`);
+      console.log(`[${id}] Fetching and extracting content from: ${url}`);
       const extracted = await extractFromUrl(url);
       extractedTitle = extracted.title;
       content = extracted.content;
+      // Save the original HTML (fetched via browser)
+      if (extracted.originalContent) {
+        console.log(`[${id}] Saving original HTML (${extracted.originalContent.length} chars)...`);
+        await saveOriginalHtml(id, extracted.originalContent);
+      }
     } else {
       console.log(`[${id}] Formatting text content...`);
       content = await formatTextContent(text!);

@@ -231,6 +231,22 @@ ${content}
 }
 
 /**
+ * Save original HTML content for a source.
+ * Called after browser fetch to update the original.html file.
+ */
+export async function saveOriginalHtml(
+  id: string,
+  html: string,
+  libraryPath = getLibraryPath()
+): Promise<void> {
+  const sourcePath = await findSourcePath(id, libraryPath);
+  if (!sourcePath) {
+    throw new Error(`Source not found: ${id}`);
+  }
+  await fs.writeFile(path.join(sourcePath, "original.html"), html, "utf-8");
+}
+
+/**
  * Save analysis.json for a source (progressive update - step 2)
  * Also generates README.md
  *
