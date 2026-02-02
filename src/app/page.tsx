@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
 import { Source, ActionType, ACTION_CONFIG } from "@/lib/types";
 import { theme } from "@/lib/theme";
 import { SourceView } from "@/components/SourceView";
 import { Dashboard } from "@/components/Dashboard";
+import { FeedSection } from "@/components/FeedSection";
 import { Header } from "@/components/Header";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ContextMenu } from "@/components/ContextMenu";
@@ -17,6 +18,9 @@ import { useFolderManagement } from "@/hooks/useFolderManagement";
 import { useDragDrop } from "@/hooks/useDragDrop";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
+import { useFeed } from "@/hooks/useFeed";
+import { CoLearningPanel } from "@/components/CoLearningPanel";
+import { SelectionPopover } from "@/components/SelectionPopover";
 
 export default function Home() {
   return (
@@ -28,12 +32,28 @@ export default function Home() {
 
 function HomeContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const sourceId = searchParams.get("source");
+  const viewParam = searchParams.get("view");
 
   // Core state
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
+  const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
+  const mainContentRef = React.useRef<HTMLDivElement>(null);
+
+  // Derive currentView from URL
+  const currentView: "dashboard" | "foryou" = viewParam === "foryou" ? "foryou" : "dashboard";
+
+  // Navigation helpers
+  const navigateToView = (view: "dashboard" | "foryou") => {
+    if (view === "foryou") {
+      router.push("/?view=foryou");
+    } else {
+      router.push("/");
+    }
+  };
 
   // Settings
   const {
@@ -46,6 +66,8 @@ function HomeContent() {
     debugLoadingMode,
     setDebugLoadingMode,
     palette,
+    feedSources,
+    saveFeedSources,
   } = useSettings();
 
   // Library (sources, folders, tree)
@@ -108,6 +130,44 @@ function HomeContent() {
     setSelectedSource,
     setError,
   });
+
+  // Feed
+  const feed = useFeed();
+
+  // Load feed when viewing For You
+  useEffect(() => {
+    if (!sourceId && currentView === "foryou") {
+      feed.loadFeed();
+    }
+  }, [sourceId, currentView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Capture URL from feed
+  const handleCaptureUrl = (url: string) => {
+    setCaptureInput(url);
+    // Trigger capture immediately
+    const displayName = new URL(url).hostname;
+    fetch("/api/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.source) {
+          setSources((prev) => [{
+            meta: data.source.meta,
+            score: data.source.analysis?.triage.score,
+            reason: data.source.analysis?.triage.reason,
+            action: data.source.analysis?.triage.action,
+          }, ...prev]);
+        } else {
+          setError(data.error || "Failed to capture content");
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to capture");
+      });
+  };
 
   // Load source from URL param
   useEffect(() => {
@@ -186,6 +246,8 @@ function HomeContent() {
         debugLoadingMode={debugLoadingMode}
         onDebugModeChange={setDebugLoadingMode}
         palette={palette}
+        feedSources={feedSources}
+        onFeedSourcesChange={saveFeedSources}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -196,7 +258,9 @@ function HomeContent() {
           onToggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
           libraryPath={libraryPath}
           selectedSource={selectedSource}
-          onNavigateToDashboard={navigateToDashboard}
+          currentView={currentView}
+          onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
+          onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
           onNavigateToSource={navigateToSource}
           treeNodes={buildTree()}
           expandedFolders={expandedFolders}
@@ -225,7 +289,7 @@ function HomeContent() {
           isEmpty={sources.length === 0}
         />
 
-        <main className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
             {selectedSource ? (
               <SourceView
@@ -251,6 +315,24 @@ function HomeContent() {
                 getScoreColor={getScoreColor}
                 debugLoadingMode={debugLoadingMode}
               />
+            ) : currentView === "foryou" ? (
+              <div className="max-w-3xl mx-auto">
+                <FeedSection
+                  items={feed.items}
+                  interests={feed.interests}
+                  generatedAt={feed.generatedAt}
+                  fromCache={feed.fromCache}
+                  message={feed.message}
+                  briefing={feed.briefing}
+                  loading={feed.loading}
+                  error={feed.error}
+                  onCapture={handleCaptureUrl}
+                  onDismiss={feed.dismissItem}
+                  onRefresh={feed.refreshFeed}
+                  palette={palette}
+                  theme={theme}
+                />
+              </div>
             ) : (
               <Dashboard
                 sources={sources}
@@ -268,7 +350,21 @@ function HomeContent() {
             )}
           </div>
         </main>
+
+        {/* Co-learning Panel */}
+        <CoLearningPanel
+          isOpen={isCoLearningOpen}
+          onToggle={() => setIsCoLearningOpen(!isCoLearningOpen)}
+          palette={palette}
+        />
       </div>
+
+      {/* Selection Popover for adding context */}
+      <SelectionPopover
+        containerRef={mainContentRef as React.RefObject<HTMLElement>}
+        sourceTitle={selectedSource?.meta.title}
+        palette={palette}
+      />
 
       <ContextMenu
         menu={contextMenu}
