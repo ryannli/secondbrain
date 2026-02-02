@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { X, Plus } from "lucide-react";
 import { theme } from "@/lib/theme";
 
 export interface SettingsModalProps {
@@ -12,6 +13,8 @@ export interface SettingsModalProps {
   debugLoadingMode: "none" | "analysis" | "connections";
   onDebugModeChange: (mode: "none" | "analysis" | "connections") => void;
   palette: Record<number, string>;
+  feedSources?: string[];
+  onFeedSourcesChange?: (sources: string[]) => void;
 }
 
 const FONT_OPTIONS = [
@@ -29,6 +32,18 @@ const DEBUG_OPTIONS = [
   { id: "connections", label: "Connections" },
 ] as const;
 
+// Common news sources for quick add
+const SUGGESTED_SOURCES = [
+  { domain: "news.ycombinator.com", label: "Hacker News" },
+  { domain: "reddit.com", label: "Reddit" },
+  { domain: "arstechnica.com", label: "Ars Technica" },
+  { domain: "theverge.com", label: "The Verge" },
+  { domain: "wired.com", label: "Wired" },
+  { domain: "techcrunch.com", label: "TechCrunch" },
+  { domain: "nytimes.com", label: "New York Times" },
+  { domain: "bloomberg.com", label: "Bloomberg" },
+];
+
 export function SettingsModal({
   isOpen,
   onClose,
@@ -38,7 +53,25 @@ export function SettingsModal({
   debugLoadingMode,
   onDebugModeChange,
   palette,
+  feedSources = [],
+  onFeedSourcesChange,
 }: SettingsModalProps) {
+  const [newSource, setNewSource] = useState("");
+
+  const addSource = (domain: string) => {
+    const cleaned = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/$/, "");
+    if (cleaned && !feedSources.includes(cleaned) && onFeedSourcesChange) {
+      onFeedSourcesChange([...feedSources, cleaned]);
+    }
+    setNewSource("");
+  };
+
+  const removeSource = (domain: string) => {
+    if (onFeedSourcesChange) {
+      onFeedSourcesChange(feedSources.filter(s => s !== domain));
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -80,6 +113,88 @@ export function SettingsModal({
           <label className="block text-sm font-medium mb-1">Data Location</label>
           <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
         </div>
+
+        {/* Feed Sources */}
+        {onFeedSourcesChange && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Feed Sources</label>
+            <p className="text-xs text-gray-400 mb-3">News from these sites will be prioritized</p>
+
+            {/* Suggested sources with checkboxes */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {SUGGESTED_SOURCES.map((source) => {
+                const isChecked = feedSources.includes(source.domain);
+                return (
+                  <label
+                    key={source.domain}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                    style={{
+                      borderColor: isChecked ? palette[500] : theme.border,
+                      backgroundColor: isChecked ? `${palette[500]}08` : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          addSource(source.domain);
+                        } else {
+                          removeSource(source.domain);
+                        }
+                      }}
+                      className="w-4 h-4 rounded"
+                      style={{ accentColor: palette[500] }}
+                    />
+                    <span className="text-sm">{source.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Custom source input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newSource}
+                onChange={(e) => setNewSource(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addSource(newSource)}
+                placeholder="Add custom domain (e.g. example.com)"
+                className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                style={{ borderColor: theme.border }}
+              />
+              <button
+                onClick={() => addSource(newSource)}
+                disabled={!newSource}
+                className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
+                style={{ backgroundColor: palette[500] }}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Show custom sources (not in suggested list) */}
+            {feedSources.filter(s => !SUGGESTED_SOURCES.some(ss => ss.domain === s)).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {feedSources.filter(s => !SUGGESTED_SOURCES.some(ss => ss.domain === s)).map((source) => (
+                  <span
+                    key={source}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                    style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                  >
+                    {source}
+                    <button
+                      onClick={() => removeSource(source)}
+                      className="hover:opacity-70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Debug Loading Mode */}
         <div className="mb-4">

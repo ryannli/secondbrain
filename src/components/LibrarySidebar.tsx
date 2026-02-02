@@ -10,6 +10,7 @@ import {
   PanelLeft,
   LayoutDashboard,
   FolderPlus,
+  Rss,
 } from "lucide-react";
 import { Source, TreeNode } from "@/lib/types";
 import { theme } from "@/lib/theme";
@@ -22,7 +23,9 @@ export interface LibrarySidebarProps {
   onToggleLibrary: () => void;
   libraryPath: string;
   selectedSource: Source | null;
+  currentView: "dashboard" | "foryou";
   onNavigateToDashboard: () => void;
+  onNavigateToForYou: () => void;
   onNavigateToSource: (sourceId: string) => void;
   // Tree data
   treeNodes: TreeNode[];
@@ -65,7 +68,9 @@ export function LibrarySidebar({
   onToggleLibrary,
   libraryPath,
   selectedSource,
+  currentView,
   onNavigateToDashboard,
+  onNavigateToForYou,
   onNavigateToSource,
   treeNodes,
   expandedFolders,
@@ -123,18 +128,38 @@ export function LibrarySidebar({
             onClick={onNavigateToDashboard}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
             style={{
-              backgroundColor: !selectedSource ? `${palette[500]}15` : undefined,
+              backgroundColor: !selectedSource && currentView === "dashboard" ? `${palette[500]}15` : undefined,
             }}
           >
             <LayoutDashboard
               className="w-4 h-4"
-              style={{ color: !selectedSource ? palette[500] : theme.textMuted }}
+              style={{ color: !selectedSource && currentView === "dashboard" ? palette[500] : theme.textMuted }}
             />
             <span
               className="text-sm font-medium"
-              style={{ color: !selectedSource ? palette[600] : theme.text }}
+              style={{ color: !selectedSource && currentView === "dashboard" ? palette[600] : theme.text }}
             >
               Dashboard
+            </span>
+          </button>
+
+          {/* For You Entry */}
+          <button
+            onClick={onNavigateToForYou}
+            className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            style={{
+              backgroundColor: !selectedSource && currentView === "foryou" ? `${palette[500]}15` : undefined,
+            }}
+          >
+            <Rss
+              className="w-4 h-4"
+              style={{ color: !selectedSource && currentView === "foryou" ? palette[500] : theme.textMuted }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: !selectedSource && currentView === "foryou" ? palette[600] : theme.text }}
+            >
+              For You
             </span>
           </button>
 

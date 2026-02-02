@@ -161,3 +161,31 @@ export interface CaptureResponse {
   source?: Source;
   error?: string;
 }
+
+// Feed types
+export interface FeedItem {
+  id: string;                    // Generated hash of URL
+  title: string;
+  url: string;
+  snippet: string;               // From search result
+  publishedAt: string;           // ISO date
+  source: string;                // News source name
+  thumbnail?: string;            // Thumbnail image URL
+  scoring: {
+    overall: number;             // 0-100 combined score
+    action: "recommend" | "skip";
+    // Why this is recommended (if action = recommend)
+    whyRead?: string;            // e.g. "OpenAI just announced major policy changes"
+    // Why this is filtered (if action = skip)
+    whySkip?: string;            // e.g. "Overlaps with your notes on AI safety"
+    // What existing knowledge this connects to
+    connectsTo?: string;         // e.g. "Your article: 'AI Safety Fundamentals'"
+  };
+}
+
+export interface FeedCache {
+  generatedAt: string;           // ISO timestamp
+  interests: string[];           // Extracted interest terms
+  items: FeedItem[];
+  briefing?: string;             // AI-generated briefing for the user
+}

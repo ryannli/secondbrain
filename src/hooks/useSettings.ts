@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { generatePalette } from "@/lib/theme";
 
+// Default feed sources users commonly use
+const DEFAULT_FEED_SOURCES = ["reddit.com", "news.ycombinator.com"];
+
 export function useSettings() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [accentColor, setAccentColor] = useState("#3b6044");
@@ -10,6 +13,7 @@ export function useSettings() {
   const [rootPath, setRootPath] = useState("");
   const [libraryPath, setLibraryPath] = useState("");
   const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
+  const [feedSources, setFeedSources] = useState<string[]>(DEFAULT_FEED_SOURCES);
 
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
 
@@ -27,6 +31,9 @@ export function useSettings() {
         }
         if (data.config.rootPath) {
           setRootPath(data.config.rootPath);
+        }
+        if (data.config.feedSources) {
+          setFeedSources(data.config.feedSources);
         }
       }
     } catch (err) {
@@ -50,6 +57,22 @@ export function useSettings() {
     }
   };
 
+  const saveFeedSources = async (sources: string[]) => {
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedSources: sources }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedSources(sources);
+      }
+    } catch (err) {
+      console.error("Failed to save feed sources:", err);
+    }
+  };
+
   useEffect(() => {
     loadConfig();
   }, []);
@@ -64,5 +87,7 @@ export function useSettings() {
     debugLoadingMode,
     setDebugLoadingMode,
     palette,
+    feedSources,
+    saveFeedSources,
   };
 }
