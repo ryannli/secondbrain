@@ -113,19 +113,13 @@ A companion Chrome extension for one-click capture from any webpage.
 | Content Type | Method | Notes |
 |--------------|--------|-------|
 | Public websites | `fetch` + Readability | Works for most sites (SSR/static HTML) |
-| JS-rendered pages | Playwright (headless) | For SPAs that require JavaScript |
 | Logged-in content | Chrome Extension | Twitter, paywalls, etc. |
 
 ### Why Chrome Extension for Logged-in Content?
 
 **The problem**: Sites like Twitter require authentication. To capture content, we need the user's login session.
 
-**Web App limitation**: Browser security (same-origin policy) prevents our web app from accessing cookies/sessions of other domains. Even with Playwright running on the backend, it cannot access the user's running Chrome profile (Chrome locks it while running).
-
-**Workarounds we considered**:
-- Close Chrome to unlock profile → Bad UX
-- Launch Chrome with remote debugging → Too hacky for production
-- Use third-party proxies (fxtwitter, nitter) → Unreliable/deprecated
+**Web App limitation**: Browser security (same-origin policy) prevents our web app from accessing cookies/sessions of other domains. The backend cannot access the user's Chrome profile.
 
 **Current solution**: Chrome Extension runs *inside* the user's browser with their active session, so it can capture any page the user can see.
 

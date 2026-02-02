@@ -2,7 +2,6 @@ import { SourceType } from "./types";
 import { formatTextContent, extractReadableContent, generateTitle } from "./claude";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import { fetchWithBrowser, requiresAuthentication } from "./browser";
 
 /**
  * Determine source type from URL or content.
@@ -59,9 +58,20 @@ export interface ExtractedContent {
 }
 
 /**
- * Fetch content from URL using browser automation.
- * This handles dynamic/JS-rendered pages (Twitter, SPAs, etc.) and
- * uses the user's Chrome for authenticated content.
+ * Check if URL requires authentication (Twitter, etc.)
+ * These sites require the Chrome Extension for capture.
+ */
+function requiresAuthentication(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "x.com" || hostname === "twitter.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch content from URL and extract readable content
  */
 export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   const sourceType = getSourceType(url);
@@ -75,19 +85,28 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
     );
   }
 
-  console.log(`[Content] Fetching with browser: ${url}`);
+  console.log(`[Content] Fetching: ${url}`);
 
-  // Use Playwright to fetch the fully rendered page
-  const { html, title: pageTitle } = await fetchWithBrowser(url);
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; SecondBrain/1.0)",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+  }
+
+  const html = await response.text();
 
   console.log(`[Content] Got ${html.length} chars, processing...`);
 
-  // Use Readability to extract article content
+  // Use Readability to extract article content (same library as Firefox Reader View)
   const dom = new JSDOM(html, { url });
   const reader = new Readability(dom.window.document);
   const article = reader.parse();
 
-  const title = article?.title || pageTitle || extractTitle(html) || siteName;
+  const title = article?.title || extractTitle(html) || siteName;
   const articleHtml = article?.content || "";
   const articleText = article?.textContent || "";
 
@@ -170,25 +189,3 @@ function extractTitle(html: string): string | null {
 
   return null;
 }
-
-function extractOgDescription(html: string): string | null {
-  // Match og:description content - handle both attribute orders
-  const match1 = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
-  if (match1) return decodeHtmlEntities(match1[1]);
-
-  const match2 = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-  if (match2) return decodeHtmlEntities(match2[1]);
-
-  return null;
-}
-
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
-}
-
