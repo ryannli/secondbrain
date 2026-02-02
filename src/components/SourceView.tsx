@@ -135,7 +135,7 @@ export function SourceView({
   return (
     <div className="flex gap-6 items-start">
       {/* Content Area - fixed height container */}
-      <div className="flex-1 min-w-0 max-w-2xl h-[calc(100vh-140px)] sticky top-0">
+      <div className="flex-1 min-w-0 max-w-xl h-[calc(100vh-140px)] sticky top-0">
         <div className="bg-white border rounded-xl p-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
           <div className="flex items-start justify-between mb-2">
             {isEditing ? (
@@ -355,7 +355,7 @@ export function SourceView({
 
       {/* Analysis Panel */}
       {analysis ? (
-        <div className="w-[420px] flex-shrink-0">
+        <div className="w-96 min-w-80 flex-shrink">
             {/* Triage Card */}
             {(() => {
               const score = analysis.triage.score ?? 50;
@@ -763,7 +763,7 @@ function AnalysisLoader({
   theme: Record<string, string>;
 }) {
   return (
-    <div className="w-[420px] flex-shrink-0">
+    <div className="w-96 min-w-80 flex-shrink">
       <div className="relative">
         {/* Corner glows */}
         <div

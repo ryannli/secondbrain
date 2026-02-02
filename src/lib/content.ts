@@ -70,10 +70,15 @@ function requiresAuthentication(url: string): boolean {
   }
 }
 
+// Default fallback User-Agent if none provided
+const DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 /**
  * Fetch content from URL and extract readable content
+ * @param url - The URL to fetch
+ * @param userAgent - Optional User-Agent from the client's browser
  */
-export async function extractFromUrl(url: string): Promise<ExtractedContent> {
+export async function extractFromUrl(url: string, userAgent?: string): Promise<ExtractedContent> {
   const sourceType = getSourceType(url);
   const siteName = new URL(url).hostname;
 
@@ -89,11 +94,20 @@ export async function extractFromUrl(url: string): Promise<ExtractedContent> {
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SecondBrain/1.0)",
+      "User-Agent": userAgent || DEFAULT_USER_AGENT,
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
     },
   });
 
   if (!response.ok) {
+    // Provide helpful error for blocked requests
+    if (response.status === 403) {
+      throw new Error(`This site blocks automated requests. Please use the browser extension to capture this page.`);
+    }
     throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
   }
 

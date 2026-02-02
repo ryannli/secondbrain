@@ -9,9 +9,23 @@ import {
   X,
   Inbox,
 } from "lucide-react";
-import { SourceSummary, ACTION_CONFIG } from "@/lib/types";
+import { SourceSummary, ACTION_CONFIG, FeedItem } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
 import { getSourceIcon } from "@/lib/sourceIcon";
+import { FeedSection } from "@/components/FeedSection";
+
+interface FeedProps {
+  items: FeedItem[];
+  interests: string[];
+  generatedAt: string | null;
+  fromCache: boolean;
+  message?: string;
+  loading: boolean;
+  error: string | null;
+  onCapture: (url: string) => void;
+  onDismiss: (id: string) => void;
+  onRefresh: () => void;
+}
 
 export interface DashboardProps {
   sources: SourceSummary[];
@@ -25,6 +39,7 @@ export interface DashboardProps {
   palette: Record<number, string>;
   theme: Record<string, string>;
   getScoreColor: (score: number) => string;
+  feed?: FeedProps;
 }
 
 export function Dashboard({
@@ -39,6 +54,7 @@ export function Dashboard({
   palette,
   theme,
   getScoreColor,
+  feed,
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
@@ -346,6 +362,24 @@ export function Dashboard({
         </p>
       </div>
       {captureInputElement}
+
+      {/* Feed Section */}
+      {feed && (
+        <FeedSection
+          items={feed.items}
+          interests={feed.interests}
+          generatedAt={feed.generatedAt}
+          fromCache={feed.fromCache}
+          message={feed.message}
+          loading={feed.loading}
+          error={feed.error}
+          onCapture={feed.onCapture}
+          onDismiss={feed.onDismiss}
+          onRefresh={feed.onRefresh}
+          palette={palette}
+          theme={theme}
+        />
+      )}
 
       {/* Inbox Section - only show if there are unread items */}
       {inboxSources.length > 0 && (

@@ -33,8 +33,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Second Brain - UI Playground",
-  description: "UI Style Selection",
+  title: "Second Brain",
+  description: "Your personal knowledge management system",
 };
 
 export default function RootLayout({

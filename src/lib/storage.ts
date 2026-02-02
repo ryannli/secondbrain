@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -9,6 +9,7 @@ import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType,
 export interface UserConfig {
   accentColor?: string;  // Hex color like "#3b6044"
   fontFamily?: string;   // Font ID like "outfit", "inter", etc.
+  feedSources?: string[]; // Domains to prioritize in feed (e.g., ["reddit.com", "news.ycombinator.com"])
 }
 
 /**
@@ -1326,4 +1327,39 @@ export async function renameFolder(
 
   await fs.rename(fullOldPath, fullNewPath);
   return newRelativePath;
+}
+
+// =============================================================================
+// Feed Cache Functions
+// =============================================================================
+
+/**
+ * Get feed cache directory path
+ */
+function getFeedPath(): string {
+  return path.join(getRootPath(), ".feed");
+}
+
+/**
+ * Load feed cache from disk
+ * Returns null if cache doesn't exist or is corrupted
+ */
+export async function loadFeedCache(): Promise<FeedCache | null> {
+  try {
+    const cachePath = path.join(getFeedPath(), "cache.json");
+    const content = await fs.readFile(cachePath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save feed cache to disk
+ */
+export async function saveFeedCache(cache: FeedCache): Promise<void> {
+  const feedDir = getFeedPath();
+  await fs.mkdir(feedDir, { recursive: true });
+  const cachePath = path.join(feedDir, "cache.json");
+  await fs.writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
 }

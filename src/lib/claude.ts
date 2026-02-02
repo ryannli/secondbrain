@@ -1,6 +1,13 @@
 import { spawn } from "child_process";
-import { Analysis, Highlight, Connection, Concept } from "./types";
+import { Analysis, Highlight, Connection, Concept, FeedItem } from "./types";
+import { BraveSearchResult } from "./search";
+import { FEED_CONFIG } from "./config";
 import path from "path";
+import {
+  promptGenerateTitle,
+  promptGenerateBriefing,
+  promptExtractInterests,
+} from "./prompts";
 
 /**
  * Call Claude via CLI in print mode (async, non-blocking)
@@ -43,20 +50,7 @@ async function callClaude(prompt: string): Promise<string> {
  * Generate a concise title for content using AI
  */
 export async function generateTitle(content: string): Promise<string> {
-  const prompt = `Generate a concise, descriptive title (5-10 words) for this content.
-
-Rules:
-1. Capture the main topic or insight
-2. If the author is a well-known person (tech leader, researcher, entrepreneur, public figure, etc.), include their name
-   - Format: "Author Name: Topic" or "Author Name on Topic"
-   - Examples: "Andrej Karpathy on LLM Training Workflows", "Paul Graham: How to Start a Startup"
-3. If the author is not famous or cannot be identified, just describe the content without attribution
-
-Respond with ONLY the title, no quotes or explanation.
-
-Content:
-${content.slice(0, 3000)}`;
-
+  const prompt = promptGenerateTitle(content);
   const title = await callClaude(prompt);
   return title.replace(/^["']|["']$/g, "").trim() || "Untitled Note";
 }
@@ -602,5 +596,195 @@ Respond with ONLY the JSON object.`;
       details: newSource.summary,
       relatedSourceIds: [newSource.id],
     }];
+  }
+}
+
+/**
+ * Source data for interest extraction
+ */
+interface SourceForInterests {
+  title: string;
+  concepts: { term: string; definition: string }[];
+  highlights: string[];
+}
+
+/**
+ * Extract user interests from their library for feed generation
+ * Returns 3-5 search-friendly topic strings
+ */
+export async function extractUserInterests(
+  sources: SourceForInterests[]
+): Promise<string[]> {
+  if (sources.length === 0) return [];
+
+  const sourcesContext = sources
+    .slice(0, 20) // Limit to recent 20 sources
+    .map((s, i) => {
+      const concepts = s.concepts.map((c) => c.term).join(", ");
+      const highlights = s.highlights.slice(0, 3).join("; ");
+      return `${i + 1}. "${s.title}"
+   Concepts: ${concepts || "none"}
+   Key points: ${highlights || "none"}`;
+    })
+    .join("\n\n");
+
+  const prompt = promptExtractInterests(sourcesContext, sources.length, FEED_CONFIG.maxInterests);
+  const responseText = await callClaude(prompt);
+
+  try {
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error("[extractUserInterests] No JSON array found");
+      return [];
+    }
+    const interests = JSON.parse(jsonMatch[0]);
+    return Array.isArray(interests)
+      ? interests.filter((i: unknown) => typeof i === "string").slice(0, FEED_CONFIG.maxInterests)
+      : [];
+  } catch (err) {
+    console.error("[extractUserInterests] Failed to parse:", responseText.slice(0, 200), err);
+    return [];
+  }
+}
+
+/**
+ * Source summary for feed filtering
+ */
+interface SourceSummaryForFeed {
+  id: string;
+  title: string;
+  summary: string;
+  concepts: string[];
+}
+
+/**
+ * Filter and score search results - recommend only what's genuinely worth reading
+ * Returns all items (both recommended and filtered) with reasons
+ */
+export async function filterFeedItems(
+  searchResults: BraveSearchResult[],
+  userSources: SourceSummaryForFeed[],
+  preferredSources: string[] = []
+): Promise<FeedItem[]> {
+  if (searchResults.length === 0) return [];
+
+  const resultsContext = searchResults
+    .slice(0, 30) // Limit input
+    .map((r, i) => `${i + 1}. "${r.title}"
+   URL: ${r.url}
+   Source: ${r.meta_url?.hostname ?? "unknown"}
+   Age: ${r.age ?? r.page_age ?? "unknown"}
+   Snippet: ${r.description}`)
+    .join("\n\n");
+
+  const libraryContext = userSources.length > 0
+    ? userSources.slice(0, 15).map((s) => `- "${s.title}" (concepts: ${s.concepts.join(", ")})`).join("\n")
+    : "Empty library";
+
+  const { promptFilterFeed } = await import("./prompts");
+  const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources);
+
+  const responseText = await callClaude(prompt);
+
+  try {
+    let jsonText = responseText;
+    const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[filterFeedItems] No JSON found");
+      return [];
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    const scoredItems = result.items ?? [];
+
+    // Map back to full FeedItem objects
+    const feedItems: FeedItem[] = [];
+    for (const scored of scoredItems) {
+      const idx = (scored.index ?? 1) - 1;
+      if (idx < 0 || idx >= searchResults.length) continue;
+
+      const searchResult = searchResults[idx];
+      const action = scored.action === "recommend" ? "recommend" : "skip";
+      const overall = scored.score ?? (action === "recommend" ? 70 : 30);
+
+      feedItems.push({
+        id: generateFeedItemId(searchResult.url),
+        title: searchResult.title,
+        url: searchResult.url,
+        snippet: searchResult.description,
+        publishedAt: searchResult.page_age ?? new Date().toISOString(),
+        source: searchResult.meta_url?.hostname ?? "unknown",
+        thumbnail: searchResult.thumbnail?.src,
+        scoring: {
+          overall,
+          action,
+          whyRead: scored.whyRead,
+          whySkip: scored.whySkip,
+          connectsTo: scored.connectsTo,
+        },
+      });
+    }
+
+    // Sort: recommended first, then by score
+    feedItems.sort((a, b) => {
+      if (a.scoring.action !== b.scoring.action) {
+        return a.scoring.action === "recommend" ? -1 : 1;
+      }
+      return b.scoring.overall - a.scoring.overall;
+    });
+
+    return feedItems.slice(0, FEED_CONFIG.maxFeedItems);
+  } catch (err) {
+    console.error("[filterFeedItems] Failed to parse:", responseText.slice(0, 200), err);
+    return [];
+  }
+}
+
+/**
+ * Generate a stable ID for a feed item from its URL
+ */
+function generateFeedItemId(url: string): string {
+  // Simple hash function for URL
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    const char = url.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `feed-${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Generate a Chief of Staff style briefing for the user
+ */
+export async function generateBriefing(
+  feedItems: FeedItem[],
+  userSources: { title: string; concepts: string[] }[]
+): Promise<string> {
+  if (feedItems.length === 0) {
+    return "";
+  }
+
+  const feedContext = feedItems.slice(0, 10).map((item, i) =>
+    `${i + 1}. "${item.title}" (${item.source}) - Score: ${item.scoring.overall}, Action: ${item.scoring.action}`
+  ).join("\n");
+
+  const libraryContext = userSources.length > 0
+    ? userSources.slice(0, 10).map(s => `- "${s.title}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
+    : "Empty library";
+
+  const prompt = promptGenerateBriefing(libraryContext, feedContext);
+
+  try {
+    const briefing = await callClaude(prompt);
+    return briefing.trim();
+  } catch (err) {
+    console.error("[generateBriefing] Failed:", err);
+    return "";
   }
 }

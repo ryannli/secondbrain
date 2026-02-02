@@ -30,6 +30,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body = await request.json();
     const { url, text, title, html } = body;
 
+    // Get user's User-Agent for forwarding to target sites
+    const userAgent = request.headers.get("user-agent") || undefined;
+
     if (!url && !text && !html) {
       return NextResponse.json(
         { success: false, error: "url, text, or html is required" },
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }, { headers: corsHeaders });
 
     // Phase 2: Process in background (fire and forget)
-    processSourceInBackground(id, { url, text, title, html }).catch((error) => {
+    processSourceInBackground(id, { url, text, title, html, userAgent }).catch((error) => {
       console.error(`Background processing failed for ${id}:`, error);
     });
 
@@ -111,9 +114,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  */
 async function processSourceInBackground(
   id: string,
-  input: { url?: string; text?: string; title?: string; html?: string }
+  input: { url?: string; text?: string; title?: string; html?: string; userAgent?: string }
 ): Promise<void> {
-  const { url, text, title, html } = input;
+  const { url, text, title, html, userAgent } = input;
 
   try {
     let extractedTitle: string;
@@ -127,7 +130,7 @@ async function processSourceInBackground(
       content = extracted.content;
     } else if (url) {
       console.log(`[${id}] Fetching and extracting content from: ${url}`);
-      const extracted = await extractFromUrl(url);
+      const extracted = await extractFromUrl(url, userAgent);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else {

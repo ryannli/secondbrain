@@ -4,7 +4,7 @@ A persistent cognitive workspace that manages information flow for knowledge wor
 
 **The Problem**: AI content grows exponentially, but human attention scales linearly.
 
-**The Solution**: AI handles information triage and organization; humans focus on judgment and decisions.
+**The Solution**: AI acts as your **Chief of Staff** — handling information triage, surfacing what matters, and proactively guiding your attention. You focus on judgment and decisions.
 
 ## Core Principle: Everything is a Local File
 
@@ -26,6 +26,8 @@ This means:
 - **Dual Analysis**:
   - **Digest**: Summary, key highlights, concepts
   - **Critique**: Hidden assumptions, potential issues, verification needs
+- **For You Feed**: Personalized news recommendations based on your library
+- **Daily Briefing**: AI-generated summary that tells you what's worth your attention today — what's new, what you already know, and where to focus
 - **Library Organization**: Tree-based file organization with user-created folders
 
 ## How Data is Stored
