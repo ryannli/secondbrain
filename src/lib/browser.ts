@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext } from "playwright";
+import { chromium, BrowserContext } from "playwright";
 import * as os from "os";
 import * as path from "path";
 
@@ -22,7 +22,20 @@ function getChromeProfilePath(): string {
 }
 
 /**
- * Fetch a URL using the user's Chrome browser with their existing login sessions.
+ * Check if URL requires authentication (Twitter, etc.)
+ * These sites require the Chrome Extension for capture.
+ */
+export function requiresAuthentication(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "x.com" || hostname === "twitter.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch a URL using Playwright browser automation.
  * This enables capturing content from sites that require authentication (Twitter, paywalls, etc.)
  *
  * The browser runs in headless mode - completely invisible to the user.
@@ -30,43 +43,67 @@ function getChromeProfilePath(): string {
 export async function fetchWithBrowser(url: string): Promise<{ html: string; title: string }> {
   console.log(`[Browser] Opening URL: ${url}`);
 
-  let browser: Browser | null = null;
   let context: BrowserContext | null = null;
 
   try {
     const chromeProfilePath = getChromeProfilePath();
     console.log(`[Browser] Using Chrome profile: ${chromeProfilePath}`);
 
-    // Launch browser with user's Chrome profile for login sessions
-    // Note: We use chromium.launch with a separate user data dir copy
-    // because launchPersistentContext locks the profile (can't use if Chrome is open)
-    browser = await chromium.launch({
-      headless: true,
-      channel: "chrome", // Use installed Chrome instead of bundled Chromium
-    });
-
-    // Create context - we'll copy cookies from Chrome profile
-    context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    });
-
-    // Try to load cookies from Chrome profile
+    // Use launchPersistentContext to access user's Chrome profile with login sessions
+    // This gives us access to cookies, localStorage, etc.
+    // Note: This will fail if Chrome is already running with this profile
     try {
-      await loadChromeSession(context, chromeProfilePath, url);
-    } catch (err) {
-      console.log(`[Browser] Could not load Chrome session (will proceed without login): ${err}`);
+      context = await chromium.launchPersistentContext(
+        path.join(chromeProfilePath, "Default"),
+        {
+          headless: true,
+          channel: "chrome",
+          args: [
+            "--disable-blink-features=AutomationControlled", // Avoid detection
+          ],
+        }
+      );
+      console.log(`[Browser] Using persistent context with user profile`);
+    } catch (profileError) {
+      // If profile is locked (Chrome is running), fall back to new context
+      console.log(`[Browser] Could not use Chrome profile (${profileError}), using fresh context`);
+      const browser = await chromium.launch({
+        headless: true,
+        channel: "chrome",
+        args: ["--disable-blink-features=AutomationControlled"],
+      });
+      context = await browser.newContext({
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      });
     }
 
     const page = await context.newPage();
 
-    // Navigate and wait for content to load
+    // Navigate and wait for initial load
+    console.log(`[Browser] Navigating to: ${url}`);
     await page.goto(url, {
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
       timeout: 30000,
     });
 
-    // Wait a bit more for any lazy-loaded content
-    await page.waitForTimeout(1000);
+    // Wait for React/JS apps to render
+    // Twitter uses React and needs time to hydrate
+    console.log(`[Browser] Waiting for JS to render...`);
+    await page.waitForTimeout(3000);
+
+    // Try to wait for actual content to appear
+    try {
+      // For Twitter, wait for tweet content or timeline
+      await page.waitForSelector('[data-testid="tweetText"], [data-testid="tweet"], article', {
+        timeout: 10000,
+      });
+      console.log(`[Browser] Content detected`);
+    } catch {
+      console.log(`[Browser] No specific content selector found, continuing anyway`);
+    }
+
+    // Additional wait for dynamic content
+    await page.waitForTimeout(2000);
 
     // Scroll down to trigger lazy loading (for feeds like Twitter)
     await autoScroll(page);
@@ -81,7 +118,6 @@ export async function fetchWithBrowser(url: string): Promise<{ html: string; tit
   } finally {
     // Clean up
     if (context) await context.close();
-    if (browser) await browser.close();
   }
 }
 

@@ -2,7 +2,7 @@ import { SourceType } from "./types";
 import { formatTextContent, extractReadableContent, generateTitle } from "./claude";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import { fetchWithBrowser } from "./browser";
+import { fetchWithBrowser, requiresAuthentication } from "./browser";
 
 /**
  * Determine source type from URL or content.
@@ -66,6 +66,14 @@ export interface ExtractedContent {
 export async function extractFromUrl(url: string): Promise<ExtractedContent> {
   const sourceType = getSourceType(url);
   const siteName = new URL(url).hostname;
+
+  // Sites that require authentication should use Chrome Extension
+  if (requiresAuthentication(url)) {
+    console.log(`[Content] ${siteName} requires authentication, please use Chrome Extension`);
+    throw new Error(
+      `${siteName} requires login to view content. Please use the Chrome Extension to capture this page while logged in.`
+    );
+  }
 
   console.log(`[Content] Fetching with browser: ${url}`);
 
