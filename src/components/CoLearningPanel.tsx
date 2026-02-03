@@ -269,6 +269,8 @@ interface CoLearningPanelProps {
   width?: number;
   currentPath?: string;
   sourcePath?: string;  // Full path to current source directory (e.g., ./library/folder/id)
+  sourceId?: string;    // Current source ID (for explicit context display)
+  sourceTitle?: string; // Current source title (for explicit context display)
   onAgentComplete?: () => void;
 }
 
@@ -278,6 +280,8 @@ export function CoLearningPanel({
   palette,
   currentPath,
   sourcePath,
+  sourceId,
+  sourceTitle,
   onAgentComplete,
   width = 384,
 }: CoLearningPanelProps) {
@@ -447,16 +451,25 @@ export function CoLearningPanel({
       streamEvents: m.streamEvents,
     }));
 
+    // Build contexts array: source + text selections
+    const allContexts: { id: string; text: string; source?: string }[] = [];
+    if (sourceId && sourceTitle) {
+      allContexts.push({
+        id: sourceId,
+        text: `[Source: ${sourceTitle}]`,
+        source: sourceTitle,
+      });
+    }
+    for (const c of currentContexts) {
+      allContexts.push({ id: c.id, text: c.text, source: c.source });
+    }
+
     const userMessage: AgentMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: messageText,
       timestamp: new Date().toISOString(),
-      contexts: currentContexts.length > 0 ? currentContexts.map((c) => ({
-        id: c.id,
-        text: c.text,
-        source: c.source,
-      })) : undefined,
+      contexts: allContexts.length > 0 ? allContexts : undefined,
     };
 
     const assistantMessageId = `msg-${Date.now()}-assistant`;
@@ -582,11 +595,18 @@ export function CoLearningPanel({
           >
             {msg.contexts && msg.contexts.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-1.5 pb-1.5 border-b border-white/20">
-                {msg.contexts.map((ctx) => (
-                  <span key={ctx.id} className="text-xs px-1.5 py-0.5 rounded bg-white/20">
-                    {ctx.text.slice(0, 25)}{ctx.text.length > 25 ? "..." : ""}
-                  </span>
-                ))}
+                {msg.contexts.map((ctx) => {
+                  const isSourceContext = ctx.text.startsWith("[Source:");
+                  return (
+                    <span
+                      key={ctx.id}
+                      className={`text-xs px-1.5 py-0.5 rounded ${isSourceContext ? "bg-white/30 border border-white/40" : "bg-white/20"}`}
+                      title={isSourceContext ? ctx.source : ctx.text}
+                    >
+                      {isSourceContext ? `📄 ${ctx.source?.slice(0, 20) || ""}${(ctx.source?.length || 0) > 20 ? "..." : ""}` : `${ctx.text.slice(0, 25)}${ctx.text.length > 25 ? "..." : ""}`}
+                    </span>
+                  );
+                })}
               </div>
             )}
             <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
@@ -817,8 +837,21 @@ export function CoLearningPanel({
       {/* Input area with context chips */}
       <div className="border-t" style={{ borderColor: theme.border }}>
         {/* Context chips */}
-        {contexts.length > 0 && (
+        {(sourceId || contexts.length > 0) && (
           <div className="px-3 pt-2 flex flex-wrap gap-1.5">
+            {/* Current source chip */}
+            {sourceId && sourceTitle && (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border"
+                style={{ borderColor: palette[300], color: palette[600] }}
+                title={sourceTitle}
+              >
+                <span className="truncate max-w-[180px]">
+                  📄 {sourceTitle.slice(0, 25)}{sourceTitle.length > 25 ? "..." : ""}
+                </span>
+              </div>
+            )}
+            {/* Text selection chips */}
             {contexts.map((ctx) => (
               <div
                 key={ctx.id}
