@@ -5,16 +5,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare, Wrench } from "lucide-react";
 import { theme } from "@/lib/theme";
-import { AgentConversationSummary, AgentMessage } from "@/lib/types";
+import { AgentConversationSummary, AgentMessage, AgentStreamEvent } from "@/lib/types";
 
-// Stream event types from backend
-type StreamEvent =
-  | { type: "text"; content: string }
-  | { type: "tool"; id: string; name: string; detail?: string }
-  | { type: "subtool"; parentId: string; name: string; detail?: string }
-  | { type: "result"; toolId: string; content: string }
-  | { type: "subtool_done"; parentId: string }
-  | { type: "error"; message: string };
+// Re-export for local use
+type StreamEvent = AgentStreamEvent;
 
 // UI data structures
 interface ToolCall {
@@ -534,6 +528,7 @@ export function CoLearningPanel({
         role: "assistant",
         content: finalContent,
         timestamp: new Date().toISOString(),
+        streamEvents: allEvents.length > 0 ? allEvents : undefined,
       };
 
       const finalMessages = [...newMessages, assistantMessage];
@@ -593,10 +588,12 @@ export function CoLearningPanel({
       );
     }
 
-    // Assistant message
+    // Assistant message - use streamEvents if available, otherwise plain text
     const parsed = isStreaming && streamEvents
       ? buildParsedMessage(streamEvents)
-      : parseStoredMessage(msg.content);
+      : msg.streamEvents
+        ? buildParsedMessage(msg.streamEvents)
+        : parseStoredMessage(msg.content);
 
     if (parsed.segments.length === 0 && !isStreaming) {
       return null; // Don't render empty messages

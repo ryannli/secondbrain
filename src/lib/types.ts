@@ -198,12 +198,22 @@ export interface AgentContext {
   source?: string;               // Source title if from a library item
 }
 
+// Stream event from Agent (for preserving tool calls in history)
+export type AgentStreamEvent =
+  | { type: "text"; content: string }
+  | { type: "tool"; id: string; name: string; detail?: string }
+  | { type: "subtool"; parentId: string; name: string; detail?: string }
+  | { type: "result"; toolId: string; content: string }
+  | { type: "subtool_done"; parentId: string }
+  | { type: "error"; message: string };
+
 export interface AgentMessage {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  content: string;               // Plain text content (for search, history display)
   timestamp: string;             // ISO timestamp
   contexts?: AgentContext[];     // Context items attached to this message
+  streamEvents?: AgentStreamEvent[]; // Raw events for rebuilding full UI (tools, etc.)
 }
 
 export interface AgentConversation {
