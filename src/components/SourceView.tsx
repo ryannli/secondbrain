@@ -178,8 +178,8 @@ export function SourceView({
     <div ref={containerRef} className="flex items-stretch">
       {/* Content Area - fixed height container */}
       <div className="flex-1 min-w-0 h-[calc(100vh-140px)] sticky top-0 pr-2">
-        <div className="bg-white border rounded-xl p-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
-          <div className="flex items-start justify-between mb-2">
+        <div className="bg-white border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
+          <div className="flex items-start justify-between mb-2 pr-6">
             {isEditing ? (
               <input
                 type="text"
@@ -288,7 +288,7 @@ export function SourceView({
               href={meta.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm hover:underline"
+              className="text-sm hover:underline pr-6"
               style={{ color: theme.textLight }}
             >
               {new URL(meta.sourceUrl).hostname} ↗
@@ -301,12 +301,12 @@ export function SourceView({
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full h-full p-4 border rounded-lg font-mono text-sm resize-none outline-none"
+                className="w-full h-full p-4 border rounded-lg font-mono text-sm resize-none outline-none mr-6"
                 style={{ borderColor: theme.border }}
                 placeholder="Markdown content..."
               />
             ) : viewOriginal ? (
-              <div className="h-full w-full flex flex-col rounded-lg overflow-hidden border" style={{ borderColor: theme.border }}>
+              <div className="h-full w-full flex flex-col rounded-lg overflow-hidden border mr-6" style={{ borderColor: theme.border }}>
                 {/* Zoom controls */}
                 <div
                   className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0"
@@ -370,7 +370,7 @@ export function SourceView({
                 </div>
               </div>
             ) : (
-              <div className="prose prose-sm prose-neutral max-w-none h-full overflow-y-auto">
+              <div className="prose prose-sm prose-neutral max-w-none h-full overflow-y-auto pr-6">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
