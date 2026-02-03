@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
 import { Source, ActionType, ACTION_CONFIG } from "@/lib/types";
@@ -21,6 +21,7 @@ import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
 import { CoLearningPanel } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
+import { ResizeHandle } from "@/components/ResizeHandle";
 
 export default function Home() {
   return (
@@ -42,6 +43,58 @@ function HomeContent() {
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
   const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
+
+  // Resizable panels
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sidebarWidth");
+      return saved ? parseInt(saved, 10) : 256;
+    }
+    return 256;
+  });
+  const [askPanelWidth, setAskPanelWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("askPanelWidth");
+      return saved ? parseInt(saved, 10) : 384;
+    }
+    return 384;
+  });
+  const [resizing, setResizing] = useState<"sidebar" | "ask" | null>(null);
+
+  // Resize handlers
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (resizing === "sidebar") {
+      const newWidth = Math.min(400, Math.max(200, e.clientX));
+      setSidebarWidth(newWidth);
+    } else if (resizing === "ask") {
+      const newWidth = Math.min(600, Math.max(320, window.innerWidth - e.clientX));
+      setAskPanelWidth(newWidth);
+    }
+  }, [resizing]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizing === "sidebar") {
+      localStorage.setItem("sidebarWidth", sidebarWidth.toString());
+    } else if (resizing === "ask") {
+      localStorage.setItem("askPanelWidth", askPanelWidth.toString());
+    }
+    setResizing(null);
+  }, [resizing, sidebarWidth, askPanelWidth]);
+
+  useEffect(() => {
+    if (resizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+    }
+  }, [resizing, handleMouseMove, handleMouseUp]);
 
   // Derive currentView from URL
   const currentView: "dashboard" | "foryou" = viewParam === "foryou" ? "foryou" : "dashboard";
@@ -287,7 +340,16 @@ function HomeContent() {
           onCancelRename={folderManagement.cancelRenameFolder}
           palette={palette}
           isEmpty={sources.length === 0}
+          width={sidebarWidth}
         />
+
+        {/* Resize handle between sidebar and content */}
+        {isSidebarOpen && (
+          <ResizeHandle
+            onMouseDown={() => setResizing("sidebar")}
+            isResizing={resizing === "sidebar"}
+          />
+        )}
 
         <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
@@ -351,11 +413,20 @@ function HomeContent() {
           </div>
         </main>
 
-        {/* Co-learning Panel */}
+        {/* Resize handle between content and Ask panel */}
+        {isCoLearningOpen && (
+          <ResizeHandle
+            onMouseDown={() => setResizing("ask")}
+            isResizing={resizing === "ask"}
+          />
+        )}
+
+        {/* Ask Panel */}
         <CoLearningPanel
           isOpen={isCoLearningOpen}
           onToggle={() => setIsCoLearningOpen(!isCoLearningOpen)}
           palette={palette}
+          width={askPanelWidth}
         />
       </div>
 

@@ -1,5 +1,14 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
+import path from "path";
+
+/**
+ * Get the library path - this is the ONLY directory the Agent can access
+ */
+function getLibraryPath(): string {
+  const root = process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
+  return process.env.SECONDBRAIN_LIBRARY || path.join(root, "library");
+}
 
 interface ChatContext {
   text: string;
@@ -32,13 +41,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Build the prompt
-    let prompt = `You are a helpful assistant in a knowledge management app called "Second Brain".
+    let prompt = `You are an Agent in a knowledge management app called "Second Brain".
 
-Your capabilities:
-1. **Explain concepts** - Help the user understand content they've selected
-2. **Analyze content** - Provide insights, critique, or connections
-3. **Answer questions** - About the selected text or general knowledge
-4. **Suggest actions** - Like organizing, categorizing, or finding related content
+Your workspace is the user's library directory. You can:
+1. **Read and explore** - Browse the library structure, read sources and their analyses
+2. **Organize** - Move sources between folders, create new folders, rename things
+3. **Analyze** - Help understand content, find connections between sources
+4. **Answer questions** - About the library content or general knowledge
+
+IMPORTANT: You are sandboxed to ONLY the library directory. You cannot access files outside this directory.
+
+The library structure:
+- Each source is a folder with: original.json (metadata), content.md (extracted text), analysis.json (AI analysis)
+- Sources can be organized into user-created folders
+- Moving a source = moving its entire folder
 
 Be concise but thorough. Use markdown formatting when helpful.
 `;
@@ -64,6 +80,9 @@ Be concise but thorough. Use markdown formatting when helpful.
     prompt += "\n## Your Response\n";
 
     // Create streaming response using stream-json format
+    // Agent is sandboxed to ONLY the library directory
+    const libraryPath = getLibraryPath();
+
     const stream = new ReadableStream({
       start(controller) {
         const proc = spawn("claude", [
@@ -71,8 +90,10 @@ Be concise but thorough. Use markdown formatting when helpful.
           "--output-format", "stream-json",
           "--verbose",
           "--include-partial-messages",
+          "--permission-mode", "acceptEdits",  // Allow file operations (sandboxed to cwd)
         ], {
           stdio: ["pipe", "pipe", "pipe"],
+          cwd: libraryPath,  // Restrict Claude to library directory only
         });
 
         const encoder = new TextEncoder();
@@ -89,6 +110,7 @@ Be concise but thorough. Use markdown formatting when helpful.
             if (!line.trim()) continue;
             try {
               const event = JSON.parse(line);
+
               // Extract text from content_block_delta events
               if (
                 event.type === "stream_event" &&
@@ -97,6 +119,17 @@ Be concise but thorough. Use markdown formatting when helpful.
               ) {
                 controller.enqueue(encoder.encode(event.event.delta.text));
               }
+
+              // Send tool usage as a special marker for frontend to parse
+              if (
+                event.type === "stream_event" &&
+                event.event?.type === "content_block_start" &&
+                event.event?.content_block?.type === "tool_use"
+              ) {
+                const toolName = event.event.content_block.name;
+                controller.enqueue(encoder.encode(`\n[[TOOL:${toolName}]]\n`));
+              }
+
             } catch {
               // Ignore malformed JSON lines
             }

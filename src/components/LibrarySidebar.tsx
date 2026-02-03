@@ -59,6 +59,8 @@ export interface LibrarySidebarProps {
   palette: Record<number, string>;
   // Empty state
   isEmpty: boolean;
+  // Width (for resizable)
+  width?: number;
 }
 
 export function LibrarySidebar({
@@ -97,13 +99,15 @@ export function LibrarySidebar({
   onCancelRename,
   palette,
   isEmpty,
+  width = 256,
 }: LibrarySidebarProps) {
   return (
     <aside
-      className={`flex-shrink-0 border-r flex flex-col transition-all duration-200 ${
-        isSidebarOpen ? "w-64" : "w-12"
-      }`}
-      style={{ borderColor: theme.border }}
+      className="flex-shrink-0 border-r flex flex-col"
+      style={{
+        borderColor: theme.border,
+        width: isSidebarOpen ? width : 48,
+      }}
     >
       {/* Sidebar Toggle */}
       <div className="px-3 py-2 flex items-center justify-end">

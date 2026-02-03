@@ -3,9 +3,97 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare } from "lucide-react";
+import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare, Wrench } from "lucide-react";
 import { theme } from "@/lib/theme";
 import { AgentConversationSummary, AgentMessage, AgentContext } from "@/lib/types";
+
+/**
+ * Parse message content and separate text from tool calls
+ * Tool calls are marked as [[TOOL:name]]
+ */
+function parseMessageContent(content: string): Array<{ type: "text" | "tools"; content: string; tools?: string[] }> {
+  const segments: Array<{ type: "text" | "tools"; content: string; tools?: string[] }> = [];
+  const toolPattern = /\[\[TOOL:(\w+)\]\]/g;
+
+  let lastIndex = 0;
+  let match;
+  let pendingTools: string[] = [];
+
+  while ((match = toolPattern.exec(content)) !== null) {
+    // Add text before this tool (if any and not just whitespace)
+    const textBefore = content.slice(lastIndex, match.index).trim();
+    if (textBefore) {
+      // If we have pending tools, flush them first
+      if (pendingTools.length > 0) {
+        segments.push({ type: "tools", content: "", tools: pendingTools });
+        pendingTools = [];
+      }
+      segments.push({ type: "text", content: textBefore });
+    }
+
+    // Accumulate tool calls
+    pendingTools.push(match[1]);
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Flush any remaining tools
+  if (pendingTools.length > 0) {
+    segments.push({ type: "tools", content: "", tools: pendingTools });
+  }
+
+  // Add remaining text after last tool
+  const remainingText = content.slice(lastIndex).trim();
+  if (remainingText) {
+    segments.push({ type: "text", content: remainingText });
+  }
+
+  return segments;
+}
+
+/**
+ * Collapsible tool calls section
+ */
+function ToolCallsSection({ tools, isStreaming }: { tools: string[]; isStreaming?: boolean }) {
+  const [isOpen, setIsOpen] = useState(isStreaming);
+
+  // Auto-expand while streaming
+  useEffect(() => {
+    if (isStreaming) setIsOpen(true);
+  }, [isStreaming]);
+
+  const uniqueTools = [...new Set(tools)];
+  const summary = uniqueTools.length <= 2
+    ? uniqueTools.join(", ")
+    : `${uniqueTools.slice(0, 2).join(", ")} +${uniqueTools.length - 2} more`;
+
+  return (
+    <div className="my-2 text-xs border rounded-lg overflow-hidden" style={{ borderColor: theme.border }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-2 px-2 py-1.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <Wrench className="w-3 h-3 text-gray-400" />
+        <span className="text-gray-600 flex-1">
+          {isStreaming ? "Working..." : `Used ${tools.length} tools`}
+          <span className="text-gray-400 ml-1">({summary})</span>
+        </span>
+        <ChevronDown
+          className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+        />
+      </button>
+      {isOpen && (
+        <div className="px-2 py-1.5 bg-gray-50/50 text-gray-500 space-y-0.5">
+          {tools.map((tool, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="w-1 h-1 rounded-full bg-gray-300" />
+              <span>{tool}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ContextItem {
   id: string;
@@ -17,12 +105,14 @@ interface CoLearningPanelProps {
   isOpen: boolean;
   onToggle: () => void;
   palette: Record<number, string>;
+  width?: number;
 }
 
 export function CoLearningPanel({
   isOpen,
   onToggle,
   palette,
+  width = 384,
 }: CoLearningPanelProps) {
   // Conversation state
   const [conversations, setConversations] = useState<AgentConversationSummary[]>([]);
@@ -197,6 +287,17 @@ export function CoLearningPanel({
     setContexts([]);
     setIsLoading(true);
 
+    // Save conversation immediately with user message (before streaming)
+    let convId = currentConversationId;
+    try {
+      convId = await saveConversation(newMessages, currentConversationId);
+      if (convId && convId !== currentConversationId) {
+        setCurrentConversationId(convId);
+      }
+    } catch (e) {
+      console.error("Failed to save conversation early:", e);
+    }
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -244,11 +345,8 @@ export function CoLearningPanel({
       });
       setMessages(finalMessages);
 
-      // Auto-save
-      const newId = await saveConversation(finalMessages, currentConversationId);
-      if (newId && newId !== currentConversationId) {
-        setCurrentConversationId(newId);
-      }
+      // Save final conversation with assistant response
+      await saveConversation(finalMessages, convId);
     } catch (err) {
       const errorMessage: AgentMessage = {
         id: `msg-${Date.now()}-error`,
@@ -286,8 +384,8 @@ export function CoLearningPanel({
 
   return (
     <div
-      className="w-96 border-l flex flex-col h-full bg-white"
-      style={{ borderColor: theme.border }}
+      className="border-l flex flex-col h-full bg-white"
+      style={{ width, borderColor: theme.border }}
     >
       {/* Header */}
       <div
@@ -424,7 +522,7 @@ export function CoLearningPanel({
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+              className={`max-w-[85%] rounded-2xl px-4 py-2 break-words ${
                 msg.role === "user" ? "rounded-br-md" : "rounded-bl-md"
               }`}
               style={{
@@ -446,10 +544,25 @@ export function CoLearningPanel({
                 </div>
               )}
               {msg.role === "assistant" ? (
-                <div className="prose prose-xs prose-neutral prose-tight max-w-none text-[13px] leading-snug [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
+                <div className="text-[13px] leading-snug">
+                  {parseMessageContent(msg.content).map((segment, i) => (
+                    segment.type === "tools" ? (
+                      <ToolCallsSection
+                        key={i}
+                        tools={segment.tools || []}
+                        isStreaming={isLoading && msg.id === messages[messages.length - 1]?.id}
+                      />
+                    ) : (
+                      <div
+                        key={i}
+                        className="prose prose-xs prose-neutral prose-tight max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none"
+                      >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {segment.content}
+                        </ReactMarkdown>
+                      </div>
+                    )
+                  ))}
                   {/* Show blinking cursor while streaming */}
                   {isLoading && msg.id === messages[messages.length - 1]?.id && (
                     <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
