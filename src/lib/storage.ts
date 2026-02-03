@@ -555,11 +555,13 @@ export async function loadSource(
   id: string,
   libraryPath = getLibraryPath()
 ): Promise<Source | null> {
-  // First try direct path
+  // First try direct path (root level)
   const directPath = path.join(libraryPath, id);
   try {
     await fs.access(path.join(directPath, "original.json"));
-    return loadSourceFromPath(directPath, id);
+    const source = await loadSourceFromPath(directPath, id);
+    // No folder for root level sources
+    return source;
   } catch {
     // Not at direct path, search recursively
   }
@@ -568,7 +570,14 @@ export async function loadSource(
   const sourcePath = await findSourcePath(id, libraryPath);
   if (!sourcePath) return null;
 
-  return loadSourceFromPath(sourcePath, id);
+  const source = await loadSourceFromPath(sourcePath, id);
+  if (source) {
+    // Extract folder from path: /library/folder/id → folder
+    const relativePath = path.relative(libraryPath, sourcePath);
+    const folder = path.dirname(relativePath);
+    source.meta.folder = folder !== "." ? folder : undefined;
+  }
+  return source;
 }
 
 export async function updateAnalysis(
