@@ -268,6 +268,7 @@ interface CoLearningPanelProps {
   palette: Record<number, string>;
   width?: number;
   currentPath?: string;
+  sourcePath?: string;  // Full path to current source directory (e.g., ./library/folder/id)
   onAgentComplete?: () => void;
 }
 
@@ -276,6 +277,7 @@ export function CoLearningPanel({
   onToggle,
   palette,
   currentPath,
+  sourcePath,
   onAgentComplete,
   width = 384,
 }: CoLearningPanelProps) {
@@ -439,7 +441,11 @@ export function CoLearningPanel({
     if (!messageText && contexts.length === 0) return;
 
     const currentContexts = [...contexts];
-    const currentHistory = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    const currentHistory = messages.slice(-10).map((m) => ({
+      role: m.role,
+      content: m.content,
+      streamEvents: m.streamEvents,
+    }));
 
     const userMessage: AgentMessage = {
       id: `msg-${Date.now()}`,
@@ -483,6 +489,7 @@ export function CoLearningPanel({
           contexts: currentContexts.map((c) => ({ text: c.text, source: c.source })),
           history: currentHistory,
           currentPath,
+          sourcePath,
         }),
       });
 

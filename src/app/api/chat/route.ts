@@ -17,6 +17,7 @@ interface ChatContext {
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  streamEvents?: StreamEvent[];
 }
 
 // Stream event types sent to frontend (NDJSON format)
@@ -36,11 +37,12 @@ type StreamEvent =
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, contexts, history, currentPath } = body as {
+    const { message, contexts, history, currentPath, sourcePath } = body as {
       message: string;
       contexts?: ChatContext[];
       history?: ChatMessage[];
       currentPath?: string;
+      sourcePath?: string;
     };
 
     if (!message && (!contexts || contexts.length === 0)) {
@@ -70,8 +72,11 @@ Be concise but thorough. Use markdown formatting when helpful.
       const sourceMatch = currentPath.match(/[?&]source=([^&]+)/);
       if (sourceMatch) {
         const sourceId = sourceMatch[1];
-        prompt += `\nUser is viewing source **${sourceId}**.\n`;
-        prompt += `Source folder: \`./library/${sourceId}/\` - you can read/edit files there.\n`;
+        if (sourcePath) {
+          prompt += `\nUser is viewing source **${sourceId}**. Source folder: \`${sourcePath}/\`\n`;
+        } else {
+          prompt += `\nUser is viewing source **${sourceId}**. Use \`find ./library -type d -name "${sourceId}"\` to locate it.\n`;
+        }
       } else if (currentPath.includes("view=foryou")) {
         prompt += "User is on the For You feed.\n";
       } else {
@@ -87,11 +92,30 @@ Be concise but thorough. Use markdown formatting when helpful.
       }
     }
 
-    // Add conversation history
+    // Add conversation history (including tool results for context)
     if (history && history.length > 0) {
       prompt += "\n## Conversation History\n";
       for (const msg of history) {
         prompt += `\n${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}\n`;
+
+        // Include tool results summary for assistant messages
+        if (msg.role === "assistant" && msg.streamEvents) {
+          const toolSummaries: string[] = [];
+          for (const event of msg.streamEvents) {
+            if (event.type === "tool" && event.detail) {
+              toolSummaries.push(`- ${event.name}: ${event.detail}`);
+            } else if (event.type === "result" && event.content) {
+              // Truncate long results
+              const preview = event.content.length > 200
+                ? event.content.slice(0, 200) + "..."
+                : event.content;
+              toolSummaries.push(`  → ${preview}`);
+            }
+          }
+          if (toolSummaries.length > 0) {
+            prompt += `\n[Tools used in this turn:\n${toolSummaries.join("\n")}\n]\n`;
+          }
+        }
       }
     }
 

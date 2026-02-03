@@ -439,6 +439,7 @@ function HomeContent() {
           palette={palette}
           width={askPanelWidth}
           currentPath={sourceId ? `/?source=${sourceId}` : viewParam ? `/?view=${viewParam}` : "/"}
+          sourcePath={selectedSource ? `./library/${selectedSource.meta.folder ? selectedSource.meta.folder + "/" : ""}${selectedSource.meta.id}` : undefined}
           onAgentComplete={async () => {
             // Reload current source when agent finishes (in case it modified files)
             if (selectedSource) {

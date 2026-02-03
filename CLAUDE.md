@@ -187,3 +187,18 @@ Status is **inferred from file existence**, not stored:
   - Setup/installation steps changed
   - API or configuration changed
   - Dependencies were added/removed
+
+### Continuous Learning
+- **Update CLAUDE.md**: When discovering patterns, fixing recurring issues, or learning something that would help future development, summarize and add it to this file. Examples:
+  - Common pitfalls and how to avoid them
+  - Architecture decisions and their rationale
+  - Patterns that work well in this codebase
+
+---
+
+## Lessons Learned
+
+### Agent History Must Include Tool Traces (2026-02-02)
+Multi-turn agent history should include tool calls and results, not just the text responses.
+
+Without tool traces, the agent in Turn 2 only sees "I read 26 files" but not what was in them—leading to hallucinated details when acting on that data.
