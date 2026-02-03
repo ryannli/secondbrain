@@ -5,13 +5,24 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare, Wrench } from "lucide-react";
 import { theme } from "@/lib/theme";
-import { AgentConversationSummary, AgentMessage, AgentContext } from "@/lib/types";
+import { AgentConversationSummary, AgentMessage } from "@/lib/types";
 
+// Stream event types from backend
+type StreamEvent =
+  | { type: "text"; content: string }
+  | { type: "tool"; id: string; name: string; detail?: string }
+  | { type: "subtool"; parentId: string; name: string; detail?: string }
+  | { type: "result"; toolId: string; content: string }
+  | { type: "subtool_done"; parentId: string }
+  | { type: "error"; message: string };
+
+// UI data structures
 interface ToolCall {
+  id: string;
   name: string;
   detail?: string;
   result?: string;
-  children?: ToolCall[];  // For Task tools, their sub-operations
+  children?: ToolCall[];
 }
 
 type MessageSegment =
@@ -24,103 +35,121 @@ interface ParsedMessage {
 }
 
 /**
- * Parse message into interleaved text and tool segments
- * Consecutive tools are grouped; text between tools creates new tool groups
+ * Build ParsedMessage from accumulated stream events
  */
-function parseMessageContent(content: string): ParsedMessage {
-  // Match tool calls and results
-  // Use [\s\S]*? to match ANY character including newlines (non-greedy)
-  const toolPattern = /\[\[TOOL:(\w+)(?::([\s\S]*?))?\]\]|\[\[TOOL_RESULT:([\s\S]*?)\]\]|\[\[TASK_START:([^:]+):([\s\S]*?)\]\]|\[\[SUBTOOL:(\w+):([\s\S]*?)\]\]|\[\[SUBTASK_DONE\]\]/g;
-
+function buildParsedMessage(events: StreamEvent[]): ParsedMessage {
   const segments: MessageSegment[] = [];
-  let totalToolCalls = 0;
-  let lastEnd = 0;
+  let currentText = "";
   let currentTools: ToolCall[] = [];
-  let currentTask: ToolCall | null = null;  // Track current Task for grouping subtools
+  const toolsById = new Map<string, ToolCall>();
+  let totalToolCalls = 0;
+
+  const flushText = () => {
+    if (currentText.trim()) {
+      segments.push({ type: "text", content: currentText.trim() });
+      currentText = "";
+    }
+  };
 
   const flushTools = () => {
     if (currentTools.length > 0) {
-      segments.push({ type: "tools", tools: currentTools });
+      segments.push({ type: "tools", tools: [...currentTools] });
       currentTools = [];
     }
-    currentTask = null;
   };
 
-  let match;
-  while ((match = toolPattern.exec(content)) !== null) {
-    // Check for text before this marker
-    const textBefore = content.slice(lastEnd, match.index).trim();
-    if (textBefore) {
-      // Text found - flush any accumulated tools first, then add text
-      flushTools();
-      segments.push({ type: "text", content: textBefore });
-    }
-
-    // Parse the marker
-    if (match[1]) {
-      // Tool call: [[TOOL:name:detail]]
-      const tool: ToolCall = { name: match[1], detail: match[2] || undefined };
-      if (match[1] === "Task") {
-        // This is a Task - it will collect subtools
-        tool.children = [];
-        currentTask = tool;
-      }
-      currentTools.push(tool);
-      totalToolCalls++;
-    } else if (match[3]) {
-      // Tool result: [[TOOL_RESULT:content]] - attach to last tool or last subtool
-      const lastTool = currentTools[currentTools.length - 1];
-      if (lastTool) {
-        if (currentTask && currentTask.children && currentTask.children.length > 0) {
-          // Attach to last subtool
-          currentTask.children[currentTask.children.length - 1].result = match[3];
-        } else {
-          // Attach to last main tool
-          lastTool.result = match[3];
+  for (const event of events) {
+    switch (event.type) {
+      case "text":
+        // If we have pending tools, flush them first
+        if (currentTools.length > 0) {
+          flushTools();
         }
-      }
-    } else if (match[4]) {
-      // Task start: [[TASK_START:type:desc]] - alternative Task format
-      const tool: ToolCall = { name: "Task", detail: `${match[4]}: ${match[5] || ""}`, children: [] };
-      currentTask = tool;
-      currentTools.push(tool);
-      totalToolCalls++;
-    } else if (match[6]) {
-      // Sub-agent tool: [[SUBTOOL:name:detail]] - add to current Task
-      const subtool: ToolCall = { name: match[6], detail: match[7] || undefined };
-      if (currentTask && currentTask.children) {
-        currentTask.children.push(subtool);
-      } else {
-        // No parent Task, show as standalone (shouldn't happen but handle gracefully)
-        currentTools.push({ name: `↳ ${match[6]}`, detail: match[7] || undefined });
-      }
-      totalToolCalls++;
-    } else {
-      // Sub-task done: [[SUBTASK_DONE]] - close current Task
-      currentTask = null;
-    }
+        currentText += event.content;
+        break;
 
-    lastEnd = match.index + match[0].length;
+      case "tool": {
+        // Text before tool? Flush it
+        flushText();
+        const tool: ToolCall = {
+          id: event.id,
+          name: event.name,
+          detail: event.detail,
+          children: event.name === "Task" ? [] : undefined,
+        };
+        currentTools.push(tool);
+        toolsById.set(event.id, tool);
+        totalToolCalls++;
+        break;
+      }
+
+      case "subtool": {
+        const parentTool = toolsById.get(event.parentId);
+        if (parentTool?.children) {
+          const subtool: ToolCall = {
+            id: `${event.parentId}-${parentTool.children.length}`,
+            name: event.name,
+            detail: event.detail,
+          };
+          parentTool.children.push(subtool);
+          totalToolCalls++;
+        }
+        break;
+      }
+
+      case "result": {
+        const tool = toolsById.get(event.toolId);
+        if (tool) {
+          tool.result = event.content;
+        }
+        break;
+      }
+
+      case "subtool_done":
+        // Could add visual indicator, for now just ignore
+        break;
+
+      case "error":
+        flushText();
+        flushTools();
+        segments.push({ type: "text", content: `Error: ${event.message}` });
+        break;
+    }
   }
 
-  // Flush remaining tools
+  // Flush remaining
+  flushText();
   flushTools();
 
-  // Add text after last marker
-  const textAfter = content.slice(lastEnd).trim();
-  if (textAfter) {
-    segments.push({ type: "text", content: textAfter });
-  }
-
-  // If no segments at all, treat entire content as text
-  if (segments.length === 0) {
-    const text = content.trim();
-    if (text) {
-      segments.push({ type: "text", content: text });
-    }
-  }
-
   return { segments, totalToolCalls };
+}
+
+/**
+ * Convert ParsedMessage to plain text (for saving)
+ */
+function segmentsToText(segments: MessageSegment[]): string {
+  return segments
+    .map((seg) => {
+      if (seg.type === "text") return seg.content;
+      // For tools, just indicate they were used (don't include in saved text)
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
+ * Parse saved message content back to segments (for displaying old messages)
+ * Since saved messages are plain text, just wrap in a text segment
+ */
+function parseStoredMessage(content: string): ParsedMessage {
+  if (!content.trim()) {
+    return { segments: [], totalToolCalls: 0 };
+  }
+  return {
+    segments: [{ type: "text", content: content.trim() }],
+    totalToolCalls: 0,
+  };
 }
 
 /**
@@ -156,6 +185,9 @@ function ToolsSection({
 
   if (tools.length === 0) return null;
 
+  // Count total including children
+  const totalOps = tools.reduce((sum, t) => sum + 1 + (t.children?.length || 0), 0);
+
   return (
     <div className="my-2 border rounded-lg overflow-hidden text-xs" style={{ borderColor: theme.border }}>
       <button
@@ -164,7 +196,7 @@ function ToolsSection({
       >
         <Wrench className="w-3.5 h-3.5" style={{ color: palette[500] }} />
         <span className="flex-1 font-medium" style={{ color: theme.text }}>
-          {isStreaming ? "Working..." : `${tools.length} operations`}
+          {isStreaming ? "Working..." : `${totalOps} operations`}
         </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "" : "-rotate-90"}`}
@@ -173,11 +205,11 @@ function ToolsSection({
       {isOpen && (
         <div
           ref={contentRef}
-          className="px-3 py-2 bg-gray-50/30 max-h-64 overflow-y-auto space-y-1 text-[12px]"
+          className="px-3 py-2 bg-gray-50/30 max-h-64 overflow-y-auto space-y-1.5 text-[12px]"
           style={{ color: theme.textMuted }}
         >
-          {tools.map((tool, i) => (
-            <div key={i}>
+          {tools.map((tool) => (
+            <div key={tool.id}>
               {/* Main tool */}
               <div className="flex items-start gap-2">
                 <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-200/70 text-gray-600 font-medium">
@@ -198,8 +230,8 @@ function ToolsSection({
               {/* Children (subtools) */}
               {tool.children && tool.children.length > 0 && (
                 <div className="ml-4 mt-1 pl-2 border-l-2 border-gray-200 space-y-1">
-                  {tool.children.map((child, j) => (
-                    <div key={j}>
+                  {tool.children.map((child) => (
+                    <div key={child.id}>
                       <div className="flex items-start gap-2">
                         <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-100 text-gray-500 text-[11px]">
                           {child.name}
@@ -241,8 +273,8 @@ interface CoLearningPanelProps {
   onToggle: () => void;
   palette: Record<number, string>;
   width?: number;
-  currentPath?: string; // e.g. "/" or "/?source=abc123" or "/?view=foryou"
-  onAgentComplete?: () => void; // Called when Agent finishes a turn
+  currentPath?: string;
+  onAgentComplete?: () => void;
 }
 
 export function CoLearningPanel({
@@ -259,6 +291,10 @@ export function CoLearningPanel({
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [showConversationList, setShowConversationList] = useState(false);
 
+  // Streaming state
+  const [streamingEvents, setStreamingEvents] = useState<StreamEvent[]>([]);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+
   // Input state
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -271,8 +307,6 @@ export function CoLearningPanel({
   useEffect(() => {
     const init = async () => {
       await loadConversations();
-
-      // Restore last conversation from localStorage
       const savedConvId = localStorage.getItem("agent-conversation-id");
       if (savedConvId) {
         loadConversation(savedConvId);
@@ -292,7 +326,7 @@ export function CoLearningPanel({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streamingEvents]);
 
   // Handle context events
   useEffect(() => {
@@ -352,7 +386,6 @@ export function CoLearningPanel({
 
     try {
       if (convId) {
-        // Update existing
         await fetch(`/api/conversations/${convId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -360,7 +393,6 @@ export function CoLearningPanel({
         });
         return convId;
       } else {
-        // Create new
         const firstUserMsg = msgs.find((m) => m.role === "user");
         const title = firstUserMsg?.content.slice(0, 50) || "New conversation";
         const res = await fetch("/api/conversations", {
@@ -370,7 +402,7 @@ export function CoLearningPanel({
         });
         const data = await res.json();
         if (data.success) {
-          loadConversations(); // Refresh list
+          loadConversations();
           return data.conversation.id;
         }
       }
@@ -430,20 +462,14 @@ export function CoLearningPanel({
     const assistantMessageId = `msg-${Date.now()}-assistant`;
     const newMessages = [...messages, userMessage];
 
-    // Add empty assistant message that will be filled by streaming
-    const initialAssistantMessage: AgentMessage = {
-      id: assistantMessageId,
-      role: "assistant",
-      content: "",
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages([...newMessages, initialAssistantMessage]);
+    setMessages(newMessages);
+    setStreamingEvents([]);
+    setStreamingMessageId(assistantMessageId);
     setInput("");
     setContexts([]);
     setIsLoading(true);
 
-    // Save conversation immediately with user message (before streaming)
+    // Save conversation immediately with user message
     let convId = currentConversationId;
     try {
       convId = await saveConversation(newMessages, currentConversationId);
@@ -471,42 +497,54 @@ export function CoLearningPanel({
         throw new Error(errorData.error || "Failed to get response");
       }
 
-      // Handle streaming response
+      // Handle NDJSON streaming response
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-      let fullContent = "";
+      let buffer = "";
+      const allEvents: StreamEvent[] = [];
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          fullContent += chunk;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-          // Update the assistant message with accumulated content
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: fullContent }
-                : msg
-            )
-          );
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const event = JSON.parse(line) as StreamEvent;
+              allEvents.push(event);
+              setStreamingEvents([...allEvents]);
+            } catch {
+              // Ignore malformed JSON
+            }
+          }
         }
       }
 
-      // Final update and save
-      const finalMessages = newMessages.concat({
-        ...initialAssistantMessage,
-        content: fullContent.trim(),
-      });
+      // Build final message
+      const parsed = buildParsedMessage(allEvents);
+      const finalContent = segmentsToText(parsed.segments);
+
+      const assistantMessage: AgentMessage = {
+        id: assistantMessageId,
+        role: "assistant",
+        content: finalContent,
+        timestamp: new Date().toISOString(),
+      };
+
+      const finalMessages = [...newMessages, assistantMessage];
       setMessages(finalMessages);
+      setStreamingEvents([]);
+      setStreamingMessageId(null);
 
-      // Save final conversation with assistant response
+      // Save final conversation
       await saveConversation(finalMessages, convId);
-
-      // Notify parent that agent completed (for auto-refresh)
       onAgentComplete?.();
+
     } catch (err) {
       const errorMessage: AgentMessage = {
         id: `msg-${Date.now()}-error`,
@@ -514,7 +552,9 @@ export function CoLearningPanel({
         content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev.slice(0, -1), errorMessage]);
+      setMessages([...newMessages, errorMessage]);
+      setStreamingEvents([]);
+      setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
     }
@@ -525,6 +565,75 @@ export function CoLearningPanel({
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // Render a message (either from history or streaming)
+  const renderMessage = (msg: AgentMessage, isStreaming: boolean, streamEvents?: StreamEvent[]) => {
+    const proseClasses = "prose prose-sm prose-neutral prose-tight max-w-none text-[13px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none";
+
+    if (msg.role === "user") {
+      return (
+        <div className="flex justify-end">
+          <div
+            className="max-w-[85%] rounded-2xl px-4 py-2 break-words rounded-br-md"
+            style={{ backgroundColor: palette[500], color: "white" }}
+          >
+            {msg.contexts && msg.contexts.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1.5 pb-1.5 border-b border-white/20">
+                {msg.contexts.map((ctx) => (
+                  <span key={ctx.id} className="text-xs px-1.5 py-0.5 rounded bg-white/20">
+                    {ctx.text.slice(0, 25)}{ctx.text.length > 25 ? "..." : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Assistant message
+    const parsed = isStreaming && streamEvents
+      ? buildParsedMessage(streamEvents)
+      : parseStoredMessage(msg.content);
+
+    if (parsed.segments.length === 0 && !isStreaming) {
+      return null; // Don't render empty messages
+    }
+
+    return (
+      <div className="flex justify-start">
+        <div
+          className="max-w-[85%] rounded-2xl px-4 py-2 break-words rounded-bl-md"
+          style={{ backgroundColor: "#f4f4f5", color: theme.text }}
+        >
+          <div className="text-[13px] leading-snug">
+            {parsed.segments.map((segment, i) => (
+              segment.type === "text" ? (
+                <div key={i} className={proseClasses}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {segment.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <ToolsSection
+                  key={i}
+                  tools={segment.tools}
+                  isStreaming={isStreaming && i === parsed.segments.length - 1}
+                  palette={palette}
+                  defaultOpen={isStreaming || i === parsed.segments.length - 1}
+                />
+              )
+            ))}
+
+            {isStreaming && parsed.segments.length === 0 && (
+              <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (!isOpen) {
@@ -573,7 +682,6 @@ export function CoLearningPanel({
                 className="absolute top-full left-0 mt-1 w-72 bg-white border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
                 style={{ borderColor: theme.border }}
               >
-                {/* Conversation list */}
                 {conversations.length === 0 ? (
                   <div className="px-3 py-4 text-sm text-center" style={{ color: theme.textMuted }}>
                     No conversation history
@@ -631,7 +739,7 @@ export function CoLearningPanel({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && contexts.length === 0 && (
+        {messages.length === 0 && contexts.length === 0 && !isLoading && (
           <div className="text-center py-8">
             <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
             <p className="text-sm" style={{ color: theme.textMuted }}>
@@ -653,7 +761,6 @@ export function CoLearningPanel({
               </div>
             </div>
 
-            {/* Recent conversations */}
             {conversations.length > 0 && (
               <div className="mt-6 pt-4 border-t" style={{ borderColor: theme.border }}>
                 <p className="text-xs mb-2" style={{ color: theme.textMuted }}>Recent conversations:</p>
@@ -675,76 +782,24 @@ export function CoLearningPanel({
         )}
 
         {messages.map((msg) => (
-          // Don't render empty assistant messages (streaming placeholder)
-          msg.role === "assistant" && !msg.content ? null : (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2 break-words ${
-                msg.role === "user" ? "rounded-br-md" : "rounded-bl-md"
-              }`}
-              style={{
-                backgroundColor: msg.role === "user" ? palette[500] : "#f4f4f5",
-                color: msg.role === "user" ? "white" : theme.text,
-              }}
-            >
-              {/* Show contexts attached to this message */}
-              {msg.contexts && msg.contexts.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-1.5 pb-1.5 border-b border-white/20">
-                  {msg.contexts.map((ctx) => (
-                    <span
-                      key={ctx.id}
-                      className="text-xs px-1.5 py-0.5 rounded bg-white/20"
-                    >
-                      {ctx.text.slice(0, 25)}{ctx.text.length > 25 ? "..." : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {msg.role === "assistant" ? (
-                (() => {
-                  const parsed = parseMessageContent(msg.content);
-                  const isCurrentlyStreaming = isLoading && msg.id === messages[messages.length - 1]?.id;
-                  const proseClasses = "prose prose-sm prose-neutral prose-tight max-w-none text-[13px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none";
-
-                  return (
-                    <div className="text-[13px] leading-snug">
-                      {parsed.segments.map((segment, i) => (
-                        segment.type === "text" ? (
-                          <div key={i} className={proseClasses}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {segment.content}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <ToolsSection
-                            key={i}
-                            tools={segment.tools}
-                            isStreaming={isCurrentlyStreaming && i === parsed.segments.length - 1}
-                            palette={palette}
-                            defaultOpen={isCurrentlyStreaming || i === parsed.segments.length - 1}
-                          />
-                        )
-                      ))}
-
-                      {/* Blinking cursor while streaming with no content yet */}
-                      {isCurrentlyStreaming && parsed.segments.length === 0 && (
-                        <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
-              )}
-            </div>
+          <div key={msg.id}>
+            {renderMessage(msg, false)}
           </div>
-          )
         ))}
 
-        {isLoading && messages.length > 0 && messages[messages.length - 1].content === "" && (
+        {/* Streaming message */}
+        {streamingMessageId && streamingEvents.length > 0 && (
+          <div>
+            {renderMessage(
+              { id: streamingMessageId, role: "assistant", content: "", timestamp: "" },
+              true,
+              streamingEvents
+            )}
+          </div>
+        )}
+
+        {/* Loading indicator when no events yet */}
+        {isLoading && streamingEvents.length === 0 && (
           <div className="flex justify-start">
             <div className="text-[13px] text-gray-400 animate-pulse">
               Thinking...
@@ -785,7 +840,6 @@ export function CoLearningPanel({
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
-              // Auto-resize
               e.target.style.height = "auto";
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}

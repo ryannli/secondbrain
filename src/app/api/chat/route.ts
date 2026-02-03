@@ -19,9 +19,19 @@ interface ChatMessage {
   content: string;
 }
 
+// Stream event types sent to frontend (NDJSON format)
+type StreamEvent =
+  | { type: "text"; content: string }
+  | { type: "tool"; id: string; name: string; detail?: string }
+  | { type: "subtool"; parentId: string; name: string; detail?: string }
+  | { type: "result"; toolId: string; content: string }
+  | { type: "subtool_done"; parentId: string }
+  | { type: "error"; message: string };
+
 /**
  * POST /api/chat
  * Chat with Claude, with optional context (streaming response)
+ * Returns NDJSON stream of events
  */
 export async function POST(request: NextRequest) {
   try {
@@ -100,21 +110,50 @@ Be concise but thorough. Use markdown formatting when helpful.
           "--output-format", "stream-json",
           "--verbose",
           "--include-partial-messages",
-          "--permission-mode", "acceptEdits",  // Allow file operations (sandboxed to cwd)
+          "--permission-mode", "acceptEdits",
         ], {
           stdio: ["pipe", "pipe", "pipe"],
-          cwd: userDataPath,  // Agent can read user_data, write to library/
+          cwd: userDataPath,
         });
 
         const encoder = new TextEncoder();
         let buffer = "";
+
+        // Track current Task for grouping subtools
+        let currentTaskId: string | null = null;
+        // Track last tool for attaching results
+        let lastToolId: string | null = null;
+
+        const sendEvent = (event: StreamEvent) => {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        };
+
+        const getToolDetail = (toolName: string, input: Record<string, unknown>): string => {
+          if (toolName === "Task") {
+            const subagentType = input.subagent_type || "agent";
+            return `${subagentType}: ${input.description || ""}`;
+          } else if (toolName === "Bash") {
+            return (input.command as string) || "";
+          } else if (toolName === "Read" || toolName === "Write" || toolName === "Edit") {
+            return (input.file_path as string) || "";
+          } else if (toolName === "Glob") {
+            return (input.pattern as string) || "";
+          } else if (toolName === "Grep") {
+            return (input.pattern as string) || "";
+          } else if (toolName === "TodoWrite" || toolName === "TaskCreate") {
+            return (input.subject as string) || (input.description as string) || "";
+          } else {
+            const firstVal = Object.values(input).find(v => typeof v === "string");
+            return (firstVal as string) || "";
+          }
+        };
 
         proc.stdout.on("data", (data) => {
           buffer += data.toString();
 
           // Process complete JSON lines
           const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
             if (!line.trim()) continue;
@@ -127,77 +166,65 @@ Be concise but thorough. Use markdown formatting when helpful.
                 event.event?.type === "content_block_delta" &&
                 event.event?.delta?.type === "text_delta"
               ) {
-                controller.enqueue(encoder.encode(event.event.delta.text));
+                sendEvent({ type: "text", content: event.event.delta.text });
               }
 
-              // Capture full tool details from assistant message (has complete input)
-              // Skip if this is a sub-agent event (has parent_tool_use_id) - those are handled separately
+              // Main-level tool calls (not from sub-agent)
               if (event.type === "assistant" && event.message?.content && !event.parent_tool_use_id) {
                 for (const block of event.message.content) {
                   if (block.type === "tool_use") {
+                    const toolId = block.id || `tool-${Date.now()}`;
                     const toolName = block.name;
                     const input = block.input || {};
+                    const detail = getToolDetail(toolName, input);
 
-                    // Format tool details based on tool type
-                    let detail = "";
+                    sendEvent({ type: "tool", id: toolId, name: toolName, detail });
+                    lastToolId = toolId;
+
+                    // Track Task for grouping subtools
                     if (toolName === "Task") {
-                      const subagentType = input.subagent_type || "agent";
-                      detail = `${subagentType}: ${input.description || ""}`;
-                    } else if (toolName === "Bash") {
-                      detail = input.command || "";
-                    } else if (toolName === "Read" || toolName === "Write" || toolName === "Edit") {
-                      detail = input.file_path || "";
-                    } else if (toolName === "Glob") {
-                      detail = input.pattern || "";
-                    } else if (toolName === "Grep") {
-                      detail = input.pattern || "";
-                    } else if (toolName === "TodoWrite" || toolName === "TaskCreate") {
-                      detail = input.subject || input.description || "";
-                    } else {
-                      // Generic: show first string value in input
-                      const firstVal = Object.values(input).find(v => typeof v === "string");
-                      detail = (firstVal as string) || "";
+                      currentTaskId = toolId;
                     }
-
-                    controller.enqueue(encoder.encode(`\n[[TOOL:${toolName}:${detail}]]\n`));
                   }
                 }
               }
 
-              // Capture tool results (for showing Bash output, etc.)
-              if (event.type === "user" && event.message?.content) {
+              // Tool results
+              if (event.type === "user" && event.message?.content && !event.parent_tool_use_id) {
                 for (const block of event.message.content) {
-                  if (block.type === "tool_result" && block.content) {
-                    // Only show short results (e.g., error messages, brief output)
+                  if (block.type === "tool_result" && block.content && lastToolId) {
                     const resultText = typeof block.content === "string"
                       ? block.content
                       : JSON.stringify(block.content);
-                    // Skip very long results (file contents, etc.)
+                    // Only show reasonably short results
                     if (resultText.length > 0 && resultText.length < 500) {
-                      controller.enqueue(encoder.encode(`[[TOOL_RESULT:${resultText}]]\n`));
+                      sendEvent({ type: "result", toolId: lastToolId, content: resultText });
                     }
                   }
                 }
               }
 
-              // Capture sub-agent progress (has parent_tool_use_id)
+              // Sub-agent events (has parent_tool_use_id)
               if (event.parent_tool_use_id) {
-                // Tool result from sub-agent
-                if (event.type === "user" && event.tool_use_result) {
-                  const result = event.tool_use_result;
-                  // Show what the sub-agent completed
-                  if (result.status === "completed") {
-                    controller.enqueue(encoder.encode(`\n[[SUBTASK_DONE]]\n`));
-                  }
-                }
-                // Sub-agent's own tool calls
+                // Sub-agent's tool calls
                 if (event.type === "assistant" && event.message?.content) {
                   for (const block of event.message.content) {
-                    if (block.type === "tool_use") {
-                      const detail = block.input?.command || block.input?.pattern || block.input?.file_path || "";
-                      controller.enqueue(encoder.encode(`[[SUBTOOL:${block.name}:${detail}]]\n`));
+                    if (block.type === "tool_use" && currentTaskId) {
+                      const detail = getToolDetail(block.name, block.input || {});
+                      sendEvent({
+                        type: "subtool",
+                        parentId: currentTaskId,
+                        name: block.name,
+                        detail,
+                      });
                     }
                   }
+                }
+
+                // Sub-agent completed
+                if (event.type === "user" && event.tool_use_result?.status === "completed" && currentTaskId) {
+                  sendEvent({ type: "subtool_done", parentId: currentTaskId });
+                  currentTaskId = null;
                 }
               }
 
@@ -213,13 +240,13 @@ Be concise but thorough. Use markdown formatting when helpful.
 
         proc.on("close", (code) => {
           if (code !== 0) {
-            controller.enqueue(encoder.encode(`\n\n[Error: Claude exited with code ${code}]`));
+            sendEvent({ type: "error", message: `Claude exited with code ${code}` });
           }
           controller.close();
         });
 
         proc.on("error", (err) => {
-          controller.enqueue(encoder.encode(`\n\n[Error: ${err.message}]`));
+          sendEvent({ type: "error", message: err.message });
           controller.close();
         });
 
@@ -230,7 +257,7 @@ Be concise but thorough. Use markdown formatting when helpful.
 
     return new Response(stream, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "application/x-ndjson",
         "Transfer-Encoding": "chunked",
       },
     });
