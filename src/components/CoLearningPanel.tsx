@@ -1,18 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus } from "lucide-react";
+import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare } from "lucide-react";
 import { theme } from "@/lib/theme";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  contexts?: ContextItem[];
-}
+import { AgentConversationSummary, AgentMessage, AgentContext } from "@/lib/types";
 
 interface ContextItem {
   id: string;
@@ -31,16 +24,31 @@ export function CoLearningPanel({
   onToggle,
   palette,
 }: CoLearningPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Conversation state
+  const [conversations, setConversations] = useState<AgentConversationSummary[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [showConversationList, setShowConversationList] = useState(false);
+
+  // Input state
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [contexts, setContexts] = useState<ContextItem[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationListRef = useRef<HTMLDivElement>(null);
+
+  // Load conversation list on mount
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Handle context events
   useEffect(() => {
     const handleAddContext = (e: CustomEvent<ContextItem>) => {
       setContexts((prev) => {
@@ -56,16 +64,102 @@ export function CoLearningPanel({
     };
   }, [isOpen, onToggle]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (conversationListRef.current && !conversationListRef.current.contains(e.target as Node)) {
+        setShowConversationList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const res = await fetch("/api/conversations");
+      const data = await res.json();
+      if (data.success) {
+        setConversations(data.conversations);
+      }
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    }
+  };
+
+  const loadConversation = async (id: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${id}`);
+      const data = await res.json();
+      if (data.success) {
+        setCurrentConversationId(id);
+        setMessages(data.conversation.messages);
+        setShowConversationList(false);
+      }
+    } catch (err) {
+      console.error("Failed to load conversation:", err);
+    }
+  };
+
+  const saveConversation = useCallback(async (msgs: AgentMessage[], convId: string | null) => {
+    if (msgs.length === 0) return convId;
+
+    try {
+      if (convId) {
+        // Update existing
+        await fetch(`/api/conversations/${convId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: msgs }),
+        });
+        return convId;
+      } else {
+        // Create new
+        const firstUserMsg = msgs.find((m) => m.role === "user");
+        const title = firstUserMsg?.content.slice(0, 50) || "New conversation";
+        const res = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, messages: msgs }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadConversations(); // Refresh list
+          return data.conversation.id;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save conversation:", err);
+    }
+    return convId;
+  }, []);
+
+  const deleteConversation = async (id: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        if (currentConversationId === id) {
+          setCurrentConversationId(null);
+          setMessages([]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
+    }
+  };
+
   const removeContext = (id: string) => {
     setContexts((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const clearContexts = () => setContexts([]);
-
   const startNewConversation = () => {
+    setCurrentConversationId(null);
     setMessages([]);
     setContexts([]);
     setInput("");
+    setShowConversationList(false);
   };
 
   const sendMessage = async () => {
@@ -75,15 +169,30 @@ export function CoLearningPanel({
     const currentContexts = [...contexts];
     const currentHistory = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
 
-    const userMessage: Message = {
+    const userMessage: AgentMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: messageText,
-      timestamp: new Date(),
-      contexts: currentContexts.length > 0 ? currentContexts : undefined,
+      timestamp: new Date().toISOString(),
+      contexts: currentContexts.length > 0 ? currentContexts.map((c) => ({
+        id: c.id,
+        text: c.text,
+        source: c.source,
+      })) : undefined,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const assistantMessageId = `msg-${Date.now()}-assistant`;
+    const newMessages = [...messages, userMessage];
+
+    // Add empty assistant message that will be filled by streaming
+    const initialAssistantMessage: AgentMessage = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages([...newMessages, initialAssistantMessage]);
     setInput("");
     setContexts([]);
     setIsLoading(true);
@@ -99,27 +208,55 @@ export function CoLearningPanel({
         }),
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to get response");
+      }
 
-      if (data.success) {
-        const assistantMessage: Message = {
-          id: `msg-${Date.now()}-assistant`,
-          role: "assistant",
-          content: data.response,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-      } else {
-        throw new Error(data.error || "Failed to get response");
+      // Handle streaming response
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          fullContent += chunk;
+
+          // Update the assistant message with accumulated content
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: fullContent }
+                : msg
+            )
+          );
+        }
+      }
+
+      // Final update and save
+      const finalMessages = newMessages.concat({
+        ...initialAssistantMessage,
+        content: fullContent.trim(),
+      });
+      setMessages(finalMessages);
+
+      // Auto-save
+      const newId = await saveConversation(finalMessages, currentConversationId);
+      if (newId && newId !== currentConversationId) {
+        setCurrentConversationId(newId);
       }
     } catch (err) {
-      const errorMessage: Message = {
+      const errorMessage: AgentMessage = {
         id: `msg-${Date.now()}-error`,
         role: "assistant",
         content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [...prev.slice(0, -1), errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +282,8 @@ export function CoLearningPanel({
     );
   }
 
+  const currentConv = conversations.find((c) => c.id === currentConversationId);
+
   return (
     <div
       className="w-96 border-l flex flex-col h-full bg-white"
@@ -155,20 +294,74 @@ export function CoLearningPanel({
         className="flex items-center justify-between px-4 py-3 border-b"
         style={{ borderColor: theme.border }}
       >
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5" style={{ color: palette[500] }} />
-          <h3 className="font-semibold">Agent</h3>
-        </div>
-        <div className="flex items-center gap-1">
-          {messages.length > 0 && (
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Sparkles className="w-5 h-5 flex-shrink-0" style={{ color: palette[500] }} />
+
+          {/* Conversation selector */}
+          <div className="relative flex-1 min-w-0" ref={conversationListRef}>
             <button
-              onClick={startNewConversation}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-              title="New conversation"
+              onClick={() => setShowConversationList(!showConversationList)}
+              className="flex items-center gap-1 hover:bg-gray-100 rounded px-2 py-1 transition-colors max-w-full"
             >
-              <Plus className="w-4 h-4" style={{ color: theme.textMuted }} />
+              <span className="font-semibold truncate">
+                {currentConv ? currentConv.title : "Agent"}
+              </span>
+              <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
             </button>
-          )}
+
+            {/* Dropdown */}
+            {showConversationList && (
+              <div
+                className="absolute top-full left-0 mt-1 w-72 bg-white border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
+                style={{ borderColor: theme.border }}
+              >
+                {/* Conversation list */}
+                {conversations.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-center" style={{ color: theme.textMuted }}>
+                    No conversation history
+                  </div>
+                ) : (
+                  conversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      className={`group flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
+                        conv.id === currentConversationId ? "bg-gray-50" : ""
+                      }`}
+                      onClick={() => loadConversation(conv.id)}
+                    >
+                      <MessageSquare className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{conv.title}</p>
+                        <p className="text-xs truncate" style={{ color: theme.textMuted }}>
+                          {conv.messageCount} messages
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(conv.id);
+                        }}
+                        className="p-1 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={startNewConversation}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            title="New conversation"
+          >
+            <Plus className="w-4 h-4" style={{ color: theme.textMuted }} />
+          </button>
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
@@ -201,10 +394,31 @@ export function CoLearningPanel({
                 ))}
               </div>
             </div>
+
+            {/* Recent conversations */}
+            {conversations.length > 0 && (
+              <div className="mt-6 pt-4 border-t" style={{ borderColor: theme.border }}>
+                <p className="text-xs mb-2" style={{ color: theme.textMuted }}>Recent conversations:</p>
+                <div className="space-y-1">
+                  {conversations.slice(0, 3).map((conv) => (
+                    <button
+                      key={conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      className="w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-gray-50 truncate"
+                      style={{ color: theme.text }}
+                    >
+                      {conv.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {messages.map((msg) => (
+          // Don't render empty assistant messages (streaming placeholder)
+          msg.role === "assistant" && !msg.content ? null : (
           <div
             key={msg.id}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -236,15 +450,20 @@ export function CoLearningPanel({
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {msg.content}
                   </ReactMarkdown>
+                  {/* Show blinking cursor while streaming */}
+                  {isLoading && msg.id === messages[messages.length - 1]?.id && (
+                    <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
+                  )}
                 </div>
               ) : (
                 <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
               )}
             </div>
           </div>
+          )
         ))}
 
-        {isLoading && (
+        {isLoading && messages.length > 0 && messages[messages.length - 1].content === "" && (
           <div className="flex justify-start">
             <div className="text-[13px] text-gray-400 animate-pulse">
               Thinking...

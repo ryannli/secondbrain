@@ -189,3 +189,35 @@ export interface FeedCache {
   items: FeedItem[];
   briefing?: string;             // AI-generated briefing for the user
 }
+
+// Agent conversation types
+export interface AgentContext {
+  id: string;
+  text: string;
+  source?: string;               // Source title if from a library item
+}
+
+export interface AgentMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;             // ISO timestamp
+  contexts?: AgentContext[];     // Context items attached to this message
+}
+
+export interface AgentConversation {
+  id: string;
+  title: string;                 // Auto-generated from first message or user-set
+  createdAt: string;
+  updatedAt: string;
+  messages: AgentMessage[];
+}
+
+export interface AgentConversationSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  preview: string;               // First user message preview
+}

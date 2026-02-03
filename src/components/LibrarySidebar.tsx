@@ -274,6 +274,16 @@ export function LibrarySidebar({
                     No sources yet
                   </div>
                 )}
+                {/* Drop zone for moving items back to root - fills remaining space */}
+                <div
+                  onDragOver={(e) => onDragOver(e, "")}
+                  onDragLeave={onDragLeave}
+                  onDrop={(e) => onDrop(e, "")}
+                  className="min-h-[100px] flex-1 transition-colors"
+                  style={{
+                    backgroundColor: dragOverFolder === "" ? `${palette[500]}10` : undefined,
+                  }}
+                />
               </div>
             )}
           </div>

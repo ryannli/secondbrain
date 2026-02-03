@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -1362,4 +1362,88 @@ export async function saveFeedCache(cache: FeedCache): Promise<void> {
   await fs.mkdir(feedDir, { recursive: true });
   const cachePath = path.join(feedDir, "cache.json");
   await fs.writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+}
+
+// =============================================================================
+// Agent Conversation Functions
+// =============================================================================
+
+/**
+ * Get agent conversations directory path
+ */
+function getAgentPath(): string {
+  return path.join(getRootPath(), ".agent", "conversations");
+}
+
+/**
+ * List all conversations (summaries only)
+ */
+export async function listConversations(): Promise<AgentConversationSummary[]> {
+  const agentDir = getAgentPath();
+  try {
+    await fs.mkdir(agentDir, { recursive: true });
+    const files = await fs.readdir(agentDir);
+    const summaries: AgentConversationSummary[] = [];
+
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      try {
+        const content = await fs.readFile(path.join(agentDir, file), "utf-8");
+        const conv: AgentConversation = JSON.parse(content);
+        const firstUserMsg = conv.messages.find((m) => m.role === "user");
+        summaries.push({
+          id: conv.id,
+          title: conv.title,
+          createdAt: conv.createdAt,
+          updatedAt: conv.updatedAt,
+          messageCount: conv.messages.length,
+          preview: firstUserMsg?.content.slice(0, 100) || "",
+        });
+      } catch {
+        // Skip corrupted files
+      }
+    }
+
+    // Sort by updatedAt descending
+    summaries.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return summaries;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Load a conversation by ID
+ */
+export async function loadConversation(id: string): Promise<AgentConversation | null> {
+  try {
+    const filePath = path.join(getAgentPath(), `${id}.json`);
+    const content = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save a conversation (create or update)
+ */
+export async function saveConversation(conversation: AgentConversation): Promise<void> {
+  const agentDir = getAgentPath();
+  await fs.mkdir(agentDir, { recursive: true });
+  const filePath = path.join(agentDir, `${conversation.id}.json`);
+  await fs.writeFile(filePath, JSON.stringify(conversation, null, 2), "utf-8");
+}
+
+/**
+ * Delete a conversation
+ */
+export async function deleteConversation(id: string): Promise<boolean> {
+  try {
+    const filePath = path.join(getAgentPath(), `${id}.json`);
+    await fs.unlink(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }

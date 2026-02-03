@@ -395,13 +395,14 @@ Tell the user NEW information they don't already know. The briefing itself shoul
 
 **FORMAT:**
 **What's new**
-- [Specific fact/news 1 - include numbers, names, dates]
-- [Specific fact/news 2]
-- [Specific fact/news 3]
+- [Specific fact/news - include numbers, names, dates]
+- [Another news item]
+(Use #N to reference the source number so user can click to jump)
 
 **Connects to your knowledge**
 - [How this relates to their existing article/note - be specific]
 - [Another connection if relevant]
+(Always include #N so user can jump to the related article)
 
 **Go deeper**
 - #N — [What extra detail this article has]
@@ -410,13 +411,13 @@ Tell the user NEW information they don't already know. The briefing itself shoul
 
 **EXAMPLE:**
 **What's new**
-- **Anthropic** closed **$10B** funding round at **$61.5B valuation** (up from $18B last year)
-- **OpenAI IPO** reportedly planned for late 2025 — would be largest tech IPO since Facebook
-- **Chrome Auto Browse** seeing **40% failure rate** in real-world tests
+- **Anthropic** closed **$10B** funding round at **$61.5B valuation** (up from $18B last year) (#1)
+- **OpenAI IPO** reportedly planned for late 2025 — would be largest tech IPO since Facebook (#3)
+- **Chrome Auto Browse** seeing **40% failure rate** in real-world tests (#7)
 
 **Connects to your knowledge**
-- Anthropic valuation validates the **"loss leader" pricing** you noted in your HN thread
-- Auto Browse failures relate to your **agentic AI limitations** notes
+- Anthropic valuation validates the **"loss leader" pricing** you noted in your HN thread (#1)
+- Auto Browse failures relate to your **agentic AI limitations** notes (#7)
 
 **Go deeper**
 - #1 — Full investor breakdown (**Google**, **Salesforce** stakes)
