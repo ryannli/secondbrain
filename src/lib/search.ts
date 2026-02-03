@@ -60,26 +60,27 @@ export async function searchNews(
   const allResults: BraveSearchResult[] = [];
   const seenUrls = new Set<string>();
 
-  // Build search plan: news queries + web queries for preferred sources
+  // Build search plan: preferred sources FIRST, then general news
   interface SearchTask {
     query: string;
     type: "news" | "web";
   }
   const searchTasks: SearchTask[] = [];
 
-  // Add news searches for interests
-  for (const query of queries) {
-    searchTasks.push({ query, type: "news" });
-  }
-
-  // Add web searches for preferred sources (use top 2 interests)
+  // Add web searches for preferred sources FIRST (so they don't get cut off by slice)
   for (const source of preferredSources.slice(0, 3)) {
     for (const interest of queries.slice(0, 2)) {
       searchTasks.push({ query: `${interest} site:${source}`, type: "web" });
     }
   }
 
-  console.log(`[searchNews] Running ${searchTasks.length} searches`);
+  // Add news searches for interests
+  for (const query of queries) {
+    searchTasks.push({ query, type: "news" });
+  }
+
+  console.log(`[searchNews] Running ${searchTasks.length} searches:`);
+  searchTasks.forEach((t, i) => console.log(`  ${i + 1}. [${t.type}] ${t.query}`));
 
   for (let i = 0; i < searchTasks.length; i++) {
     const task = searchTasks[i];
@@ -107,7 +108,8 @@ export async function searchNews(
       });
 
       if (!response.ok) {
-        console.error(`[searchNews] Brave API error for "${task.query}":`, response.status, response.statusText);
+        const errorBody = await response.text().catch(() => "");
+        console.error(`[searchNews] Brave API error for "${task.query}": ${response.status} ${response.statusText}`, errorBody.slice(0, 200));
         continue;
       }
 
@@ -137,6 +139,18 @@ export async function searchNews(
       console.error(`[searchNews] Error searching for "${task.query}":`, error);
     }
   }
+
+  // Log summary of sources found
+  const sourceCounts = new Map<string, number>();
+  for (const r of allResults) {
+    const host = r.meta_url?.hostname || new URL(r.url).hostname;
+    sourceCounts.set(host, (sourceCounts.get(host) || 0) + 1);
+  }
+  console.log(`[searchNews] Total ${allResults.length} results from ${sourceCounts.size} sources:`);
+  [...sourceCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .forEach(([host, count]) => console.log(`  - ${host}: ${count}`));
 
   return allResults;
 }

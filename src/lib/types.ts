@@ -192,10 +192,13 @@ export interface FeedCache {
 }
 
 // Agent conversation types
+export type AgentContextType = "source" | "selection";
+
 export interface AgentContext {
+  type: AgentContextType;
   id: string;
-  text: string;
-  source?: string;               // Source title if from a library item
+  title: string;                 // Display label (source title or selection preview)
+  content?: string;              // Full content (for selection type)
 }
 
 // Stream event from Agent (for preserving tool calls in history)

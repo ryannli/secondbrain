@@ -50,8 +50,10 @@ export function SelectionPopover({
       rect.left < containerRect.left ||
       rect.right > containerRect.right
     ) {
-      // Selection is outside container, but we'll still allow it
-      // Just position relative to the selection itself
+      // Selection is outside container - don't show popover
+      setPosition(null);
+      setSelectedText("");
+      return;
     }
 
     setSelectedText(text);

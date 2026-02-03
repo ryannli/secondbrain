@@ -478,12 +478,14 @@ function HomeContent() {
         />
       </div>
 
-      {/* Selection Popover for adding context */}
-      <SelectionPopover
-        containerRef={mainContentRef as React.RefObject<HTMLElement>}
-        sourceTitle={selectedSource?.meta.title}
-        palette={palette}
-      />
+      {/* Selection Popover for adding context - only when viewing a source */}
+      {selectedSource && (
+        <SelectionPopover
+          containerRef={mainContentRef as React.RefObject<HTMLElement>}
+          sourceTitle={selectedSource.meta.title}
+          palette={palette}
+        />
+      )}
 
       <ContextMenu
         menu={contextMenu}

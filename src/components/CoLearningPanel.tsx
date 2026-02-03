@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare, Wrench } from "lucide-react";
 import { theme } from "@/lib/theme";
-import { AgentConversationSummary, AgentMessage, AgentStreamEvent } from "@/lib/types";
+import { AgentConversationSummary, AgentMessage, AgentStreamEvent, AgentContext } from "@/lib/types";
 
 // Re-export for local use
 type StreamEvent = AgentStreamEvent;
@@ -256,12 +256,6 @@ function ToolsSection({
   );
 }
 
-interface ContextItem {
-  id: string;
-  text: string;
-  source?: string;
-}
-
 interface CoLearningPanelProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -298,7 +292,7 @@ export function CoLearningPanel({
   // Input state
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [contexts, setContexts] = useState<ContextItem[]>([]);
+  const [contexts, setContexts] = useState<AgentContext[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationListRef = useRef<HTMLDivElement>(null);
@@ -328,12 +322,19 @@ export function CoLearningPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingEvents]);
 
-  // Handle context events
+  // Handle context events (text selection)
   useEffect(() => {
-    const handleAddContext = (e: CustomEvent<ContextItem>) => {
+    const handleAddContext = (e: CustomEvent<{ id: string; text: string; source?: string }>) => {
+      const { id, text, source } = e.detail;
       setContexts((prev) => {
-        if (prev.some((c) => c.text === e.detail.text)) return prev;
-        return [...prev, e.detail];
+        if (prev.some((c) => c.type === "selection" && c.content === text)) return prev;
+        const newContext: AgentContext = {
+          type: "selection",
+          id,
+          title: source || "Selection",
+          content: text,
+        };
+        return [...prev, newContext];
       });
       if (!isOpen) onToggle();
     };
@@ -343,6 +344,27 @@ export function CoLearningPanel({
       window.removeEventListener("colearning:addContext", handleAddContext as EventListener);
     };
   }, [isOpen, onToggle]);
+
+  // Auto-add source as context when viewing a source
+  useEffect(() => {
+    if (sourceId && sourceTitle) {
+      setContexts((prev) => {
+        // Don't add if already exists
+        if (prev.some((c) => c.type === "source" && c.id === sourceId)) return prev;
+        // Remove any other source context (only one source at a time)
+        const filtered = prev.filter((c) => c.type !== "source");
+        const sourceContext: AgentContext = {
+          type: "source",
+          id: sourceId,
+          title: sourceTitle,
+        };
+        return [sourceContext, ...filtered];
+      });
+    } else {
+      // Remove source context when navigating away
+      setContexts((prev) => prev.filter((c) => c.type !== "source"));
+    }
+  }, [sourceId, sourceTitle]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -451,25 +473,12 @@ export function CoLearningPanel({
       streamEvents: m.streamEvents,
     }));
 
-    // Build contexts array: source + text selections
-    const allContexts: { id: string; text: string; source?: string }[] = [];
-    if (sourceId && sourceTitle) {
-      allContexts.push({
-        id: sourceId,
-        text: `[Source: ${sourceTitle}]`,
-        source: sourceTitle,
-      });
-    }
-    for (const c of currentContexts) {
-      allContexts.push({ id: c.id, text: c.text, source: c.source });
-    }
-
     const userMessage: AgentMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: messageText,
       timestamp: new Date().toISOString(),
-      contexts: allContexts.length > 0 ? allContexts : undefined,
+      contexts: currentContexts.length > 0 ? currentContexts : undefined,
     };
 
     const assistantMessageId = `msg-${Date.now()}-assistant`;
@@ -499,7 +508,10 @@ export function CoLearningPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: messageText,
-          contexts: currentContexts.map((c) => ({ text: c.text, source: c.source })),
+          contexts: currentContexts.map((c) => ({
+            text: c.type === "source" ? `[Source: ${c.title}]` : (c.content || ""),
+            source: c.title,
+          })),
           history: currentHistory,
           currentPath,
           sourcePath,
@@ -595,18 +607,16 @@ export function CoLearningPanel({
           >
             {msg.contexts && msg.contexts.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-1.5 pb-1.5 border-b border-white/20">
-                {msg.contexts.map((ctx) => {
-                  const isSourceContext = ctx.text.startsWith("[Source:");
-                  return (
-                    <span
-                      key={ctx.id}
-                      className={`text-xs px-1.5 py-0.5 rounded ${isSourceContext ? "bg-white/30 border border-white/40" : "bg-white/20"}`}
-                      title={isSourceContext ? ctx.source : ctx.text}
-                    >
-                      {isSourceContext ? `📄 ${ctx.source?.slice(0, 20) || ""}${(ctx.source?.length || 0) > 20 ? "..." : ""}` : `${ctx.text.slice(0, 25)}${ctx.text.length > 25 ? "..." : ""}`}
-                    </span>
-                  );
-                })}
+                {msg.contexts.map((ctx) => (
+                  <span
+                    key={ctx.id}
+                    className={`text-xs px-1.5 py-0.5 rounded ${ctx.type === "source" ? "bg-white/30 border border-white/40" : "bg-white/20"}`}
+                    title={ctx.type === "source" ? ctx.title : ctx.content}
+                  >
+                    {ctx.type === "source" ? "📄 " : "💬 "}
+                    {ctx.title.slice(0, 20)}{ctx.title.length > 20 ? "..." : ""}
+                  </span>
+                ))}
               </div>
             )}
             <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
@@ -837,29 +847,22 @@ export function CoLearningPanel({
       {/* Input area with context chips */}
       <div className="border-t" style={{ borderColor: theme.border }}>
         {/* Context chips */}
-        {(sourceId || contexts.length > 0) && (
+        {contexts.length > 0 && (
           <div className="px-3 pt-2 flex flex-wrap gap-1.5">
-            {/* Current source chip */}
-            {sourceId && sourceTitle && (
-              <div
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs border"
-                style={{ borderColor: palette[300], color: palette[600] }}
-                title={sourceTitle}
-              >
-                <span className="truncate max-w-[180px]">
-                  📄 {sourceTitle.slice(0, 25)}{sourceTitle.length > 25 ? "..." : ""}
-                </span>
-              </div>
-            )}
-            {/* Text selection chips */}
             {contexts.map((ctx) => (
               <div
                 key={ctx.id}
-                className="group flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                style={{ backgroundColor: `${palette[500]}15`, color: palette[700] }}
+                className="group flex items-center gap-1 px-2 py-0.5 rounded text-xs border"
+                style={{
+                  borderColor: ctx.type === "source" ? palette[300] : palette[200],
+                  backgroundColor: ctx.type === "source" ? "transparent" : `${palette[500]}10`,
+                  color: palette[600],
+                }}
+                title={ctx.type === "source" ? ctx.title : ctx.content}
               >
-                <span className="truncate max-w-[180px]" title={ctx.text}>
-                  {ctx.text.slice(0, 30)}{ctx.text.length > 30 ? "..." : ""}
+                <span className="truncate max-w-[160px]">
+                  {ctx.type === "source" ? "📄 " : "💬 "}
+                  {ctx.title.slice(0, 20)}{ctx.title.length > 20 ? "..." : ""}
                 </span>
                 <button
                   onClick={() => removeContext(ctx.id)}
