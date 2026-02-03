@@ -242,6 +242,23 @@ function HomeContent() {
     }
   }, [sourceId, handleSelectSource]);
 
+  // Auto-expand folder when viewing a source (like VS Code "Reveal in Explorer")
+  useEffect(() => {
+    if (selectedSource?.meta.folder) {
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        // Expand all parent folders (e.g., "ai/agents" → expand "ai" and "ai/agents")
+        const parts = selectedSource.meta.folder!.split("/");
+        let path = "";
+        for (const part of parts) {
+          path = path ? `${path}/${part}` : part;
+          next.add(path);
+        }
+        return next;
+      });
+    }
+  }, [selectedSource?.meta.folder, setExpandedFolders]);
+
   // Score color helper
   const getScoreColor = (score: number) => {
     if (score >= 80) return palette[600];
