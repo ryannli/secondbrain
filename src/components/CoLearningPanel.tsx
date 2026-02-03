@@ -7,88 +7,184 @@ import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2
 import { theme } from "@/lib/theme";
 import { AgentConversationSummary, AgentMessage, AgentContext } from "@/lib/types";
 
-/**
- * Parse message content and separate text from tool calls
- * Tool calls are marked as [[TOOL:name]]
- */
-function parseMessageContent(content: string): Array<{ type: "text" | "tools"; content: string; tools?: string[] }> {
-  const segments: Array<{ type: "text" | "tools"; content: string; tools?: string[] }> = [];
-  const toolPattern = /\[\[TOOL:(\w+)\]\]/g;
+interface ToolCall {
+  name: string;
+  detail?: string;
+  isSubtool?: boolean;
+}
 
-  let lastIndex = 0;
-  let match;
-  let pendingTools: string[] = [];
-
-  while ((match = toolPattern.exec(content)) !== null) {
-    // Add text before this tool (if any and not just whitespace)
-    const textBefore = content.slice(lastIndex, match.index).trim();
-    if (textBefore) {
-      // If we have pending tools, flush them first
-      if (pendingTools.length > 0) {
-        segments.push({ type: "tools", content: "", tools: pendingTools });
-        pendingTools = [];
-      }
-      segments.push({ type: "text", content: textBefore });
-    }
-
-    // Accumulate tool calls
-    pendingTools.push(match[1]);
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Flush any remaining tools
-  if (pendingTools.length > 0) {
-    segments.push({ type: "tools", content: "", tools: pendingTools });
-  }
-
-  // Add remaining text after last tool
-  const remainingText = content.slice(lastIndex).trim();
-  if (remainingText) {
-    segments.push({ type: "text", content: remainingText });
-  }
-
-  return segments;
+interface ParsedMessage {
+  planning: string | null;      // First text before any tool
+  working: Array<{ type: "text" | "tools"; content: string; tools?: ToolCall[] }>;  // Middle content
+  conclusion: string | null;    // Last text after all tools
+  totalToolCalls: number;
 }
 
 /**
- * Collapsible tool calls section
+ * Parse message into planning / working / conclusion sections
  */
-function ToolCallsSection({ tools, isStreaming }: { tools: string[]; isStreaming?: boolean }) {
-  const [isOpen, setIsOpen] = useState(isStreaming);
+function parseMessageContent(content: string): ParsedMessage {
+  // Match all tool marker formats
+  const toolPattern = /\[\[TOOL:(\w+)(?::([^\]]*))?\]\]|\[\[TASK_START:([^:]+):([^\]]*)\]\]|\[\[SUBTOOL:(\w+):([^\]]*)\]\]|\[\[SUBTASK_DONE\]\]/g;
+  const allMatches: { index: number; tool: string; detail?: string; end: number; isSubtool?: boolean }[] = [];
 
-  // Auto-expand while streaming
+  let match;
+  while ((match = toolPattern.exec(content)) !== null) {
+    if (match[1]) {
+      // Tool: [[TOOL:name]] or [[TOOL:name:detail]]
+      allMatches.push({
+        index: match.index,
+        tool: match[1],
+        detail: match[2] || undefined,
+        end: match.index + match[0].length,
+      });
+    } else if (match[3]) {
+      // Task start: [[TASK_START:type:desc]]
+      allMatches.push({
+        index: match.index,
+        tool: `Task`,
+        detail: `${match[3]}: ${match[4] || ""}`,
+        end: match.index + match[0].length,
+      });
+    } else if (match[5]) {
+      // Sub-agent tool: [[SUBTOOL:name:detail]]
+      allMatches.push({
+        index: match.index,
+        tool: `  ↳ ${match[5]}`,
+        detail: match[6] || undefined,
+        end: match.index + match[0].length,
+        isSubtool: true,
+      });
+    } else {
+      // Sub-task done: [[SUBTASK_DONE]]
+      allMatches.push({
+        index: match.index,
+        tool: "  ✓ sub-task completed",
+        end: match.index + match[0].length,
+        isSubtool: true,
+      });
+    }
+  }
+
+  // No tools = everything is planning
+  if (allMatches.length === 0) {
+    return { planning: content.trim() || null, working: [], conclusion: null, totalToolCalls: 0 };
+  }
+
+  // Extract planning (text before first tool)
+  const planning = content.slice(0, allMatches[0].index).trim() || null;
+
+  // Extract conclusion (text after last tool)
+  const lastMatch = allMatches[allMatches.length - 1];
+  const conclusionText = content.slice(lastMatch.end).trim();
+  const conclusion = conclusionText || null;
+
+  // Build working section (everything between first and last tool)
+  const working: ParsedMessage["working"] = [];
+  let pendingTools: ToolCall[] = [];
+
+  for (let i = 0; i < allMatches.length; i++) {
+    const curr = allMatches[i];
+    pendingTools.push({ name: curr.tool, detail: curr.detail, isSubtool: curr.isSubtool });
+
+    // Check if there's text between this tool and the next
+    const nextStart = i + 1 < allMatches.length ? allMatches[i + 1].index : lastMatch.end;
+    const textBetween = content.slice(curr.end, nextStart).trim();
+
+    // If there's substantial text, flush tools and add text
+    if (textBetween && i + 1 < allMatches.length) {
+      if (pendingTools.length > 0) {
+        working.push({ type: "tools", content: "", tools: [...pendingTools] });
+        pendingTools = [];
+      }
+      working.push({ type: "text", content: textBetween });
+    }
+  }
+
+  // Flush remaining tools
+  if (pendingTools.length > 0) {
+    working.push({ type: "tools", content: "", tools: pendingTools });
+  }
+
+  return { planning, working, conclusion, totalToolCalls: allMatches.length };
+}
+
+/**
+ * Collapsible working section that contains all tool calls and intermediate thinking
+ */
+function WorkingSection({
+  working,
+  totalToolCalls,
+  isStreaming,
+  palette,
+}: {
+  working: ParsedMessage["working"];
+  totalToolCalls: number;
+  isStreaming: boolean;
+  palette: Record<number, string>;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Auto-collapse when streaming ends
   useEffect(() => {
-    if (isStreaming) setIsOpen(true);
-  }, [isStreaming]);
+    if (!isStreaming && totalToolCalls > 0) {
+      setIsOpen(false);
+    }
+  }, [isStreaming, totalToolCalls]);
 
-  const uniqueTools = [...new Set(tools)];
-  const summary = uniqueTools.length <= 2
-    ? uniqueTools.join(", ")
-    : `${uniqueTools.slice(0, 2).join(", ")} +${uniqueTools.length - 2} more`;
+  // Auto-scroll within the container while streaming
+  useEffect(() => {
+    if (isStreaming && isOpen && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    }
+  });
+
+  if (working.length === 0 && totalToolCalls === 0) return null;
 
   return (
-    <div className="my-2 text-xs border rounded-lg overflow-hidden" style={{ borderColor: theme.border }}>
+    <div className="my-2 border rounded-lg overflow-hidden text-xs" style={{ borderColor: theme.border }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2 px-2 py-1.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
       >
-        <Wrench className="w-3 h-3 text-gray-400" />
-        <span className="text-gray-600 flex-1">
-          {isStreaming ? "Working..." : `Used ${tools.length} tools`}
-          <span className="text-gray-400 ml-1">({summary})</span>
+        <Wrench className="w-3.5 h-3.5" style={{ color: palette[500] }} />
+        <span className="flex-1 font-medium" style={{ color: theme.text }}>
+          {isStreaming ? "Working..." : `Completed ${totalToolCalls} operations`}
         </span>
         <ChevronDown
-          className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "" : "-rotate-90"}`}
         />
       </button>
       {isOpen && (
-        <div className="px-2 py-1.5 bg-gray-50/50 text-gray-500 space-y-0.5">
-          {tools.map((tool, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-gray-300" />
-              <span>{tool}</span>
-            </div>
-          ))}
+        <div
+          ref={contentRef}
+          className="px-3 py-2 bg-gray-50/30 max-h-48 overflow-y-auto space-y-2 text-[12px]"
+          style={{ color: theme.textMuted }}
+        >
+          {working.map((segment, i) =>
+            segment.type === "tools" ? (
+              <div key={i} className="space-y-1">
+                {segment.tools?.map((tool, j) => (
+                  <div key={j} className="flex items-start gap-2">
+                    <span className="px-1.5 py-0.5 rounded bg-gray-200/70 text-gray-600 font-medium shrink-0">
+                      {tool.name}
+                    </span>
+                    {tool.detail && (
+                      <span className="text-gray-500 truncate" title={tool.detail}>
+                        {tool.detail}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p key={i} className="text-gray-600 leading-relaxed">{segment.content}</p>
+            )
+          )}
+          {isStreaming && (
+            <span className="inline-block w-1.5 h-3 bg-gray-400 animate-pulse" />
+          )}
         </div>
       )}
     </div>
@@ -128,10 +224,27 @@ export function CoLearningPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationListRef = useRef<HTMLDivElement>(null);
 
-  // Load conversation list on mount
+  // Load conversation list and restore last session on mount
   useEffect(() => {
-    loadConversations();
+    const init = async () => {
+      await loadConversations();
+
+      // Restore last conversation from localStorage
+      const savedConvId = localStorage.getItem("agent-conversation-id");
+      if (savedConvId) {
+        loadConversation(savedConvId);
+      }
+    };
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist current conversation ID to localStorage
+  useEffect(() => {
+    if (currentConversationId) {
+      localStorage.setItem("agent-conversation-id", currentConversationId);
+    }
+  }, [currentConversationId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -544,30 +657,46 @@ export function CoLearningPanel({
                 </div>
               )}
               {msg.role === "assistant" ? (
-                <div className="text-[13px] leading-snug">
-                  {parseMessageContent(msg.content).map((segment, i) => (
-                    segment.type === "tools" ? (
-                      <ToolCallsSection
-                        key={i}
-                        tools={segment.tools || []}
-                        isStreaming={isLoading && msg.id === messages[messages.length - 1]?.id}
+                (() => {
+                  const parsed = parseMessageContent(msg.content);
+                  const isCurrentlyStreaming = isLoading && msg.id === messages[messages.length - 1]?.id;
+                  const proseClasses = "prose prose-sm prose-neutral prose-tight max-w-none text-[13px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none";
+
+                  return (
+                    <div className="text-[13px] leading-snug">
+                      {/* Planning - first text before any tools */}
+                      {parsed.planning && (
+                        <div className={proseClasses}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {parsed.planning}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+
+                      {/* Working section - collapsible container with tools and intermediate text */}
+                      <WorkingSection
+                        working={parsed.working}
+                        totalToolCalls={parsed.totalToolCalls}
+                        isStreaming={isCurrentlyStreaming && !parsed.conclusion}
+                        palette={palette}
                       />
-                    ) : (
-                      <div
-                        key={i}
-                        className="prose prose-xs prose-neutral prose-tight max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none"
-                      >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {segment.content}
-                        </ReactMarkdown>
-                      </div>
-                    )
-                  ))}
-                  {/* Show blinking cursor while streaming */}
-                  {isLoading && msg.id === messages[messages.length - 1]?.id && (
-                    <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
-                  )}
-                </div>
+
+                      {/* Conclusion - text after all tools */}
+                      {parsed.conclusion && (
+                        <div className={proseClasses}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {parsed.conclusion}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+
+                      {/* Blinking cursor while streaming */}
+                      {isCurrentlyStreaming && !parsed.conclusion && parsed.totalToolCalls === 0 && (
+                        <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <p className="text-[13px] whitespace-pre-wrap">{msg.content}</p>
               )}
@@ -615,12 +744,17 @@ export function CoLearningPanel({
         <div className="flex items-end gap-2 p-3">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
             onKeyDown={handleKeyDown}
             placeholder={contexts.length > 0 ? "Ask about context..." : "Ask anything..."}
-            className="flex-1 resize-none text-sm outline-none max-h-32 bg-transparent"
+            className="flex-1 resize-none text-sm outline-none bg-transparent"
             rows={1}
-            style={{ color: theme.text }}
+            style={{ color: theme.text, minHeight: "24px", maxHeight: "120px", overflowY: "auto" }}
           />
           <button
             onClick={sendMessage}

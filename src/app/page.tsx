@@ -41,8 +41,18 @@ function HomeContent() {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
-  const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
+  const [isCoLearningOpen, setIsCoLearningOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("agent-panel-open") === "true";
+    }
+    return false;
+  });
   const mainContentRef = React.useRef<HTMLDivElement>(null);
+
+  // Persist agent panel open state
+  useEffect(() => {
+    localStorage.setItem("agent-panel-open", isCoLearningOpen.toString());
+  }, [isCoLearningOpen]);
 
   // Resizable panels
   const [sidebarWidth, setSidebarWidth] = useState(() => {

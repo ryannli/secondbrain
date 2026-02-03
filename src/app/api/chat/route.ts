@@ -120,14 +120,62 @@ Be concise but thorough. Use markdown formatting when helpful.
                 controller.enqueue(encoder.encode(event.event.delta.text));
               }
 
-              // Send tool usage as a special marker for frontend to parse
-              if (
-                event.type === "stream_event" &&
-                event.event?.type === "content_block_start" &&
-                event.event?.content_block?.type === "tool_use"
-              ) {
-                const toolName = event.event.content_block.name;
-                controller.enqueue(encoder.encode(`\n[[TOOL:${toolName}]]\n`));
+              // Capture full tool details from assistant message (has complete input)
+              if (event.type === "assistant" && event.message?.content) {
+                for (const block of event.message.content) {
+                  if (block.type === "tool_use") {
+                    const toolName = block.name;
+                    const input = block.input || {};
+
+                    // Format tool details based on tool type
+                    let detail = "";
+                    if (toolName === "Task") {
+                      const subagentType = input.subagent_type || "agent";
+                      detail = `${subagentType}: ${input.description || ""}`;
+                    } else if (toolName === "Bash") {
+                      detail = input.command || "";
+                    } else if (toolName === "Read" || toolName === "Write" || toolName === "Edit") {
+                      detail = input.file_path || "";
+                    } else if (toolName === "Glob") {
+                      detail = input.pattern || "";
+                    } else if (toolName === "Grep") {
+                      detail = input.pattern || "";
+                    } else {
+                      // Generic: show first string value in input
+                      const firstVal = Object.values(input).find(v => typeof v === "string");
+                      detail = (firstVal as string) || "";
+                    }
+
+                    // Truncate long details
+                    if (detail.length > 80) {
+                      detail = detail.slice(0, 77) + "...";
+                    }
+
+                    controller.enqueue(encoder.encode(`\n[[TOOL:${toolName}:${detail}]]\n`));
+                  }
+                }
+              }
+
+              // Capture sub-agent progress (has parent_tool_use_id)
+              if (event.parent_tool_use_id) {
+                // Tool result from sub-agent
+                if (event.type === "user" && event.tool_use_result) {
+                  const result = event.tool_use_result;
+                  // Show what the sub-agent completed
+                  if (result.status === "completed") {
+                    controller.enqueue(encoder.encode(`\n[[SUBTASK_DONE]]\n`));
+                  }
+                }
+                // Sub-agent's own tool calls
+                if (event.type === "assistant" && event.message?.content) {
+                  for (const block of event.message.content) {
+                    if (block.type === "tool_use") {
+                      const detail = block.input?.command || block.input?.pattern || block.input?.file_path || "";
+                      const shortDetail = detail.length > 50 ? detail.slice(0, 47) + "..." : detail;
+                      controller.enqueue(encoder.encode(`[[SUBTOOL:${block.name}:${shortDetail}]]\n`));
+                    }
+                  }
+                }
               }
 
             } catch {
