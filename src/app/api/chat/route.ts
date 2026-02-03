@@ -3,11 +3,10 @@ import { spawn } from "child_process";
 import path from "path";
 
 /**
- * Get the library path - this is the ONLY directory the Agent can access
+ * Get the user data root path - Agent's working directory
  */
-function getLibraryPath(): string {
-  const root = process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
-  return process.env.SECONDBRAIN_LIBRARY || path.join(root, "library");
+function getUserDataPath(): string {
+  return process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
 }
 
 interface ChatContext {
@@ -27,10 +26,11 @@ interface ChatMessage {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, contexts, history } = body as {
+    const { message, contexts, history, currentPath } = body as {
       message: string;
       contexts?: ChatContext[];
       history?: ChatMessage[];
+      currentPath?: string;
     };
 
     if (!message && (!contexts || contexts.length === 0)) {
@@ -40,24 +40,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the prompt
+    // Build the prompt - detailed instructions are in user_data/CLAUDE.md
     let prompt = `You are an Agent in a knowledge management app called "Second Brain".
 
-Your workspace is the user's library directory. You can:
-1. **Read and explore** - Browse the library structure, read sources and their analyses
-2. **Organize** - Move sources between folders, create new folders, rename things
-3. **Analyze** - Help understand content, find connections between sources
-4. **Answer questions** - About the library content or general knowledge
-
-IMPORTANT: You are sandboxed to ONLY the library directory. You cannot access files outside this directory.
-
-The library structure:
-- Each source is a folder with: original.json (metadata), content.md (extracted text), analysis.json (AI analysis)
-- Sources can be organized into user-created folders
-- Moving a source = moving its entire folder
+Your workspace:
+- \`./library/\` - The content library (read and write)
+- \`./config.json\` - User settings (read only)
+- \`./CLAUDE.md\` - Your detailed instructions (read this for schemas and rules)
 
 Be concise but thorough. Use markdown formatting when helpful.
 `;
+
+    // Add user's current location
+    if (currentPath) {
+      prompt += "\n## User's Current Location\n";
+      prompt += `User is at: \`${currentPath}\`\n`;
+
+      // Parse path to give helpful context
+      const sourceMatch = currentPath.match(/[?&]source=([^&]+)/);
+      if (sourceMatch) {
+        const sourceId = sourceMatch[1];
+        prompt += `\nUser is viewing source **${sourceId}**.\n`;
+        prompt += `Source folder: \`./library/${sourceId}/\` - you can read/edit files there.\n`;
+      } else if (currentPath.includes("view=foryou")) {
+        prompt += "User is on the For You feed.\n";
+      } else {
+        prompt += "User is on the Dashboard.\n";
+      }
+    }
 
     // Add context if provided
     if (contexts && contexts.length > 0) {
@@ -80,8 +90,8 @@ Be concise but thorough. Use markdown formatting when helpful.
     prompt += "\n## Your Response\n";
 
     // Create streaming response using stream-json format
-    // Agent is sandboxed to ONLY the library directory
-    const libraryPath = getLibraryPath();
+    // Agent runs in user_data directory (can read all, write to library/)
+    const userDataPath = getUserDataPath();
 
     const stream = new ReadableStream({
       start(controller) {
@@ -93,7 +103,7 @@ Be concise but thorough. Use markdown formatting when helpful.
           "--permission-mode", "acceptEdits",  // Allow file operations (sandboxed to cwd)
         ], {
           stdio: ["pipe", "pipe", "pipe"],
-          cwd: libraryPath,  // Restrict Claude to library directory only
+          cwd: userDataPath,  // Agent can read user_data, write to library/
         });
 
         const encoder = new TextEncoder();
@@ -121,7 +131,8 @@ Be concise but thorough. Use markdown formatting when helpful.
               }
 
               // Capture full tool details from assistant message (has complete input)
-              if (event.type === "assistant" && event.message?.content) {
+              // Skip if this is a sub-agent event (has parent_tool_use_id) - those are handled separately
+              if (event.type === "assistant" && event.message?.content && !event.parent_tool_use_id) {
                 for (const block of event.message.content) {
                   if (block.type === "tool_use") {
                     const toolName = block.name;
@@ -140,18 +151,31 @@ Be concise but thorough. Use markdown formatting when helpful.
                       detail = input.pattern || "";
                     } else if (toolName === "Grep") {
                       detail = input.pattern || "";
+                    } else if (toolName === "TodoWrite" || toolName === "TaskCreate") {
+                      detail = input.subject || input.description || "";
                     } else {
                       // Generic: show first string value in input
                       const firstVal = Object.values(input).find(v => typeof v === "string");
                       detail = (firstVal as string) || "";
                     }
 
-                    // Truncate long details
-                    if (detail.length > 80) {
-                      detail = detail.slice(0, 77) + "...";
-                    }
-
                     controller.enqueue(encoder.encode(`\n[[TOOL:${toolName}:${detail}]]\n`));
+                  }
+                }
+              }
+
+              // Capture tool results (for showing Bash output, etc.)
+              if (event.type === "user" && event.message?.content) {
+                for (const block of event.message.content) {
+                  if (block.type === "tool_result" && block.content) {
+                    // Only show short results (e.g., error messages, brief output)
+                    const resultText = typeof block.content === "string"
+                      ? block.content
+                      : JSON.stringify(block.content);
+                    // Skip very long results (file contents, etc.)
+                    if (resultText.length > 0 && resultText.length < 500) {
+                      controller.enqueue(encoder.encode(`[[TOOL_RESULT:${resultText}]]\n`));
+                    }
                   }
                 }
               }
@@ -171,8 +195,7 @@ Be concise but thorough. Use markdown formatting when helpful.
                   for (const block of event.message.content) {
                     if (block.type === "tool_use") {
                       const detail = block.input?.command || block.input?.pattern || block.input?.file_path || "";
-                      const shortDetail = detail.length > 50 ? detail.slice(0, 47) + "..." : detail;
-                      controller.enqueue(encoder.encode(`[[SUBTOOL:${block.name}:${shortDetail}]]\n`));
+                      controller.enqueue(encoder.encode(`[[SUBTOOL:${block.name}:${detail}]]\n`));
                     }
                   }
                 }

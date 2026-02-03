@@ -903,9 +903,16 @@ async function loadSourceFromPath(
 
     // Read analysis if it exists
     let analysis: Analysis | undefined;
+    let analysisError: string | undefined;
     try {
       const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
-      analysis = JSON.parse(analysisJson);
+      try {
+        analysis = JSON.parse(analysisJson);
+      } catch (parseError) {
+        // File exists but JSON is malformed
+        analysisError = `Invalid JSON in analysis.json: ${parseError instanceof Error ? parseError.message : "Parse error"}`;
+        console.error(`[${id}] ${analysisError}`);
+      }
 
       // Resolve connection titles dynamically
       if (analysis?.connections) {
@@ -920,7 +927,7 @@ async function loadSourceFromPath(
         }
       }
     } catch {
-      // Analysis might not exist yet
+      // File doesn't exist - analysis not ready yet (normal during processing)
     }
 
     const meta: SourceMeta = {
@@ -931,6 +938,7 @@ async function loadSourceFromPath(
       createdAt: originalData.created_at,
       processingStatus: status,
       processingError: error,
+      analysisError,
       readStatus,
       lastReadAt,
     };

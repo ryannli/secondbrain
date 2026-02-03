@@ -10,128 +10,142 @@ import { AgentConversationSummary, AgentMessage, AgentContext } from "@/lib/type
 interface ToolCall {
   name: string;
   detail?: string;
-  isSubtool?: boolean;
+  result?: string;
+  children?: ToolCall[];  // For Task tools, their sub-operations
 }
 
+type MessageSegment =
+  | { type: "text"; content: string }
+  | { type: "tools"; tools: ToolCall[] };
+
 interface ParsedMessage {
-  planning: string | null;      // First text before any tool
-  working: Array<{ type: "text" | "tools"; content: string; tools?: ToolCall[] }>;  // Middle content
-  conclusion: string | null;    // Last text after all tools
+  segments: MessageSegment[];
   totalToolCalls: number;
 }
 
 /**
- * Parse message into planning / working / conclusion sections
+ * Parse message into interleaved text and tool segments
+ * Consecutive tools are grouped; text between tools creates new tool groups
  */
 function parseMessageContent(content: string): ParsedMessage {
-  // Match all tool marker formats
-  const toolPattern = /\[\[TOOL:(\w+)(?::([^\]]*))?\]\]|\[\[TASK_START:([^:]+):([^\]]*)\]\]|\[\[SUBTOOL:(\w+):([^\]]*)\]\]|\[\[SUBTASK_DONE\]\]/g;
-  const allMatches: { index: number; tool: string; detail?: string; end: number; isSubtool?: boolean }[] = [];
+  // Match tool calls and results
+  // Use [\s\S]*? to match ANY character including newlines (non-greedy)
+  const toolPattern = /\[\[TOOL:(\w+)(?::([\s\S]*?))?\]\]|\[\[TOOL_RESULT:([\s\S]*?)\]\]|\[\[TASK_START:([^:]+):([\s\S]*?)\]\]|\[\[SUBTOOL:(\w+):([\s\S]*?)\]\]|\[\[SUBTASK_DONE\]\]/g;
+
+  const segments: MessageSegment[] = [];
+  let totalToolCalls = 0;
+  let lastEnd = 0;
+  let currentTools: ToolCall[] = [];
+  let currentTask: ToolCall | null = null;  // Track current Task for grouping subtools
+
+  const flushTools = () => {
+    if (currentTools.length > 0) {
+      segments.push({ type: "tools", tools: currentTools });
+      currentTools = [];
+    }
+    currentTask = null;
+  };
 
   let match;
   while ((match = toolPattern.exec(content)) !== null) {
+    // Check for text before this marker
+    const textBefore = content.slice(lastEnd, match.index).trim();
+    if (textBefore) {
+      // Text found - flush any accumulated tools first, then add text
+      flushTools();
+      segments.push({ type: "text", content: textBefore });
+    }
+
+    // Parse the marker
     if (match[1]) {
-      // Tool: [[TOOL:name]] or [[TOOL:name:detail]]
-      allMatches.push({
-        index: match.index,
-        tool: match[1],
-        detail: match[2] || undefined,
-        end: match.index + match[0].length,
-      });
-    } else if (match[3]) {
-      // Task start: [[TASK_START:type:desc]]
-      allMatches.push({
-        index: match.index,
-        tool: `Task`,
-        detail: `${match[3]}: ${match[4] || ""}`,
-        end: match.index + match[0].length,
-      });
-    } else if (match[5]) {
-      // Sub-agent tool: [[SUBTOOL:name:detail]]
-      allMatches.push({
-        index: match.index,
-        tool: `  ↳ ${match[5]}`,
-        detail: match[6] || undefined,
-        end: match.index + match[0].length,
-        isSubtool: true,
-      });
-    } else {
-      // Sub-task done: [[SUBTASK_DONE]]
-      allMatches.push({
-        index: match.index,
-        tool: "  ✓ sub-task completed",
-        end: match.index + match[0].length,
-        isSubtool: true,
-      });
-    }
-  }
-
-  // No tools = everything is planning
-  if (allMatches.length === 0) {
-    return { planning: content.trim() || null, working: [], conclusion: null, totalToolCalls: 0 };
-  }
-
-  // Extract planning (text before first tool)
-  const planning = content.slice(0, allMatches[0].index).trim() || null;
-
-  // Extract conclusion (text after last tool)
-  const lastMatch = allMatches[allMatches.length - 1];
-  const conclusionText = content.slice(lastMatch.end).trim();
-  const conclusion = conclusionText || null;
-
-  // Build working section (everything between first and last tool)
-  const working: ParsedMessage["working"] = [];
-  let pendingTools: ToolCall[] = [];
-
-  for (let i = 0; i < allMatches.length; i++) {
-    const curr = allMatches[i];
-    pendingTools.push({ name: curr.tool, detail: curr.detail, isSubtool: curr.isSubtool });
-
-    // Check if there's text between this tool and the next
-    const nextStart = i + 1 < allMatches.length ? allMatches[i + 1].index : lastMatch.end;
-    const textBetween = content.slice(curr.end, nextStart).trim();
-
-    // If there's substantial text, flush tools and add text
-    if (textBetween && i + 1 < allMatches.length) {
-      if (pendingTools.length > 0) {
-        working.push({ type: "tools", content: "", tools: [...pendingTools] });
-        pendingTools = [];
+      // Tool call: [[TOOL:name:detail]]
+      const tool: ToolCall = { name: match[1], detail: match[2] || undefined };
+      if (match[1] === "Task") {
+        // This is a Task - it will collect subtools
+        tool.children = [];
+        currentTask = tool;
       }
-      working.push({ type: "text", content: textBetween });
+      currentTools.push(tool);
+      totalToolCalls++;
+    } else if (match[3]) {
+      // Tool result: [[TOOL_RESULT:content]] - attach to last tool or last subtool
+      const lastTool = currentTools[currentTools.length - 1];
+      if (lastTool) {
+        if (currentTask && currentTask.children && currentTask.children.length > 0) {
+          // Attach to last subtool
+          currentTask.children[currentTask.children.length - 1].result = match[3];
+        } else {
+          // Attach to last main tool
+          lastTool.result = match[3];
+        }
+      }
+    } else if (match[4]) {
+      // Task start: [[TASK_START:type:desc]] - alternative Task format
+      const tool: ToolCall = { name: "Task", detail: `${match[4]}: ${match[5] || ""}`, children: [] };
+      currentTask = tool;
+      currentTools.push(tool);
+      totalToolCalls++;
+    } else if (match[6]) {
+      // Sub-agent tool: [[SUBTOOL:name:detail]] - add to current Task
+      const subtool: ToolCall = { name: match[6], detail: match[7] || undefined };
+      if (currentTask && currentTask.children) {
+        currentTask.children.push(subtool);
+      } else {
+        // No parent Task, show as standalone (shouldn't happen but handle gracefully)
+        currentTools.push({ name: `↳ ${match[6]}`, detail: match[7] || undefined });
+      }
+      totalToolCalls++;
+    } else {
+      // Sub-task done: [[SUBTASK_DONE]] - close current Task
+      currentTask = null;
     }
+
+    lastEnd = match.index + match[0].length;
   }
 
   // Flush remaining tools
-  if (pendingTools.length > 0) {
-    working.push({ type: "tools", content: "", tools: pendingTools });
+  flushTools();
+
+  // Add text after last marker
+  const textAfter = content.slice(lastEnd).trim();
+  if (textAfter) {
+    segments.push({ type: "text", content: textAfter });
   }
 
-  return { planning, working, conclusion, totalToolCalls: allMatches.length };
+  // If no segments at all, treat entire content as text
+  if (segments.length === 0) {
+    const text = content.trim();
+    if (text) {
+      segments.push({ type: "text", content: text });
+    }
+  }
+
+  return { segments, totalToolCalls };
 }
 
 /**
- * Collapsible working section that contains all tool calls and intermediate thinking
+ * Collapsible section for a group of tool calls
  */
-function WorkingSection({
-  working,
-  totalToolCalls,
+function ToolsSection({
+  tools,
   isStreaming,
   palette,
+  defaultOpen = true,
 }: {
-  working: ParsedMessage["working"];
-  totalToolCalls: number;
+  tools: ToolCall[];
   isStreaming: boolean;
   palette: Record<number, string>;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Auto-collapse when streaming ends
   useEffect(() => {
-    if (!isStreaming && totalToolCalls > 0) {
+    if (!isStreaming && tools.length > 0) {
       setIsOpen(false);
     }
-  }, [isStreaming, totalToolCalls]);
+  }, [isStreaming, tools.length]);
 
   // Auto-scroll within the container while streaming
   useEffect(() => {
@@ -140,7 +154,7 @@ function WorkingSection({
     }
   });
 
-  if (working.length === 0 && totalToolCalls === 0) return null;
+  if (tools.length === 0) return null;
 
   return (
     <div className="my-2 border rounded-lg overflow-hidden text-xs" style={{ borderColor: theme.border }}>
@@ -150,7 +164,7 @@ function WorkingSection({
       >
         <Wrench className="w-3.5 h-3.5" style={{ color: palette[500] }} />
         <span className="flex-1 font-medium" style={{ color: theme.text }}>
-          {isStreaming ? "Working..." : `Completed ${totalToolCalls} operations`}
+          {isStreaming ? "Working..." : `${tools.length} operations`}
         </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "" : "-rotate-90"}`}
@@ -159,29 +173,54 @@ function WorkingSection({
       {isOpen && (
         <div
           ref={contentRef}
-          className="px-3 py-2 bg-gray-50/30 max-h-48 overflow-y-auto space-y-2 text-[12px]"
+          className="px-3 py-2 bg-gray-50/30 max-h-64 overflow-y-auto space-y-1 text-[12px]"
           style={{ color: theme.textMuted }}
         >
-          {working.map((segment, i) =>
-            segment.type === "tools" ? (
-              <div key={i} className="space-y-1">
-                {segment.tools?.map((tool, j) => (
-                  <div key={j} className="flex items-start gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-gray-200/70 text-gray-600 font-medium shrink-0">
-                      {tool.name}
-                    </span>
-                    {tool.detail && (
-                      <span className="text-gray-500 truncate" title={tool.detail}>
-                        {tool.detail}
-                      </span>
-                    )}
-                  </div>
-                ))}
+          {tools.map((tool, i) => (
+            <div key={i}>
+              {/* Main tool */}
+              <div className="flex items-start gap-2">
+                <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-200/70 text-gray-600 font-medium">
+                  {tool.name}
+                </span>
+                {tool.detail && (
+                  <span className="truncate text-[11px] text-gray-500" title={tool.detail}>
+                    {tool.detail}
+                  </span>
+                )}
               </div>
-            ) : (
-              <p key={i} className="text-gray-600 leading-relaxed">{segment.content}</p>
-            )
-          )}
+              {tool.result && (
+                <div className="mt-0.5 ml-2 text-[10px] text-gray-400 truncate" title={tool.result}>
+                  → {tool.result.split("\n")[0]}
+                </div>
+              )}
+
+              {/* Children (subtools) */}
+              {tool.children && tool.children.length > 0 && (
+                <div className="ml-4 mt-1 pl-2 border-l-2 border-gray-200 space-y-1">
+                  {tool.children.map((child, j) => (
+                    <div key={j}>
+                      <div className="flex items-start gap-2">
+                        <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-100 text-gray-500 text-[11px]">
+                          {child.name}
+                        </span>
+                        {child.detail && (
+                          <span className="truncate text-[11px] text-gray-400" title={child.detail}>
+                            {child.detail}
+                          </span>
+                        )}
+                      </div>
+                      {child.result && (
+                        <div className="mt-0.5 ml-2 text-[10px] text-gray-400 truncate" title={child.result}>
+                          → {child.result.split("\n")[0]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
           {isStreaming && (
             <span className="inline-block w-1.5 h-3 bg-gray-400 animate-pulse" />
           )}
@@ -202,12 +241,16 @@ interface CoLearningPanelProps {
   onToggle: () => void;
   palette: Record<number, string>;
   width?: number;
+  currentPath?: string; // e.g. "/" or "/?source=abc123" or "/?view=foryou"
+  onAgentComplete?: () => void; // Called when Agent finishes a turn
 }
 
 export function CoLearningPanel({
   isOpen,
   onToggle,
   palette,
+  currentPath,
+  onAgentComplete,
   width = 384,
 }: CoLearningPanelProps) {
   // Conversation state
@@ -419,6 +462,7 @@ export function CoLearningPanel({
           message: messageText,
           contexts: currentContexts.map((c) => ({ text: c.text, source: c.source })),
           history: currentHistory,
+          currentPath,
         }),
       });
 
@@ -460,6 +504,9 @@ export function CoLearningPanel({
 
       // Save final conversation with assistant response
       await saveConversation(finalMessages, convId);
+
+      // Notify parent that agent completed (for auto-refresh)
+      onAgentComplete?.();
     } catch (err) {
       const errorMessage: AgentMessage = {
         id: `msg-${Date.now()}-error`,
@@ -664,34 +711,26 @@ export function CoLearningPanel({
 
                   return (
                     <div className="text-[13px] leading-snug">
-                      {/* Planning - first text before any tools */}
-                      {parsed.planning && (
-                        <div className={proseClasses}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {parsed.planning}
-                          </ReactMarkdown>
-                        </div>
-                      )}
+                      {parsed.segments.map((segment, i) => (
+                        segment.type === "text" ? (
+                          <div key={i} className={proseClasses}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {segment.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <ToolsSection
+                            key={i}
+                            tools={segment.tools}
+                            isStreaming={isCurrentlyStreaming && i === parsed.segments.length - 1}
+                            palette={palette}
+                            defaultOpen={isCurrentlyStreaming || i === parsed.segments.length - 1}
+                          />
+                        )
+                      ))}
 
-                      {/* Working section - collapsible container with tools and intermediate text */}
-                      <WorkingSection
-                        working={parsed.working}
-                        totalToolCalls={parsed.totalToolCalls}
-                        isStreaming={isCurrentlyStreaming && !parsed.conclusion}
-                        palette={palette}
-                      />
-
-                      {/* Conclusion - text after all tools */}
-                      {parsed.conclusion && (
-                        <div className={proseClasses}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {parsed.conclusion}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-
-                      {/* Blinking cursor while streaming */}
-                      {isCurrentlyStreaming && !parsed.conclusion && parsed.totalToolCalls === 0 && (
+                      {/* Blinking cursor while streaming with no content yet */}
+                      {isCurrentlyStreaming && parsed.segments.length === 0 && (
                         <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
                       )}
                     </div>

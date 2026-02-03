@@ -41,35 +41,36 @@ function HomeContent() {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
-  const [isCoLearningOpen, setIsCoLearningOpen] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("agent-panel-open") === "true";
-    }
-    return false;
-  });
+  const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
+  const [isCoLearningInitialized, setIsCoLearningInitialized] = useState(false);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
 
-  // Persist agent panel open state
+  // Load agent panel state from localStorage after mount
   useEffect(() => {
-    localStorage.setItem("agent-panel-open", isCoLearningOpen.toString());
-  }, [isCoLearningOpen]);
+    const saved = localStorage.getItem("agent-panel-open");
+    if (saved === "true") setIsCoLearningOpen(true);
+    setIsCoLearningInitialized(true);
+  }, []);
 
-  // Resizable panels
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("sidebarWidth");
-      return saved ? parseInt(saved, 10) : 256;
+  // Persist agent panel open state (only after initialized)
+  useEffect(() => {
+    if (isCoLearningInitialized) {
+      localStorage.setItem("agent-panel-open", isCoLearningOpen.toString());
     }
-    return 256;
-  });
-  const [askPanelWidth, setAskPanelWidth] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("askPanelWidth");
-      return saved ? parseInt(saved, 10) : 384;
-    }
-    return 384;
-  });
+  }, [isCoLearningOpen, isCoLearningInitialized]);
+
+  // Resizable panels - use default values, load from localStorage in useEffect
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [askPanelWidth, setAskPanelWidth] = useState(384);
   const [resizing, setResizing] = useState<"sidebar" | "ask" | null>(null);
+
+  // Load saved widths from localStorage after mount (avoids hydration mismatch)
+  useEffect(() => {
+    const savedSidebar = localStorage.getItem("sidebarWidth");
+    const savedAsk = localStorage.getItem("askPanelWidth");
+    if (savedSidebar) setSidebarWidth(parseInt(savedSidebar, 10));
+    if (savedAsk) setAskPanelWidth(parseInt(savedAsk, 10));
+  }, []);
 
   // Resize handlers
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -437,6 +438,23 @@ function HomeContent() {
           onToggle={() => setIsCoLearningOpen(!isCoLearningOpen)}
           palette={palette}
           width={askPanelWidth}
+          currentPath={sourceId ? `/?source=${sourceId}` : viewParam ? `/?view=${viewParam}` : "/"}
+          onAgentComplete={async () => {
+            // Reload current source when agent finishes (in case it modified files)
+            if (selectedSource) {
+              try {
+                const res = await fetch(`/api/sources/${selectedSource.meta.id}`);
+                const data = await res.json();
+                if (data.success && data.source) {
+                  setSelectedSource(data.source);
+                }
+              } catch (e) {
+                console.error("Failed to reload source after agent completion:", e);
+              }
+            }
+            // Also refresh the library sidebar
+            loadSources();
+          }}
         />
       </div>
 

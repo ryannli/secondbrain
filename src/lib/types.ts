@@ -40,6 +40,7 @@ export interface SourceMeta {
   // Processing status (derived from file existence)
   processingStatus?: ProcessingStatus;
   processingError?: string;
+  analysisError?: string; // Error if analysis.json exists but is malformed
   // Reading tracking
   readStatus?: "unread" | "reading" | "read";
   lastReadAt?: string;
