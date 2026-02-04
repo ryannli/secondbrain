@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { X, Send, Sparkles, ChevronRight, ChevronLeft, Plus, ChevronDown, Trash2, MessageSquare, Wrench } from "lucide-react";
 import { theme } from "@/lib/theme";
 import { AgentConversationSummary, AgentMessage, AgentStreamEvent, AgentContext } from "@/lib/types";
+import { useToggle } from "@/hooks/useToggle";
 
 // Re-export for local use
 type StreamEvent = AgentStreamEvent;
@@ -283,7 +284,7 @@ export function CoLearningPanel({
   const [conversations, setConversations] = useState<AgentConversationSummary[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [showConversationList, setShowConversationList] = useState(false);
+  const [showConversationList, toggleConversationList, setShowConversationList] = useToggle(false);
 
   // Streaming state
   const [streamingEvents, setStreamingEvents] = useState<StreamEvent[]>([]);
@@ -701,7 +702,7 @@ export function CoLearningPanel({
           {/* Conversation selector */}
           <div className="relative flex-1 min-w-0" ref={conversationListRef}>
             <button
-              onClick={() => setShowConversationList(!showConversationList)}
+              onClick={toggleConversationList}
               className="flex items-center gap-1 hover:bg-gray-100 rounded px-2 py-1 transition-colors max-w-full"
             >
               <span className="font-semibold truncate">

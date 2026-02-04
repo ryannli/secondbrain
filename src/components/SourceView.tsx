@@ -24,6 +24,7 @@ import {
 import { Source, ActionType, Highlight, ResolvedConnection, ConnectionType } from "@/lib/types";
 import { SourceError } from "./SourceError";
 import { ResizeHandle } from "./ResizeHandle";
+import { TooltipButton } from "./ui";
 
 export interface SourceViewProps {
   source: Source;
@@ -215,33 +216,21 @@ export function SourceView({
                 </>
               ) : (
                 <>
-                  <div className="relative group">
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors"
-                      style={{ borderColor: theme.border, color: theme.textMuted }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                      <p className="font-medium mb-1">Edit source</p>
-                      <p className="text-gray-300">Edit the title and content directly.</p>
-                    </div>
-                  </div>
-                  <div className="relative group">
-                    <button
-                      onClick={onReanalyze}
-                      disabled={isReanalyzing}
-                      className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
-                      style={{ borderColor: theme.border, color: theme.textMuted }}
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`} />
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                      <p className="font-medium mb-1">Re-process this source</p>
-                      <p className="text-gray-300">Re-fetch content from the original input, then re-run AI analysis.</p>
-                    </div>
-                  </div>
+                  <TooltipButton
+                    onClick={() => setIsEditing(true)}
+                    tooltip={{ title: "Edit source", description: "Edit the title and content directly." }}
+                    style={{ borderColor: theme.border, color: theme.textMuted }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </TooltipButton>
+                  <TooltipButton
+                    onClick={onReanalyze}
+                    disabled={isReanalyzing}
+                    tooltip={{ title: "Re-process this source", description: "Re-fetch content from the original input, then re-run AI analysis." }}
+                    style={{ borderColor: theme.border, color: theme.textMuted }}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`} />
+                  </TooltipButton>
                   <div className="relative group">
                     {meta.sourceUrl ? (
                       // External source: open in new tab
