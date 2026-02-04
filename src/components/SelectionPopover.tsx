@@ -40,26 +40,25 @@ export function SelectionPopover({
     if (!container) return;
 
     const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
 
-    // Check if selection is inside container
-    if (
-      rect.top < containerRect.top ||
-      rect.bottom > containerRect.bottom ||
-      rect.left < containerRect.left ||
-      rect.right > containerRect.right
-    ) {
-      // Selection is outside container - don't show popover
+    // Check if selection's common ancestor is within our container (DOM hierarchy check)
+    if (!container.contains(range.commonAncestorContainer)) {
       setPosition(null);
       setSelectedText("");
       return;
     }
 
+    const rect = range.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    // Position the popover - clamp to container bounds
+    const popoverX = Math.max(containerRect.left + 50, Math.min(rect.left + rect.width / 2, containerRect.right - 50));
+    const popoverY = Math.max(containerRect.top + 30, rect.top - 10);
+
     setSelectedText(text);
     setPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10,
+      x: popoverX,
+      y: popoverY,
     });
   }, [containerRef]);
 
