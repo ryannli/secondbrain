@@ -296,53 +296,62 @@ export function promptFilterFeed(
   preferredSources: string[] = []
 ): string {
   const preferredSourcesText = preferredSources.length > 0
-    ? `\n## User's Preferred Sources\nThe user specifically wants content from: ${preferredSources.join(", ")}\nPrioritize results from these sources - they are NOT low authority for this user.\n`
+    ? `\n## User's Preferred Sources\nThe user specifically wants content from: ${preferredSources.join(", ")}\nThese are trusted sources for this user.\n`
     : "";
 
-  return `You are a Chief of Staff helping a busy knowledge worker decide what's worth their attention.
+  return `You are a Chief of Staff helping a busy knowledge worker stay informed in their areas of interest.
 
-## User's Library (what they already know)
+## User's Interest Areas (from their library)
 ${libraryContext}
 ${preferredSourcesText}
-## Today's News Results
+## Today's Search Results
 ${resultsContext}
 
 ## Your Job
 For each result, decide: **Recommend** or **Skip**?
 
-### Recommend if (NOVELTY is key):
-1. **Breaking news**: Something that just happened (announcement, event, release)
-2. **New perspective**: A fresh angle on something they know — NOT just more of the same
-3. **From user's preferred sources**: Reddit, Hacker News, or other sources they explicitly chose
-4. **Would teach them something**: Genuinely new information they wouldn't know
+## CRITICAL: Avoid Echo Chamber
+
+The user wants to EXPAND their knowledge in their interest areas, NOT just see content similar to what they already have.
+
+### Recommend if:
+1. **New development**: Something that just happened this week (announcements, releases, events)
+2. **High engagement/discussion**: Posts with significant community discussion (check for comment counts, upvotes in snippet)
+3. **New perspective or debate**: Different viewpoint, controversy, or evolving discussion
+4. **Deepens understanding**: Goes deeper than what they have, even on familiar topics
+5. **From trusted sources**: Established publications or user's preferred sources
 
 ### Skip if:
-1. **Already knows this**: Topic is covered in their library with similar depth
-2. **Generic overview**: "What is X?" articles when they clearly already know X
-3. **Low authority**: Random blogs, SEO content, promotional pieces (but NOT user's preferred sources)
-4. **Stale news**: Just repackaging older information
+1. **Exact same content**: Literally the same story they already have
+2. **Low engagement**: Few comments, no discussion (especially for Reddit/HN)
+3. **Generic intro content**: "What is X?" when they clearly know X deeply
+4. **SEO spam / clickbait**: Low-quality content farming
+5. **Outdated**: Old content repackaged
 
-**IMPORTANT**: The bar for "recommend" is HIGH. If someone already has deep knowledge on a topic, don't recommend generic articles on that topic. Only recommend if there's something genuinely NEW (a new development, a contrarian view, a deeper analysis).
+## KEY PRINCIPLE: Domain ≠ Duplicate
 
-## CRITICAL: Writing Good Reasons
+If a user is interested in a topic, they want to see WHAT'S HAPPENING in that area — new developments, debates, tools.
 
-**For recommendations (whyRead):**
-- Create CURIOSITY, don't summarize
-- Tell them WHY to click, not WHAT it says
-- Be specific about what's new or significant
-- Examples:
-  ✓ "OpenAI just announced a major policy shift"
-  ✓ "Challenges a key assumption in your AI safety notes"
-  ✓ "First detailed look at what happened inside [company]"
-  ✗ "This article discusses AI safety regulations" (boring, tells content)
-  ✗ "Related to your interests in AI" (too generic)
+DO NOT skip content just because it's in the same domain. Skip only if it's literally the SAME story or adds nothing new.
 
-**For skips (whySkip):**
-- Tell them what they'd be missing (nothing much)
-- Reference their existing knowledge
-- Examples:
-  ✓ "Covers the same ground as your 'React Server Components' article"
-  ✓ "Generic overview — you already know this from [source]"
+**Decision framework:**
+- User has deep article on Topic X → New development about X → RECOMMEND (news)
+- User has deep article on Topic X → "Intro to X" article → SKIP (they know this)
+- User has article from Source A → Different story from Source A → RECOMMEND (new content)
+
+## Writing Reasons
+
+**whyRead** (create curiosity, not summaries):
+✓ "First public post-mortem of why this failed"
+✓ "Heated debate with 200+ comments"
+✓ "Claims 10x improvement over current approach"
+✗ "Related to [topic]" (too vague)
+✗ "Discusses [topic]" (boring summary)
+
+**whySkip** (be specific):
+✓ "Beginner intro — covered at deeper level in your library"
+✓ "Same announcement, different publication"
+✓ "Low engagement — only 3 comments"
 
 ## Output Format
 {
@@ -351,25 +360,31 @@ For each result, decide: **Recommend** or **Skip**?
       "index": 1,
       "action": "recommend",
       "score": 85,
-      "whyRead": "Specific reason creating curiosity",
+      "whyRead": "Specific hook creating curiosity",
       "connectsTo": "Title of related source in library (or null)"
     },
     {
       "index": 3,
       "action": "skip",
       "score": 25,
-      "whySkip": "Why this isn't worth their time"
+      "whySkip": "Specific reason"
     }
   ]
 }
+
+## Scoring Guide
+- 80-100: Must see — major news, high-engagement discussion, or valuable insight
+- 60-79: Worth reading — interesting new angle or development
+- 40-59: Maybe skim — some value but not essential
+- 20-39: Skip — low value or redundant
+- 0-19: Definitely skip — spam, outdated, or completely covered
 
 ## Rules
 - "index" = 1-based position in search results
 - Include ALL items (both recommend and skip)
 - Maximum ${maxItems} items total
-- Recommendations should score 60+
-- Be honest — if nothing is worth reading, say so
-- Source authority matters: NYT/Verge/Wired > random blogs
+- Be generous with recommendations in user's interest areas
+- Prioritize HIGH ENGAGEMENT content (lots of comments/discussion)
 
 Respond with ONLY the JSON object.`;
 }
@@ -411,17 +426,17 @@ Tell the user NEW information they don't already know. The briefing itself shoul
 
 **EXAMPLE:**
 **What's new**
-- **Anthropic** closed **$10B** funding round at **$61.5B valuation** (up from $18B last year) (#1)
-- **OpenAI IPO** reportedly planned for late 2025 — would be largest tech IPO since Facebook (#3)
-- **Chrome Auto Browse** seeing **40% failure rate** in real-world tests (#7)
+- **Company X** raised **$500M** at **$5B valuation**, 3x increase from last round (#1)
+- **Major product** launching **new feature** that changes how users do [task] (#3)
+- **Industry report** shows **40% adoption rate** for [technology] (#7)
 
 **Connects to your knowledge**
-- Anthropic valuation validates the **"loss leader" pricing** you noted in your HN thread (#1)
-- Auto Browse failures relate to your **agentic AI limitations** notes (#7)
+- Funding news validates the trend you noted in your article about [topic] (#1)
+- New feature relates to the **limitations** you explored in [your article] (#7)
 
 **Go deeper**
-- #1 — Full investor breakdown (**Google**, **Salesforce** stakes)
-- #5 — Specific user testing data with **response times**
+- #1 — Full breakdown of the investor list and terms
+- #5 — Detailed benchmark data with methodology
 
 Respond with ONLY the formatted briefing.`;
 }

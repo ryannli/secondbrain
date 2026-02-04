@@ -852,21 +852,35 @@ export function CoLearningPanel({
             {contexts.map((ctx) => (
               <div
                 key={ctx.id}
-                className="group flex items-center gap-1 px-2 py-0.5 rounded text-xs border"
+                className="group relative flex items-center gap-1.5 pl-2 pr-6 py-1 rounded-md text-xs border cursor-default"
                 style={{
                   borderColor: ctx.type === "source" ? palette[300] : palette[200],
-                  backgroundColor: ctx.type === "source" ? "transparent" : `${palette[500]}10`,
-                  color: palette[600],
+                  backgroundColor: ctx.type === "source" ? `${palette[100]}50` : `${palette[500]}08`,
+                  color: palette[700],
                 }}
                 title={ctx.type === "source" ? ctx.title : ctx.content}
               >
-                <span className="truncate max-w-[160px]">
-                  {ctx.type === "source" ? "📄 " : "💬 "}
-                  {ctx.title.slice(0, 20)}{ctx.title.length > 20 ? "..." : ""}
-                </span>
+                {ctx.type === "source" ? (
+                  <>
+                    <span className="text-[10px] opacity-60">📄</span>
+                    <span className="truncate max-w-[180px] font-medium">
+                      {ctx.title}
+                    </span>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-0 min-w-0">
+                    <span className="text-[10px] opacity-50 truncate">
+                      💬 {ctx.title}
+                    </span>
+                    <span className="truncate text-[11px] opacity-80">
+                      {(ctx.content || "").slice(0, 40)}{(ctx.content || "").length > 40 ? "..." : ""}
+                    </span>
+                  </div>
+                )}
+                {/* X button - appears on hover */}
                 <button
                   onClick={() => removeContext(ctx.id)}
-                  className="opacity-50 hover:opacity-100 transition-opacity"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10"
                 >
                   <X className="w-3 h-3" />
                 </button>
