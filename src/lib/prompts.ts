@@ -356,31 +356,30 @@ DO NOT skip content just because it's in the same domain. Skip only if it's lite
 ## Output Format
 {
   "items": [
-    {"index": 1, "score": 85, "whyRead": "Specific hook creating curiosity", "connectsTo": "Related source or null"},
-    {"index": 5, "score": 72, "whyRead": "Another compelling reason", "connectsTo": null}
+    {"index": 1, "action": "recommend", "score": 85, "whyRead": "Specific reason to read"},
+    {"index": 3, "action": "skip", "score": 25, "whySkip": "Specific reason to skip"}
   ]
 }
 
-## Scoring Guide (only recommend items with score >= 60)
-- 80-100: Must see — major news, high-engagement discussion
-- 60-79: Worth reading — interesting angle or development
-- Below 60: Don't include in output
+## Scoring Guide
+- 85-100: Must see — breaking news, major announcements, viral discussions (100+ comments)
+- 75-84: Worth reading — solid new angle, notable development
+- 60-74: Maybe later — some value but not urgent
+- Below 60: Skip — low value, redundant, or outdated
 
 ## Rules
 - "index" = 1-based position in search results
-- ONLY output items you RECOMMEND (score >= 60), skip the rest silently
-- Maximum ${maxItems} recommended items
-- Be generous with recommendations in user's interest areas
+- Include ALL items with action "recommend" (score >= 75) or "skip" (score < 75)
+- Be SELECTIVE — only ~30% of items should be "recommend"
 - Prioritize HIGH ENGAGEMENT content (lots of comments/discussion)
 
 ## JSON Format
 - Respond with ONLY valid JSON, no markdown code blocks
-- Keep whyRead SHORT (under 80 chars)
-- For connectsTo: Use short description like "AI agents article" instead of full titles
-- NEVER include quotes (") inside string values - use single quotes (') if needed
+- Keep whyRead/whySkip SHORT (under 60 chars)
+- NEVER include quotes (") inside string values
 
 Example:
-{"items": [{"index": 1, "score": 85, "whyRead": "200+ comments debating this", "connectsTo": "AI agents article"}]}`;
+{"items": [{"index": 1, "action": "recommend", "score": 85, "whyRead": "200+ comments"}, {"index": 2, "action": "skip", "score": 30, "whySkip": "Outdated news"}]}`;
 }
 
 export function promptGenerateBriefing(libraryContext: string, feedContext: string): string {

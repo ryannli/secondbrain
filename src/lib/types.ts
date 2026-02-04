@@ -172,6 +172,7 @@ export interface FeedItem {
   publishedAt: string;           // ISO date
   source: string;                // News source name
   thumbnail?: string;            // Thumbnail image URL
+  discussionUrl?: string;        // HN/Reddit discussion URL
   scoring: {
     overall: number;             // 0-100 combined score
     action: "recommend" | "skip";

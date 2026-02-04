@@ -704,64 +704,75 @@ export async function filterFeedItems(
 ): Promise<FeedItem[]> {
   if (searchResults.length === 0) return [];
 
-  // Limit to 50 results to prevent Claude output truncation
-  const resultsToFilter = searchResults.slice(0, 50);
-  // Escape quotes in titles to prevent JSON issues in Claude output
   const escapeForJson = (s: string) => s.replace(/"/g, "'").replace(/\n/g, " ");
-  const resultsContext = resultsToFilter
-    .map((r, i) => `${i + 1}. "${escapeForJson(r.title?.slice(0, 60) ?? "")}"
-   Source: ${r.meta_url?.hostname ?? "unknown"}, Age: ${r.age ?? "recent"}`)
-    .join("\n");
-
   const libraryContext = userSources.length > 0
     ? userSources.slice(0, 15).map((s) => `- "${escapeForJson(s.title?.slice(0, 60) ?? "")}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
     : "Empty library";
 
   const { promptFilterFeed } = await import("./prompts");
-  const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources);
 
-  const responseText = await callClaude(prompt);
-
-  try {
-    const result = parseJsonResponse(responseText, "filterFeedItems");
-    if (!result) return [];
-
-    const scoredItems = result.items ?? [];
-
-    // Map back to full FeedItem objects (only recommended items come through)
-    const feedItems: FeedItem[] = [];
-    for (const scored of scoredItems) {
-      const idx = (scored.index ?? 1) - 1;
-      if (idx < 0 || idx >= resultsToFilter.length) continue;
-
-      const searchResult = resultsToFilter[idx];
-      const overall = scored.score ?? 70;
-
-      feedItems.push({
-        id: generateFeedItemId(searchResult.url),
-        title: searchResult.title,
-        url: searchResult.url,
-        snippet: searchResult.description,
-        publishedAt: searchResult.page_age ?? new Date().toISOString(),
-        source: searchResult.meta_url?.hostname ?? "unknown",
-        thumbnail: searchResult.thumbnail?.src,
-        scoring: {
-          overall,
-          action: "recommend",
-          whyRead: scored.whyRead,
-          connectsTo: scored.connectsTo,
-        },
-      });
-    }
-
-    // Sort by score (all items are recommended)
-    feedItems.sort((a, b) => b.scoring.overall - a.scoring.overall);
-
-    return feedItems.slice(0, FEED_CONFIG.maxFeedItems);
-  } catch (err) {
-    console.error("[filterFeedItems] Failed to parse:", responseText.slice(0, 200), err);
-    return [];
+  // Split into batches and process in parallel
+  const BATCH_SIZE = 30;
+  const batches: BraveSearchResult[][] = [];
+  for (let i = 0; i < searchResults.length; i += BATCH_SIZE) {
+    batches.push(searchResults.slice(i, i + BATCH_SIZE));
   }
+
+  // Process all batches in parallel
+  const batchResults = await Promise.all(
+    batches.map(async (batch) => {
+      const resultsContext = batch
+        .map((r, i) => `${i + 1}. "${escapeForJson(r.title?.slice(0, 60) ?? "")}"
+   Source: ${r.meta_url?.hostname ?? "unknown"}, Age: ${r.age ?? "recent"}`)
+        .join("\n");
+
+      const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources);
+      const responseText = await callClaude(prompt);
+
+      const items: FeedItem[] = [];
+      try {
+        const result = parseJsonResponse(responseText, "filterFeedItems");
+        if (!result) return items;
+
+        for (const scored of (result.items ?? [])) {
+          const idx = (scored.index ?? 1) - 1;
+          if (idx < 0 || idx >= batch.length) continue;
+
+          const searchResult = batch[idx];
+          const overall = scored.score ?? 50;
+          // Threshold: score >= 75 = recommend, otherwise skip
+          const action = overall >= 75 ? "recommend" : "skip";
+
+          items.push({
+            id: generateFeedItemId(searchResult.url),
+            title: searchResult.title,
+            url: searchResult.url,
+            snippet: searchResult.description,
+            publishedAt: searchResult.page_age ?? new Date().toISOString(),
+            source: searchResult.meta_url?.hostname ?? "unknown",
+            thumbnail: searchResult.thumbnail?.src,
+            discussionUrl: searchResult.discussionUrl,
+            scoring: { overall, action, whyRead: scored.whyRead, whySkip: scored.whySkip, connectsTo: scored.connectsTo },
+          });
+        }
+      } catch (err) {
+        console.error("[filterFeedItems] Batch failed:", err);
+      }
+      return items;
+    })
+  );
+
+  const allFeedItems = batchResults.flat();
+
+  // Sort: recommended first, then by score
+  allFeedItems.sort((a, b) => {
+    if (a.scoring.action !== b.scoring.action) {
+      return a.scoring.action === "recommend" ? -1 : 1;
+    }
+    return b.scoring.overall - a.scoring.overall;
+  });
+
+  return allFeedItems;
 }
 
 /**
@@ -785,12 +796,19 @@ export async function generateBriefing(
   feedItems: FeedItem[],
   userSources: { title: string; concepts: string[] }[]
 ): Promise<string> {
-  if (feedItems.length === 0) {
+  // Only use recommended items for briefing
+  const recommendedItems = feedItems.filter(item => item.scoring.action === "recommend");
+  if (recommendedItems.length === 0) {
     return "";
   }
 
-  const feedContext = feedItems.slice(0, 10).map((item, i) =>
-    `${i + 1}. "${item.title}" (${item.source}) - Score: ${item.scoring.overall}, Action: ${item.scoring.action}`
+  // Use top 20 recommended items (sorted by score)
+  const topItems = recommendedItems
+    .sort((a, b) => b.scoring.overall - a.scoring.overall)
+    .slice(0, 20);
+
+  const feedContext = topItems.map((item, i) =>
+    `${i + 1}. "${item.title}" (${item.source}) - ${item.scoring.whyRead || ""}`
   ).join("\n");
 
   const libraryContext = userSources.length > 0

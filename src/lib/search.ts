@@ -16,6 +16,7 @@ export interface BraveSearchResult {
   thumbnail?: {
     src: string;
   };
+  discussionUrl?: string;        // HN/Reddit discussion URL
 }
 
 interface BraveNewsResponse {
@@ -42,6 +43,67 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Fetch Hacker News frontpage via RSS (already sorted by hotness)
+ */
+async function fetchHackerNewsRSS(): Promise<BraveSearchResult[]> {
+  try {
+    const response = await fetch("https://hnrss.org/frontpage?count=30");
+    if (!response.ok) {
+      console.error(`[fetchHackerNewsRSS] Failed: ${response.status}`);
+      return [];
+    }
+
+    const xml = await response.text();
+    const results: BraveSearchResult[] = [];
+
+    // Simple XML parsing for RSS items
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const item = match[1];
+      const title = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1]
+                 || item.match(/<title>(.*?)<\/title>/)?.[1] || "";
+      const link = item.match(/<link>(.*?)<\/link>/)?.[1] || "";
+      const description = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1]
+                       || item.match(/<description>(.*?)<\/description>/)?.[1] || "";
+      const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
+      const comments = item.match(/<comments>(.*?)<\/comments>/)?.[1] || "";
+
+      if (link && !link.includes("news.ycombinator.com/item")) {
+        results.push({
+          title,
+          url: link,
+          description: description.replace(/<[^>]*>/g, "").slice(0, 200),
+          age: pubDate ? getRelativeTime(new Date(pubDate)) : undefined,
+          page_age: pubDate ? new Date(pubDate).toISOString() : undefined,
+          meta_url: { hostname: "news.ycombinator.com" },
+          discussionUrl: comments || undefined,
+        });
+      }
+    }
+
+    console.log(`[fetchHackerNewsRSS] Fetched ${results.length} items from frontpage`);
+    return results;
+  } catch (error) {
+    console.error("[fetchHackerNewsRSS] Error:", error);
+    return [];
+  }
+}
+
+/**
+ * Convert date to relative time string
+ */
+function getRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) return "just now";
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} days ago`;
+}
+
+/**
  * Search for news using Brave Search API
  * Two-tier architecture:
  * 1. Base layer: General news search (no site restriction) for diverse sources
@@ -63,7 +125,21 @@ export async function searchNews(
   const allResults: BraveSearchResult[] = [];
   const seenUrls = new Set<string>();
 
-  // Build search plan with two tiers
+  // Special handling: Use RSS for Hacker News (already sorted by hotness)
+  const useHNRss = preferredSources.includes("news.ycombinator.com");
+  const bravePreferredSources = preferredSources.filter(s => s !== "news.ycombinator.com");
+
+  if (useHNRss) {
+    const hnResults = await fetchHackerNewsRSS();
+    for (const result of hnResults) {
+      if (!seenUrls.has(result.url)) {
+        seenUrls.add(result.url);
+        allResults.push(result);
+      }
+    }
+  }
+
+  // Build search plan with two tiers (excluding HN if using RSS)
   interface SearchTask {
     query: string;
     type: "news" | "web";
@@ -73,13 +149,13 @@ export async function searchNews(
 
   // For each interest keyword, search:
   // 1. General news (no site restriction)
-  // 2. Each preferred source (Reddit, HN, etc.)
+  // 2. Each preferred source (Reddit, etc. - HN handled via RSS)
   for (const query of queries) {
     // General news search
     searchTasks.push({ query, type: "news", tier: "base" });
 
-    // Search each preferred source
-    for (const source of preferredSources) {
+    // Search each preferred source (excluding HN)
+    for (const source of bravePreferredSources) {
       searchTasks.push({ query: `${query} site:${source}`, type: "web", tier: "additional" });
     }
   }
@@ -106,9 +182,7 @@ export async function searchNews(
       const url = new URL(`${API_CONFIG.braveSearchBaseUrl}/${endpoint}`);
       url.searchParams.set("q", task.query);
       url.searchParams.set("count", String(API_CONFIG.braveResultsPerQuery));
-      if (task.type === "news") {
-        url.searchParams.set("freshness", "pw"); // Past week for news
-      }
+      url.searchParams.set("freshness", "pw"); // Past week for all searches
 
       const response = await fetch(url.toString(), {
         headers: {
