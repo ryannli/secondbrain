@@ -64,24 +64,29 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
     );
   }
 
-  // Remove any background from SVG and force white
-  const cleanSvg = svg.replace(/style="[^"]*background[^"]*"/gi, 'style=""');
-
   return (
     <div
       ref={containerRef}
-      className={`mermaid-container overflow-x-auto p-4 rounded-lg border border-gray-200 ${className}`}
-      style={{ backgroundColor: "#ffffff" }}
+      className={`mermaid-container overflow-visible rounded-lg border border-gray-200 ${className}`}
+      style={{ backgroundColor: "#ffffff", padding: "1rem" }}
     >
       <style>{`
         .mermaid-container svg {
-          background: transparent !important;
+          background: #ffffff !important;
+          max-width: 100%;
+          height: auto;
+          overflow: visible;
         }
-        .mermaid-container rect.basic {
-          fill: #f8f9fa !important;
+        .mermaid-container svg > style + rect,
+        .mermaid-container svg > rect:first-of-type {
+          fill: #ffffff !important;
+          stroke: none !important;
         }
       `}</style>
-      <div dangerouslySetInnerHTML={{ __html: cleanSvg }} />
+      <div
+        style={{ overflow: "visible" }}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
     </div>
   );
 }
