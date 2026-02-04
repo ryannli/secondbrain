@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Source, SourceSummary } from "@/lib/types";
 
@@ -22,6 +22,70 @@ export function useSourceActions({
   const [pendingCaptures, setPendingCaptures] = useState<string[]>([]);
   const [reanalyzingId, setReanalyzingId] = useState<string | null>(null);
 
+  // Track sources being polled for completion
+  const pollingSourcesRef = useRef<Set<string>>(new Set());
+
+  // Track current selected source ID to avoid stale closure
+  const selectedSourceIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedSourceIdRef.current = selectedSource?.meta.id ?? null;
+  }, [selectedSource?.meta.id]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      pollingSourcesRef.current.clear();
+    };
+  }, []);
+
+  // Poll a source until it's ready (has analysis)
+  const pollSourceUntilReady = useCallback((sourceId: string) => {
+    if (pollingSourcesRef.current.has(sourceId)) return;
+    pollingSourcesRef.current.add(sourceId);
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/sources/${sourceId}`);
+        const data = await res.json();
+
+        if (data.success && data.source) {
+          const source = data.source;
+          // Check if analysis is complete (has triage data)
+          if (source.analysis?.triage) {
+            // Update sources list with complete data
+            setSources((prev) => prev.map((s) =>
+              s.meta.id === sourceId
+                ? {
+                    meta: source.meta,
+                    score: source.analysis.triage.score,
+                    reason: source.analysis.triage.reason,
+                    action: source.analysis.triage.action,
+                  }
+                : s
+            ));
+            // If this source is currently selected, update it (use ref to avoid stale closure)
+            if (selectedSourceIdRef.current === sourceId) {
+              setSelectedSource(source);
+            }
+            pollingSourcesRef.current.delete(sourceId);
+            return; // Done polling
+          }
+        }
+
+        // Not ready yet, poll again in 2 seconds
+        if (pollingSourcesRef.current.has(sourceId)) {
+          setTimeout(poll, 2000);
+        }
+      } catch (err) {
+        console.error(`Polling failed for ${sourceId}:`, err);
+        pollingSourcesRef.current.delete(sourceId);
+      }
+    };
+
+    // Start polling after a short delay
+    setTimeout(poll, 1000);
+  }, [setSources, setSelectedSource]);
+
   const handleCapture = () => {
     if (!captureInput.trim()) return;
 
@@ -41,12 +105,17 @@ export function useSourceActions({
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.source) {
+          const sourceId = data.source.meta.id;
           setSources((prev) => [{
             meta: data.source.meta,
-            score: data.source.analysis?.triage.score,
-            reason: data.source.analysis?.triage.reason,
-            action: data.source.analysis?.triage.action,
+            score: data.source.analysis?.triage?.score,
+            reason: data.source.analysis?.triage?.reason,
+            action: data.source.analysis?.triage?.action,
           }, ...prev]);
+          // Start polling if analysis is not ready yet
+          if (!data.source.analysis?.triage) {
+            pollSourceUntilReady(sourceId);
+          }
         } else {
           setError(data.error || "Failed to capture content");
         }
@@ -76,12 +145,17 @@ export function useSourceActions({
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.source) {
+          const sourceId = data.source.meta.id;
           setSources((prev) => [{
             meta: data.source.meta,
-            score: data.source.analysis?.triage.score,
-            reason: data.source.analysis?.triage.reason,
-            action: data.source.analysis?.triage.action,
+            score: data.source.analysis?.triage?.score,
+            reason: data.source.analysis?.triage?.reason,
+            action: data.source.analysis?.triage?.action,
           }, ...prev]);
+          // Start polling if analysis is not ready yet
+          if (!data.source.analysis?.triage) {
+            pollSourceUntilReady(sourceId);
+          }
         } else {
           setError(data.error || "Failed to upload file");
         }
@@ -100,11 +174,15 @@ export function useSourceActions({
       const data = await res.json();
       if (data.success) {
         setSelectedSource(data.source);
+        // If source is still processing, start polling
+        if (!data.source.analysis?.triage) {
+          pollSourceUntilReady(id);
+        }
       }
     } catch (err) {
       console.error("Failed to load source:", err);
     }
-  }, [setSelectedSource]);
+  }, [setSelectedSource, pollSourceUntilReady]);
 
   const handleDeleteSource = async (sourceId: string) => {
     try {

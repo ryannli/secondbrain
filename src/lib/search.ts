@@ -43,7 +43,10 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Search for news using Brave Search API
- * Combines results from multiple queries and deduplicates by URL
+ * Two-tier architecture:
+ * 1. Base layer: General news search (no site restriction) for diverse sources
+ * 2. Additional layer: User's preferred sources with engagement signals
+ *
  * @param queries - Search terms from user interests
  * @param preferredSources - Domains to also search specifically (e.g., reddit.com)
  */
@@ -60,27 +63,35 @@ export async function searchNews(
   const allResults: BraveSearchResult[] = [];
   const seenUrls = new Set<string>();
 
-  // Build search plan: preferred sources FIRST, then general news
+  // Build search plan with two tiers
   interface SearchTask {
     query: string;
     type: "news" | "web";
+    tier: "base" | "additional";
   }
   const searchTasks: SearchTask[] = [];
 
-  // Add web searches for preferred sources FIRST (so they don't get cut off by slice)
-  for (const source of preferredSources.slice(0, 3)) {
-    for (const interest of queries.slice(0, 2)) {
-      searchTasks.push({ query: `${interest} site:${source}`, type: "web" });
-    }
+  // TIER 1: Base layer - General news search (no site restriction)
+  // Limited to 2 queries to save API quota
+  for (const query of queries.slice(0, 2)) {
+    searchTasks.push({ query, type: "news", tier: "base" });
   }
 
-  // Add news searches for interests
-  for (const query of queries) {
-    searchTasks.push({ query, type: "news" });
+  // TIER 2: Additional layer - User's preferred sources
+  // Limited searches to avoid rate limiting
+  for (const source of preferredSources.slice(0, 2)) {
+    // One search per source with first interest
+    const interest = queries[0] || "news";
+    searchTasks.push({ query: `${interest} site:${source}`, type: "web", tier: "additional" });
   }
 
   console.log(`[searchNews] Running ${searchTasks.length} searches:`);
-  searchTasks.forEach((t, i) => console.log(`  ${i + 1}. [${t.type}] ${t.query}`));
+  const baseTasks = searchTasks.filter(t => t.tier === "base");
+  const additionalTasks = searchTasks.filter(t => t.tier === "additional");
+  console.log(`  Base layer (${baseTasks.length} searches - diverse sources):`);
+  baseTasks.forEach((t, i) => console.log(`    ${i + 1}. [${t.type}] ${t.query}`));
+  console.log(`  Additional layer (${additionalTasks.length} searches - user's preferred sources):`);
+  additionalTasks.forEach((t, i) => console.log(`    ${i + 1}. [${t.type}] ${t.query}`));
 
   for (let i = 0; i < searchTasks.length; i++) {
     const task = searchTasks[i];
