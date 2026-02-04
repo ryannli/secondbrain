@@ -16,6 +16,7 @@ interface FeedSectionProps {
   onCapture: (url: string) => void;
   onDismiss: (id: string) => void;
   onRefresh: () => void;
+  onAddContext?: (text: string, title: string) => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }
@@ -32,6 +33,7 @@ export function FeedSection({
   onCapture,
   onDismiss,
   onRefresh,
+  onAddContext,
   palette,
   theme,
 }: FeedSectionProps) {
@@ -131,7 +133,7 @@ export function FeedSection({
           className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 border"
           style={{ borderColor: theme.border }}
         >
-          <StructuredBriefing text={briefing} items={items} palette={palette} theme={theme} />
+          <StructuredBriefing text={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} />
         </div>
       )}
 
@@ -252,11 +254,13 @@ function StructuredBriefing({
   items,
   palette,
   theme,
+  onAddContext,
 }: {
   text: string;
   items: FeedItem[];
   palette: Record<number, string>;
   theme: Record<string, string>;
+  onAddContext?: (text: string, title: string) => void;
 }) {
   // Parse sections from text
   const sections: { title: string; content: string[] }[] = [];
@@ -282,19 +286,41 @@ function StructuredBriefing({
   const connects = sections.find(s => s.title.toLowerCase().includes("connect") || s.title.toLowerCase().includes("matter"));
   const goDeeper = sections.find(s => s.title.toLowerCase().includes("deeper") || s.title.toLowerCase().includes("start"));
 
+  // Helper to strip markdown formatting for plain text context
+  const stripMarkdown = (lines: string[]) =>
+    lines.map(l => l.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/#\d+/g, "")).join("\n");
+
+  // Section header with optional "Add Context" button
+  const SectionHeader = ({ title, content, color }: { title: string; content: string[]; color: string }) => (
+    <div className="flex items-center justify-between mb-2">
+      <h4 className="text-sm font-semibold" style={{ color }}>
+        {title}
+      </h4>
+      {onAddContext && (
+        <button
+          onClick={() => onAddContext(stripMarkdown(content), title)}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs opacity-0 group-hover/section:opacity-60 hover:!opacity-100 transition-opacity"
+          style={{ color: palette[500] }}
+          title="Add to Agent context"
+        >
+          <Plus className="w-3 h-3" />
+          <span>Context</span>
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 group/briefing">
       {/* Top row: What's new + Connects side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* What's new */}
         {whatsNew && (
           <div
-            className="p-4 rounded-lg"
+            className="group/section p-4 rounded-lg"
             style={{ backgroundColor: `${palette[500]}08` }}
           >
-            <h4 className="text-sm font-semibold mb-2" style={{ color: palette[600] }}>
-              {whatsNew.title}
-            </h4>
+            <SectionHeader title={whatsNew.title} content={whatsNew.content} color={palette[600]} />
             <div className="space-y-1.5">
               {whatsNew.content.map((line, i) => (
                 <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
@@ -308,12 +334,10 @@ function StructuredBriefing({
         {/* Connects to your knowledge */}
         {connects && (
           <div
-            className="p-4 rounded-lg"
+            className="group/section p-4 rounded-lg"
             style={{ backgroundColor: theme.bgMuted }}
           >
-            <h4 className="text-sm font-semibold mb-2" style={{ color: theme.text }}>
-              Connects to your knowledge
-            </h4>
+            <SectionHeader title="Connects to your knowledge" content={connects.content} color={theme.text} />
             <div className="space-y-1.5">
               {connects.content.map((line, i) => (
                 <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
@@ -327,10 +351,8 @@ function StructuredBriefing({
 
       {/* Bottom: Go deeper */}
       {goDeeper && (
-        <div className="pt-3 border-t" style={{ borderColor: theme.border }}>
-          <h4 className="text-sm font-semibold mb-2" style={{ color: theme.text }}>
-            {goDeeper.title}
-          </h4>
+        <div className="group/section pt-3 border-t" style={{ borderColor: theme.border }}>
+          <SectionHeader title={goDeeper.title} content={goDeeper.content} color={theme.text} />
           <div className="space-y-1">
             {goDeeper.content.map((line, i) => (
               <p key={i} className="text-sm" style={{ color: theme.textMuted }}>

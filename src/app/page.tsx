@@ -19,7 +19,7 @@ import { useDragDrop } from "@/hooks/useDragDrop";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
-import { CoLearningPanel } from "@/components/CoLearningPanel";
+import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
 
@@ -44,6 +44,7 @@ function HomeContent() {
   const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
   const [isCoLearningInitialized, setIsCoLearningInitialized] = useState(false);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
+  const { addContext } = useCoLearning();
 
   // Load agent panel state from localStorage after mount
   useEffect(() => {
@@ -419,6 +420,10 @@ function HomeContent() {
                   onCapture={handleCaptureUrl}
                   onDismiss={feed.dismissItem}
                   onRefresh={feed.refreshFeed}
+                  onAddContext={(text, title) => {
+                    addContext(text, title);
+                    setIsCoLearningOpen(true);
+                  }}
                   palette={palette}
                   theme={theme}
                 />

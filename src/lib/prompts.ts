@@ -386,7 +386,13 @@ DO NOT skip content just because it's in the same domain. Skip only if it's lite
 - Be generous with recommendations in user's interest areas
 - Prioritize HIGH ENGAGEMENT content (lots of comments/discussion)
 
-Respond with ONLY the JSON object.`;
+## JSON Format
+- Respond with ONLY valid JSON, no markdown code blocks
+- Keep whyRead/whySkip SHORT (under 100 chars) to avoid truncation
+- Escape special characters in strings (quotes, newlines)
+
+Example format:
+{"items": [{"index": 1, "action": "recommend", "score": 85, "whyRead": "Short reason", "connectsTo": null}]}`;
 }
 
 export function promptGenerateBriefing(libraryContext: string, feedContext: string): string {

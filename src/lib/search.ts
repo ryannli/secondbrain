@@ -71,18 +71,17 @@ export async function searchNews(
   }
   const searchTasks: SearchTask[] = [];
 
-  // TIER 1: Base layer - General news search (no site restriction)
-  // Limited to 2 queries to save API quota
-  for (const query of queries.slice(0, 2)) {
+  // For each interest keyword, search:
+  // 1. General news (no site restriction)
+  // 2. Each preferred source (Reddit, HN, etc.)
+  for (const query of queries) {
+    // General news search
     searchTasks.push({ query, type: "news", tier: "base" });
-  }
 
-  // TIER 2: Additional layer - User's preferred sources
-  // Limited searches to avoid rate limiting
-  for (const source of preferredSources.slice(0, 2)) {
-    // One search per source with first interest
-    const interest = queries[0] || "news";
-    searchTasks.push({ query: `${interest} site:${source}`, type: "web", tier: "additional" });
+    // Search each preferred source
+    for (const source of preferredSources) {
+      searchTasks.push({ query: `${query} site:${source}`, type: "web", tier: "additional" });
+    }
   }
 
   console.log(`[searchNews] Running ${searchTasks.length} searches:`);
@@ -96,9 +95,9 @@ export async function searchNews(
   for (let i = 0; i < searchTasks.length; i++) {
     const task = searchTasks[i];
 
-    // Rate limit: wait 1 second between requests (Brave free tier allows 1 req/sec)
+    // Rate limit: 20 req/sec = 50ms between requests (with buffer)
     if (i > 0) {
-      await sleep(1100);
+      await sleep(100);
     }
 
     try {

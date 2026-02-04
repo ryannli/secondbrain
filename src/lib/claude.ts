@@ -47,6 +47,33 @@ async function callClaude(prompt: string): Promise<string> {
 }
 
 /**
+ * Parse JSON from Claude response
+ * Strips markdown code blocks if present
+ */
+function parseJsonResponse(response: string, context: string): Record<string, unknown> | null {
+  // Strip markdown code block if present
+  let jsonText = response;
+  const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonText = codeBlockMatch[1];
+  }
+
+  // Find JSON object
+  const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    console.error(`[${context}] No JSON found in response`);
+    return null;
+  }
+
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    console.error(`[${context}] JSON parse error:`, (e as Error).message);
+    return null;
+  }
+}
+
+/**
  * Generate a concise title for content using AI
  */
 export async function generateTitle(content: string): Promise<string> {
@@ -668,17 +695,16 @@ export async function filterFeedItems(
 ): Promise<FeedItem[]> {
   if (searchResults.length === 0) return [];
 
+  // Send all results to Claude for filtering (deduplicated, so typically 50-80)
   const resultsContext = searchResults
-    .slice(0, 30) // Limit input
-    .map((r, i) => `${i + 1}. "${r.title}"
-   URL: ${r.url}
+    .map((r, i) => `${i + 1}. "${r.title?.slice(0, 80) ?? ""}"
    Source: ${r.meta_url?.hostname ?? "unknown"}
-   Age: ${r.age ?? r.page_age ?? "unknown"}
-   Snippet: ${r.description}`)
+   Age: ${r.age ?? "recent"}
+   Snippet: ${r.description?.slice(0, 100) ?? ""}`)
     .join("\n\n");
 
   const libraryContext = userSources.length > 0
-    ? userSources.slice(0, 15).map((s) => `- "${s.title}" (concepts: ${s.concepts.join(", ")})`).join("\n")
+    ? userSources.slice(0, 15).map((s) => `- "${s.title?.slice(0, 60) ?? ""}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
     : "Empty library";
 
   const { promptFilterFeed } = await import("./prompts");
@@ -687,19 +713,9 @@ export async function filterFeedItems(
   const responseText = await callClaude(prompt);
 
   try {
-    let jsonText = responseText;
-    const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1];
-    }
+    const result = parseJsonResponse(responseText, "filterFeedItems");
+    if (!result) return [];
 
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("[filterFeedItems] No JSON found");
-      return [];
-    }
-
-    const result = JSON.parse(jsonMatch[0]);
     const scoredItems = result.items ?? [];
 
     // Map back to full FeedItem objects
