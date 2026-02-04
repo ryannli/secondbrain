@@ -751,7 +751,6 @@ export async function filterFeedItems(
             publishedAt: searchResult.page_age ?? new Date().toISOString(),
             source: searchResult.meta_url?.hostname ?? "unknown",
             thumbnail: searchResult.thumbnail?.src,
-            discussionUrl: searchResult.discussionUrl,
             scoring: { overall, action, whyRead: scored.whyRead, whySkip: scored.whySkip, connectsTo: scored.connectsTo },
           });
         }

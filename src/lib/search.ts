@@ -16,7 +16,6 @@ export interface BraveSearchResult {
   thumbnail?: {
     src: string;
   };
-  discussionUrl?: string;        // HN/Reddit discussion URL
 }
 
 interface BraveNewsResponse {
@@ -69,15 +68,15 @@ async function fetchHackerNewsRSS(): Promise<BraveSearchResult[]> {
       const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
       const comments = item.match(/<comments>(.*?)<\/comments>/)?.[1] || "";
 
-      if (link && !link.includes("news.ycombinator.com/item")) {
+      // Use HN discussion URL instead of original article URL
+      if (comments) {
         results.push({
           title,
-          url: link,
+          url: comments,  // HN discussion page
           description: description.replace(/<[^>]*>/g, "").slice(0, 200),
           age: pubDate ? getRelativeTime(new Date(pubDate)) : undefined,
           page_age: pubDate ? new Date(pubDate).toISOString() : undefined,
           meta_url: { hostname: "news.ycombinator.com" },
-          discussionUrl: comments || undefined,
         });
       }
     }
