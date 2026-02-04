@@ -6,20 +6,23 @@ import mermaid from "mermaid";
 // Initialize mermaid with light theme config
 mermaid.initialize({
   startOnLoad: false,
-  theme: "default",
+  theme: "base",
   securityLevel: "loose",
   fontFamily: "inherit",
   themeVariables: {
-    // Light background with good contrast
-    primaryColor: "#e8f5e9",
+    // Force light/white background
+    background: "#ffffff",
+    primaryColor: "#d4edda",
     primaryTextColor: "#1a1a1a",
-    primaryBorderColor: "#4caf50",
-    lineColor: "#666666",
-    secondaryColor: "#f3f4f6",
-    tertiaryColor: "#fff",
-    // Text colors
-    textColor: "#1a1a1a",
-    nodeTextColor: "#1a1a1a",
+    primaryBorderColor: "#28a745",
+    lineColor: "#495057",
+    secondaryColor: "#e9ecef",
+    tertiaryColor: "#f8f9fa",
+    // Text colors - ensure dark text
+    textColor: "#212529",
+    mainBkg: "#ffffff",
+    nodeBkg: "#e9ecef",
+    nodeTextColor: "#212529",
   },
 });
 
@@ -61,11 +64,24 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
     );
   }
 
+  // Remove any background from SVG and force white
+  const cleanSvg = svg.replace(/style="[^"]*background[^"]*"/gi, 'style=""');
+
   return (
     <div
       ref={containerRef}
-      className={`mermaid-container overflow-x-auto p-4 bg-white rounded-lg border border-gray-200 ${className}`}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+      className={`mermaid-container overflow-x-auto p-4 rounded-lg border border-gray-200 ${className}`}
+      style={{ backgroundColor: "#ffffff" }}
+    >
+      <style>{`
+        .mermaid-container svg {
+          background: transparent !important;
+        }
+        .mermaid-container rect.basic {
+          fill: #f8f9fa !important;
+        }
+      `}</style>
+      <div dangerouslySetInnerHTML={{ __html: cleanSvg }} />
+    </div>
   );
 }
