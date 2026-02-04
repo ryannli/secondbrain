@@ -103,10 +103,11 @@ export function SettingsModal({
         onClick={onClose}
       />
       <div
-        className="relative bg-white rounded-xl shadow-xl p-6 w-96 max-w-[90vw]"
+        className="relative bg-white rounded-xl shadow-xl w-96 max-w-[90vw] max-h-[85vh] flex flex-col"
         style={{ borderColor: theme.border }}
       >
-        <h2 className="text-lg font-semibold mb-4">Settings</h2>
+        <h2 className="text-lg font-semibold p-6 pb-4 border-b" style={{ borderColor: theme.border }}>Settings</h2>
+        <div className="flex-1 overflow-y-auto p-6 pt-4">
 
         {/* Font Family */}
         <div className="mb-4">
@@ -315,14 +316,17 @@ export function SettingsModal({
           <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
         </div>
 
+        </div>
         {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="w-full mt-4 px-4 py-2 rounded-lg text-white font-medium transition-opacity hover:opacity-90"
-          style={{ backgroundColor: palette[600] }}
-        >
-          Done
-        </button>
+        <div className="p-6 pt-4 border-t" style={{ borderColor: theme.border }}>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 rounded-lg text-white font-medium transition-opacity hover:opacity-90"
+            style={{ backgroundColor: palette[600] }}
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );
