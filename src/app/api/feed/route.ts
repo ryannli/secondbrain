@@ -111,7 +111,7 @@ async function generateFeed() {
       interests: [],
       generatedAt: new Date().toISOString(),
       fromCache: false,
-      message: "Configure your interests in Settings to get personalized feed",
+      message: "Add topics to Your Radar in Settings to get personalized feed",
     };
   }
 

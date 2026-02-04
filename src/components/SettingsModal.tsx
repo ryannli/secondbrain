@@ -141,7 +141,7 @@ export function SettingsModal({
         {onFeedInterestsChange && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium">Search Topics</label>
+              <label className="block text-sm font-medium">Your Radar</label>
               <button
                 onClick={generateFromLibrary}
                 disabled={isGenerating}
@@ -151,7 +151,7 @@ export function SettingsModal({
                 {isGenerating ? "Generating..." : "Generate from library"}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-3">What topics should we search for in your feed?</p>
+            <p className="text-xs text-gray-400 mb-3">We'll keep you updated on these topics</p>
 
             {/* Interest tags */}
             <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
@@ -171,7 +171,7 @@ export function SettingsModal({
                 </span>
               ))}
               {feedInterests.length === 0 && (
-                <span className="text-sm text-gray-400 italic">No topics configured</span>
+                <span className="text-sm text-gray-400 italic">Add topics to your radar</span>
               )}
             </div>
 
