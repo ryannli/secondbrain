@@ -24,7 +24,7 @@ import {
 import { Source, ActionType, Highlight, ResolvedConnection, ConnectionType } from "@/lib/types";
 import { SourceError } from "./SourceError";
 import { ResizeHandle } from "./ResizeHandle";
-import { TooltipButton } from "./ui";
+import { TooltipButton, Mermaid } from "./ui";
 
 export interface SourceViewProps {
   source: Source;
@@ -374,6 +374,32 @@ export function SourceView({
                         {children}
                       </a>
                     ),
+                    code: ({ className, children, ...props }) => {
+                      const match = /language-(\w+)/.exec(className || "");
+                      const lang = match ? match[1] : "";
+                      const content = String(children).replace(/\n$/, "");
+
+                      // Render Mermaid diagrams
+                      if (lang === "mermaid") {
+                        return <Mermaid chart={content} className="my-4" />;
+                      }
+
+                      // Inline code
+                      if (!className) {
+                        return (
+                          <code className="px-1.5 py-0.5 rounded bg-gray-100 text-sm font-mono" {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+
+                      // Code block
+                      return (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
                   }}
                 >
                   {content}

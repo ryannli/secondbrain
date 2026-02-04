@@ -356,43 +356,31 @@ DO NOT skip content just because it's in the same domain. Skip only if it's lite
 ## Output Format
 {
   "items": [
-    {
-      "index": 1,
-      "action": "recommend",
-      "score": 85,
-      "whyRead": "Specific hook creating curiosity",
-      "connectsTo": "Title of related source in library (or null)"
-    },
-    {
-      "index": 3,
-      "action": "skip",
-      "score": 25,
-      "whySkip": "Specific reason"
-    }
+    {"index": 1, "score": 85, "whyRead": "Specific hook creating curiosity", "connectsTo": "Related source or null"},
+    {"index": 5, "score": 72, "whyRead": "Another compelling reason", "connectsTo": null}
   ]
 }
 
-## Scoring Guide
-- 80-100: Must see — major news, high-engagement discussion, or valuable insight
-- 60-79: Worth reading — interesting new angle or development
-- 40-59: Maybe skim — some value but not essential
-- 20-39: Skip — low value or redundant
-- 0-19: Definitely skip — spam, outdated, or completely covered
+## Scoring Guide (only recommend items with score >= 60)
+- 80-100: Must see — major news, high-engagement discussion
+- 60-79: Worth reading — interesting angle or development
+- Below 60: Don't include in output
 
 ## Rules
 - "index" = 1-based position in search results
-- Include ALL items (both recommend and skip)
-- Maximum ${maxItems} items total
+- ONLY output items you RECOMMEND (score >= 60), skip the rest silently
+- Maximum ${maxItems} recommended items
 - Be generous with recommendations in user's interest areas
 - Prioritize HIGH ENGAGEMENT content (lots of comments/discussion)
 
 ## JSON Format
 - Respond with ONLY valid JSON, no markdown code blocks
-- Keep whyRead/whySkip SHORT (under 100 chars) to avoid truncation
-- Escape special characters in strings (quotes, newlines)
+- Keep whyRead SHORT (under 80 chars)
+- For connectsTo: Use short description like "AI agents article" instead of full titles
+- NEVER include quotes (") inside string values - use single quotes (') if needed
 
-Example format:
-{"items": [{"index": 1, "action": "recommend", "score": 85, "whyRead": "Short reason", "connectsTo": null}]}`;
+Example:
+{"items": [{"index": 1, "score": 85, "whyRead": "200+ comments debating this", "connectsTo": "AI agents article"}]}`;
 }
 
 export function promptGenerateBriefing(libraryContext: string, feedContext: string): string {

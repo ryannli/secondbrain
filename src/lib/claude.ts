@@ -68,7 +68,16 @@ function parseJsonResponse(response: string, context: string): Record<string, un
   try {
     return JSON.parse(jsonMatch[0]);
   } catch (e) {
-    console.error(`[${context}] JSON parse error:`, (e as Error).message);
+    const err = e as Error;
+    console.error(`[${context}] JSON parse error:`, err.message);
+    // Log the problematic part of the JSON (around the error position)
+    const posMatch = err.message.match(/position (\d+)/);
+    if (posMatch) {
+      const pos = parseInt(posMatch[1]);
+      const start = Math.max(0, pos - 100);
+      const end = Math.min(jsonMatch[0].length, pos + 100);
+      console.error(`[${context}] JSON context around error:`, jsonMatch[0].slice(start, end));
+    }
     return null;
   }
 }
@@ -695,16 +704,17 @@ export async function filterFeedItems(
 ): Promise<FeedItem[]> {
   if (searchResults.length === 0) return [];
 
-  // Send all results to Claude for filtering (deduplicated, so typically 50-80)
-  const resultsContext = searchResults
-    .map((r, i) => `${i + 1}. "${r.title?.slice(0, 80) ?? ""}"
-   Source: ${r.meta_url?.hostname ?? "unknown"}
-   Age: ${r.age ?? "recent"}
-   Snippet: ${r.description?.slice(0, 100) ?? ""}`)
-    .join("\n\n");
+  // Limit to 50 results to prevent Claude output truncation
+  const resultsToFilter = searchResults.slice(0, 50);
+  // Escape quotes in titles to prevent JSON issues in Claude output
+  const escapeForJson = (s: string) => s.replace(/"/g, "'").replace(/\n/g, " ");
+  const resultsContext = resultsToFilter
+    .map((r, i) => `${i + 1}. "${escapeForJson(r.title?.slice(0, 60) ?? "")}"
+   Source: ${r.meta_url?.hostname ?? "unknown"}, Age: ${r.age ?? "recent"}`)
+    .join("\n");
 
   const libraryContext = userSources.length > 0
-    ? userSources.slice(0, 15).map((s) => `- "${s.title?.slice(0, 60) ?? ""}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
+    ? userSources.slice(0, 15).map((s) => `- "${escapeForJson(s.title?.slice(0, 60) ?? "")}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
     : "Empty library";
 
   const { promptFilterFeed } = await import("./prompts");
@@ -718,15 +728,14 @@ export async function filterFeedItems(
 
     const scoredItems = result.items ?? [];
 
-    // Map back to full FeedItem objects
+    // Map back to full FeedItem objects (only recommended items come through)
     const feedItems: FeedItem[] = [];
     for (const scored of scoredItems) {
       const idx = (scored.index ?? 1) - 1;
-      if (idx < 0 || idx >= searchResults.length) continue;
+      if (idx < 0 || idx >= resultsToFilter.length) continue;
 
-      const searchResult = searchResults[idx];
-      const action = scored.action === "recommend" ? "recommend" : "skip";
-      const overall = scored.score ?? (action === "recommend" ? 70 : 30);
+      const searchResult = resultsToFilter[idx];
+      const overall = scored.score ?? 70;
 
       feedItems.push({
         id: generateFeedItemId(searchResult.url),
@@ -738,21 +747,15 @@ export async function filterFeedItems(
         thumbnail: searchResult.thumbnail?.src,
         scoring: {
           overall,
-          action,
+          action: "recommend",
           whyRead: scored.whyRead,
-          whySkip: scored.whySkip,
           connectsTo: scored.connectsTo,
         },
       });
     }
 
-    // Sort: recommended first, then by score
-    feedItems.sort((a, b) => {
-      if (a.scoring.action !== b.scoring.action) {
-        return a.scoring.action === "recommend" ? -1 : 1;
-      }
-      return b.scoring.overall - a.scoring.overall;
-    });
+    // Sort by score (all items are recommended)
+    feedItems.sort((a, b) => b.scoring.overall - a.scoring.overall);
 
     return feedItems.slice(0, FEED_CONFIG.maxFeedItems);
   } catch (err) {
