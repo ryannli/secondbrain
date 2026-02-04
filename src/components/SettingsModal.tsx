@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Copy, Check } from "lucide-react";
 import { theme } from "@/lib/theme";
 
 export interface SettingsModalProps {
@@ -63,6 +63,15 @@ export function SettingsModal({
   const [newSource, setNewSource] = useState("");
   const [newInterest, setNewInterest] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyPath = () => {
+    if (rootPath) {
+      navigator.clipboard.writeText(rootPath);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const generateFromLibrary = async () => {
     if (!onFeedInterestsChange) return;
@@ -134,7 +143,22 @@ export function SettingsModal({
         {/* Data Path */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Data Location</label>
-          <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
+          <div className="flex items-start gap-2">
+            <p className="text-sm text-gray-500 break-all flex-1">{rootPath || "Loading..."}</p>
+            {rootPath && (
+              <button
+                onClick={copyPath}
+                className="p-1 rounded hover:bg-gray-100 transition-colors flex-shrink-0"
+                title="Copy path"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Feed Interests */}
