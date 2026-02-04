@@ -3,12 +3,24 @@
 import React, { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 
-// Initialize mermaid with default config
+// Initialize mermaid with light theme config
 mermaid.initialize({
   startOnLoad: false,
-  theme: "neutral",
+  theme: "default",
   securityLevel: "loose",
   fontFamily: "inherit",
+  themeVariables: {
+    // Light background with good contrast
+    primaryColor: "#e8f5e9",
+    primaryTextColor: "#1a1a1a",
+    primaryBorderColor: "#4caf50",
+    lineColor: "#666666",
+    secondaryColor: "#f3f4f6",
+    tertiaryColor: "#fff",
+    // Text colors
+    textColor: "#1a1a1a",
+    nodeTextColor: "#1a1a1a",
+  },
 });
 
 interface MermaidProps {
@@ -52,7 +64,7 @@ export function Mermaid({ chart, className = "" }: MermaidProps) {
   return (
     <div
       ref={containerRef}
-      className={`mermaid-container overflow-x-auto ${className}`}
+      className={`mermaid-container overflow-x-auto p-4 bg-white rounded-lg border border-gray-200 ${className}`}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
