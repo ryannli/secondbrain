@@ -10,6 +10,7 @@ export interface UserConfig {
   accentColor?: string;  // Hex color like "#3b6044"
   fontFamily?: string;   // Font ID like "outfit", "inter", etc.
   feedSources?: string[]; // Domains to prioritize in feed (e.g., ["reddit.com", "news.ycombinator.com"])
+  feedInterests?: string[]; // Search terms for feed (e.g., ["AI agents", "startups"])
 }
 
 /**

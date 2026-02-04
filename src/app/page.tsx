@@ -133,6 +133,8 @@ function HomeContent() {
     palette,
     feedSources,
     saveFeedSources,
+    feedInterests,
+    saveFeedInterests,
   } = useSettings();
 
   // Library (sources, folders, tree)
@@ -330,6 +332,8 @@ function HomeContent() {
         palette={palette}
         feedSources={feedSources}
         onFeedSourcesChange={saveFeedSources}
+        feedInterests={feedInterests}
+        onFeedInterestsChange={saveFeedInterests}
       />
 
       <div className="flex-1 flex min-h-0">

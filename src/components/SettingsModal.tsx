@@ -15,6 +15,8 @@ export interface SettingsModalProps {
   palette: Record<number, string>;
   feedSources?: string[];
   onFeedSourcesChange?: (sources: string[]) => void;
+  feedInterests?: string[];
+  onFeedInterestsChange?: (interests: string[]) => void;
 }
 
 const FONT_OPTIONS = [
@@ -55,8 +57,28 @@ export function SettingsModal({
   palette,
   feedSources = [],
   onFeedSourcesChange,
+  feedInterests = [],
+  onFeedInterestsChange,
 }: SettingsModalProps) {
   const [newSource, setNewSource] = useState("");
+  const [newInterest, setNewInterest] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateFromLibrary = async () => {
+    if (!onFeedInterestsChange) return;
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/feed/interests", { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.interests) {
+        onFeedInterestsChange(data.interests);
+      }
+    } catch (err) {
+      console.error("Failed to generate interests:", err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const addSource = (domain: string) => {
     const cleaned = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/$/, "");
@@ -114,10 +136,85 @@ export function SettingsModal({
           <p className="text-sm text-gray-500 break-all">{rootPath || "Loading..."}</p>
         </div>
 
+        {/* Feed Interests */}
+        {onFeedInterestsChange && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium">Search Topics</label>
+              <button
+                onClick={generateFromLibrary}
+                disabled={isGenerating}
+                className="text-xs px-2 py-1 rounded border hover:bg-gray-50 transition-colors disabled:opacity-50"
+                style={{ borderColor: theme.border, color: palette[600] }}
+              >
+                {isGenerating ? "Generating..." : "Generate from library"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">What topics should we search for in your feed?</p>
+
+            {/* Interest tags */}
+            <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
+              {feedInterests.map((interest) => (
+                <span
+                  key={interest}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm"
+                  style={{ backgroundColor: `${palette[500]}15`, color: palette[700] }}
+                >
+                  {interest}
+                  <button
+                    onClick={() => onFeedInterestsChange(feedInterests.filter(i => i !== interest))}
+                    className="hover:opacity-70 ml-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              {feedInterests.length === 0 && (
+                <span className="text-sm text-gray-400 italic">No topics configured</span>
+              )}
+            </div>
+
+            {/* Add interest input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newInterest.trim()) {
+                    const trimmed = newInterest.trim();
+                    if (!feedInterests.includes(trimmed)) {
+                      onFeedInterestsChange([...feedInterests, trimmed]);
+                    }
+                    setNewInterest("");
+                  }
+                }}
+                placeholder="e.g. AI agents, startups, web dev"
+                className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                style={{ borderColor: theme.border }}
+              />
+              <button
+                onClick={() => {
+                  const trimmed = newInterest.trim();
+                  if (trimmed && !feedInterests.includes(trimmed)) {
+                    onFeedInterestsChange([...feedInterests, trimmed]);
+                  }
+                  setNewInterest("");
+                }}
+                disabled={!newInterest.trim()}
+                className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
+                style={{ backgroundColor: palette[500] }}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Feed Sources */}
         {onFeedSourcesChange && (
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Feed Sources</label>
+            <label className="block text-sm font-medium mb-2">Preferred Sources</label>
             <p className="text-xs text-gray-400 mb-3">News from these sites will be prioritized</p>
 
             {/* Suggested sources with checkboxes */}

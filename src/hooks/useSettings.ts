@@ -14,6 +14,7 @@ export function useSettings() {
   const [libraryPath, setLibraryPath] = useState("");
   const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
   const [feedSources, setFeedSources] = useState<string[]>(DEFAULT_FEED_SOURCES);
+  const [feedInterests, setFeedInterests] = useState<string[]>([]);
 
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
 
@@ -34,6 +35,9 @@ export function useSettings() {
         }
         if (data.config.feedSources) {
           setFeedSources(data.config.feedSources);
+        }
+        if (data.config.feedInterests) {
+          setFeedInterests(data.config.feedInterests);
         }
       }
     } catch (err) {
@@ -73,6 +77,22 @@ export function useSettings() {
     }
   };
 
+  const saveFeedInterests = async (interests: string[]) => {
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedInterests: interests }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedInterests(interests);
+      }
+    } catch (err) {
+      console.error("Failed to save feed interests:", err);
+    }
+  };
+
   useEffect(() => {
     loadConfig();
   }, []);
@@ -89,5 +109,7 @@ export function useSettings() {
     palette,
     feedSources,
     saveFeedSources,
+    feedInterests,
+    saveFeedInterests,
   };
 }

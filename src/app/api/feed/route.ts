@@ -96,45 +96,30 @@ export async function POST(request: NextRequest) {
 async function generateFeed() {
   console.log("[generateFeed] Starting feed generation...");
 
-  // 0. Load user config for feed sources
+  // 0. Load user config
   const config = await loadUserConfig();
-  // Default sources if not configured
   const DEFAULT_FEED_SOURCES = ["reddit.com", "news.ycombinator.com"];
   const feedSources = config.feedSources ?? DEFAULT_FEED_SOURCES;
+  const feedInterests = config.feedInterests ?? [];
   console.log(`[generateFeed] Feed sources:`, feedSources);
+  console.log(`[generateFeed] Feed interests:`, feedInterests);
 
-  // 1. Load user's sources for interest extraction
+  // 1. Use configured interests, or require configuration
+  if (feedInterests.length === 0) {
+    return {
+      items: [],
+      interests: [],
+      generatedAt: new Date().toISOString(),
+      fromCache: false,
+      message: "Configure your interests in Settings to get personalized feed",
+    };
+  }
+
+  const interests = feedInterests;
+
+  // 2. Load user's sources for filtering (to avoid showing what they already have)
   const sources = await listSourcesForConnections();
-  console.log(`[generateFeed] Loaded ${sources.length} sources from library`);
-
-  if (sources.length === 0) {
-    return {
-      items: [],
-      interests: [],
-      generatedAt: new Date().toISOString(),
-      fromCache: false,
-      message: "Add some sources to get personalized feed",
-    };
-  }
-
-  // 2. Extract user interests
-  const sourcesForInterests = sources.map((s) => ({
-    title: s.title,
-    concepts: s.concepts,
-    highlights: s.highlights,
-  }));
-  const interests = await extractUserInterests(sourcesForInterests);
-  console.log(`[generateFeed] Extracted interests:`, interests);
-
-  if (interests.length === 0) {
-    return {
-      items: [],
-      interests: [],
-      generatedAt: new Date().toISOString(),
-      fromCache: false,
-      message: "Could not extract interests from library",
-    };
-  }
+  console.log(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
 
   // 3. Search for news (including preferred sources)
   const searchResults = await searchNews(interests, feedSources);
