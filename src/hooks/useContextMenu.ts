@@ -15,19 +15,31 @@ export function useContextMenu() {
     }
   }, [contextMenu]);
 
-  const handleContextMenu = (e: React.MouseEvent, sourceId: string, sourceUrl?: string) => {
+  // Handle context menu for entries (sources and documents)
+  const handleEntryContextMenu = (
+    e: React.MouseEvent,
+    entryId: string,
+    _entryUrl?: string,  // Unused but kept for API compatibility
+    entryType: "source" | "document" = "source"
+  ) => {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
-      type: "source",
-      sourceId,
-      sourceUrl,
+      type: "entry",
+      entryId,
+      entryType,
     });
   };
 
-  const handleFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+  const handleFolderContextMenu = (
+    e: React.MouseEvent,
+    folderPath: string,
+    folderName: string,
+    section: "library" | "workspace" = "library"
+  ) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
@@ -37,14 +49,8 @@ export function useContextMenu() {
       type: "folder",
       folderPath,
       folderName,
+      folderSection: section,
     });
-  };
-
-  const handleCopyUrl = async () => {
-    if (contextMenu?.sourceUrl) {
-      await navigator.clipboard.writeText(contextMenu.sourceUrl);
-    }
-    setContextMenu(null);
   };
 
   const closeContextMenu = () => {
@@ -53,9 +59,8 @@ export function useContextMenu() {
 
   return {
     contextMenu,
-    handleContextMenu,
+    handleEntryContextMenu,
     handleFolderContextMenu,
-    handleCopyUrl,
     closeContextMenu,
   };
 }

@@ -28,7 +28,7 @@ export function TooltipButton({
         onClick={onClick}
         disabled={disabled}
         className={`
-          p-2 rounded-lg border hover:bg-black/5 transition-colors
+          p-2 rounded-lg hover:bg-black/5 transition-colors
           disabled:opacity-50 disabled:cursor-not-allowed
           ${className}
         `.trim().replace(/\s+/g, " ")}

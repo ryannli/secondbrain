@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
 import { Source, ActionType, ACTION_CONFIG, WorkspaceDocument } from "@/lib/types";
 import { theme } from "@/lib/theme";
-import { SourceView } from "@/components/SourceView";
+import { EntryView, EntryData } from "@/components/EntryView";
 import { Dashboard } from "@/components/Dashboard";
 import { FeedSection } from "@/components/FeedSection";
 import { Header } from "@/components/Header";
@@ -14,12 +14,10 @@ import { ContextMenu } from "@/components/ContextMenu";
 import { Sidebar } from "@/components/Sidebar";
 import { useSettings } from "@/hooks/useSettings";
 import { useLibrary } from "@/hooks/useLibrary";
-import { useFolderManagement } from "@/hooks/useFolderManagement";
-import { useDragDrop } from "@/hooks/useDragDrop";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
-import { useWorkspace } from "@/hooks/useWorkspace";
+import { useEntryCollection } from "@/hooks/useEntryCollection";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -42,7 +40,6 @@ function HomeContent() {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<{ meta: WorkspaceDocument; content: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
   const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
   const [isCoLearningInitialized, setIsCoLearningInitialized] = useState(false);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
@@ -139,43 +136,21 @@ function HomeContent() {
     saveFeedInterests,
   } = useSettings();
 
-  // Library (sources, folders, tree)
-  const {
-    sources,
-    setSources,
-    loadSources,
-    loadFolders,
-    expandedFolders,
-    setExpandedFolders,
-    toggleFolder,
-    buildTree,
-    isLibraryOpen,
-    setIsLibraryOpen,
-    isSidebarOpen,
-    setIsSidebarOpen,
-  } = useLibrary();
+  // Library (for Dashboard sources list and source actions)
+  const { sources, setSources, isSidebarOpen, setIsSidebarOpen } = useLibrary();
 
-  // Folder management
-  const folderManagement = useFolderManagement({
-    loadFolders,
-    loadSources,
-    expandedFolders,
-    setExpandedFolders,
-    setError,
-  });
+  // Entry collections (unified hooks for Library and Workspace)
+  const library = useEntryCollection({ type: "library", setError });
+  const workspace = useEntryCollection({ type: "workspace", setError });
 
-  // Drag and drop
-  const dragDrop = useDragDrop({
-    loadSources,
-    setError,
-  });
+  // Feed
+  const feed = useFeed();
 
   // Context menu
   const {
     contextMenu,
-    handleContextMenu,
+    handleEntryContextMenu,
     handleFolderContextMenu,
-    handleCopyUrl,
     closeContextMenu,
   } = useContextMenu();
 
@@ -199,12 +174,6 @@ function HomeContent() {
     setSelectedSource,
     setError,
   });
-
-  // Feed
-  const feed = useFeed();
-
-  // Workspace
-  const workspace = useWorkspace();
 
   // Navigate to document
   const navigateToDocument = async (docId: string) => {
@@ -266,9 +235,10 @@ function HomeContent() {
   }, [sourceId, handleSelectSource]);
 
   // Auto-expand folder when viewing a source (like VS Code "Reveal in Explorer")
+  // Only run when the folder path changes, not on every render
   useEffect(() => {
     if (selectedSource?.meta.folder) {
-      setExpandedFolders(prev => {
+      library.setExpandedFolders(prev => {
         const next = new Set(prev);
         // Expand all parent folders (e.g., "ai/agents" → expand "ai" and "ai/agents")
         const parts = selectedSource.meta.folder!.split("/");
@@ -280,7 +250,8 @@ function HomeContent() {
         return next;
       });
     }
-  }, [selectedSource?.meta.folder, setExpandedFolders]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- library object changes on every render, but setExpandedFolders is stable
+  }, [selectedSource?.meta.folder]);
 
   // Score color helper
   const getScoreColor = (score: number) => {
@@ -312,26 +283,62 @@ function HomeContent() {
   };
 
   // Context menu action handlers
-  const onDeleteSource = async () => {
-    if (contextMenu?.type === "source" && contextMenu.sourceId) {
-      closeContextMenu();
-      await handleDeleteSource(contextMenu.sourceId);
+  const onDeleteEntry = async () => {
+    if (contextMenu?.type !== "entry" || !contextMenu.entryId) return;
+
+    const entryId = contextMenu.entryId;
+    const entryType = contextMenu.entryType;
+    closeContextMenu();
+
+    if (entryType === "document") {
+      // Delete workspace document
+      try {
+        const res = await fetch(`/api/workspace/${entryId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+          if (selectedDocument?.meta.id === entryId) {
+            setSelectedDocument(null);
+            router.push("/");
+          }
+          workspace.refresh();
+        }
+      } catch (err) {
+        console.error("Failed to delete document:", err);
+      }
+    } else {
+      // Delete library source
+      await handleDeleteSource(entryId);
     }
   };
 
   const onDeleteFolder = async () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath) {
       const folderPath = contextMenu.folderPath;
+      const isWorkspace = contextMenu.folderSection === "workspace";
       closeContextMenu();
-      await folderManagement.handleDeleteFolder(folderPath);
+      if (isWorkspace) {
+        await workspace.deleteFolder(folderPath);
+      } else {
+        await library.deleteFolder(folderPath);
+      }
     }
   };
 
   const onStartRenameFolder = () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath && contextMenu.folderName) {
-      folderManagement.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
+      const isWorkspace = contextMenu.folderSection === "workspace";
+      if (isWorkspace) {
+        workspace.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
+      } else {
+        library.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
+      }
       closeContextMenu();
     }
+  };
+
+  // Workspace folder context menu handler
+  const handleWorkspaceFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    handleFolderContextMenu(e, folderPath, folderName, "workspace");
   };
 
   return (
@@ -360,45 +367,47 @@ function HomeContent() {
         <Sidebar
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          isLibraryOpen={isLibraryOpen}
-          onToggleLibrary={() => setIsLibraryOpen(!isLibraryOpen)}
-          libraryPath={libraryPath}
           selectedSource={selectedSource}
           currentView={currentView}
           onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
           onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
-          onNavigateToSource={(id) => { setSelectedDocument(null); navigateToSource(id); }}
-          treeNodes={buildTree()}
-          expandedFolders={expandedFolders}
-          onToggleFolder={toggleFolder}
-          onContextMenu={handleContextMenu}
-          onFolderContextMenu={handleFolderContextMenu}
-          dragOverFolder={dragDrop.dragOverFolder}
-          onDragStart={dragDrop.handleDragStart}
-          onDragOver={dragDrop.handleDragOver}
-          onDragLeave={dragDrop.handleDragLeave}
-          onDrop={dragDrop.handleDrop}
-          onDragEnd={dragDrop.handleDragEnd}
-          isCreatingFolder={folderManagement.isCreatingFolder}
-          newFolderParent={folderManagement.newFolderParent}
-          newFolderName={folderManagement.newFolderName}
-          onStartCreateFolder={folderManagement.startCreateFolder}
-          onFolderNameChange={folderManagement.setNewFolderName}
-          onCreateFolder={folderManagement.handleCreateFolder}
-          onCancelCreate={folderManagement.cancelCreateFolder}
-          renamingFolder={folderManagement.renamingFolder}
-          renameFolderValue={folderManagement.renameFolderValue}
-          onRenameFolderChange={folderManagement.setRenameFolderValue}
-          onRenameFolder={folderManagement.handleRenameFolder}
-          onCancelRename={folderManagement.cancelRenameFolder}
+          onEntryContextMenu={handleEntryContextMenu}
           palette={palette}
-          isEmpty={sources.length === 0}
           width={sidebarWidth}
-          workspaceDocuments={workspace.documents}
-          isWorkspaceOpen={workspace.isWorkspaceOpen}
-          onToggleWorkspace={workspace.toggleWorkspace}
-          selectedDocumentId={selectedDocument?.meta.id}
-          onNavigateToDocument={navigateToDocument}
+          sections={[
+            {
+              label: "Library",
+              rootLabel: libraryPath.split("/").pop() || "library",
+              isOpen: library.isOpen,
+              onToggle: library.toggle,
+              isEmpty: library.isEmpty,
+              emptyMessage: "No sources yet",
+              treeNodes: library.treeNodes,
+              expandedFolders: library.expandedFolders,
+              onToggleFolder: library.toggleFolder,
+              selectedSourceId: selectedSource?.meta.id,
+              onSelectSource: (id) => { setSelectedDocument(null); navigateToSource(id); },
+              onFolderContextMenu: handleFolderContextMenu,
+              dragDrop: library.dragDrop,
+              folderManagement: library.folderManagement,
+            },
+            {
+              label: "Workspace",
+              rootLabel: "workspace",
+              isOpen: workspace.isOpen,
+              onToggle: workspace.toggle,
+              isEmpty: workspace.isEmpty,
+              emptyMessage: "No documents yet",
+              treeNodes: workspace.treeNodes,
+              expandedFolders: workspace.expandedFolders,
+              onToggleFolder: workspace.toggleFolder,
+              selectedDocumentId: selectedDocument?.meta.id,
+              onSelectDocument: navigateToDocument,
+              onFolderContextMenu: handleWorkspaceFolderContextMenu,
+              dragDrop: workspace.dragDrop,
+              folderManagement: workspace.folderManagement,
+            },
+          ]}
         />
 
         {/* Resize handle between sidebar and content */}
@@ -412,61 +421,76 @@ function HomeContent() {
         <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
             {selectedDocument ? (
-              <div className="max-w-4xl mx-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h1 className="text-2xl font-semibold" style={{ color: theme.text }}>
-                    {selectedDocument.meta.title}
-                  </h1>
-                  <button
-                    onClick={() => setSelectedDocument(null)}
-                    className="px-3 py-1 text-sm rounded hover:bg-black/5"
-                    style={{ color: theme.textMuted }}
-                  >
-                    Close
-                  </button>
-                </div>
-                {selectedDocument.meta.output.endsWith(".md") ? (
-                  <div
-                    className="prose prose-sm max-w-none whitespace-pre-wrap"
-                    style={{ color: theme.text }}
-                  >
-                    {selectedDocument.content}
-                  </div>
-                ) : (
-                  <div className="border rounded-lg p-4" style={{ borderColor: theme.border }}>
-                    <p style={{ color: theme.textMuted }}>
-                      PDF document: {selectedDocument.meta.output}
-                    </p>
-                    <a
-                      href={`/api/workspace/${selectedDocument.meta.id}/file`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm underline"
-                      style={{ color: palette[500] }}
-                    >
-                      Open PDF
-                    </a>
-                  </div>
-                )}
-              </div>
+              <EntryView
+                entry={{
+                  id: selectedDocument.meta.id,
+                  title: selectedDocument.meta.title,
+                  content: selectedDocument.content,
+                  type: selectedDocument.meta.output.endsWith(".pdf") ? "document" : "text",
+                }}
+                onSave={async (title, content) => {
+                  const res = await fetch(`/api/workspace/${selectedDocument.meta.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title, content }),
+                  });
+                  const data = await res.json();
+                  if (data.success && data.document) {
+                    setSelectedDocument(data.document);
+                    workspace.refresh();
+                  }
+                }}
+                onClose={() => { setSelectedDocument(null); router.push("/"); }}
+                palette={palette}
+                theme={theme}
+              />
             ) : selectedSource ? (
-              <SourceView
-                source={selectedSource}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                onClose={() => setSelectedSource(null)}
-                onReanalyze={() => handleReanalyze(selectedSource.meta.id)}
-                onReaction={(type, itemId, reaction) => handleReaction(selectedSource.meta.id, type, itemId, reaction)}
-                onSourceUpdated={async () => {
-                  const res = await fetch(`/api/sources/${selectedSource.meta.id}`);
+              <EntryView
+                entry={{
+                  id: selectedSource.meta.id,
+                  title: selectedSource.meta.title,
+                  content: selectedSource.content,
+                  sourceUrl: selectedSource.meta.sourceUrl,
+                  type: selectedSource.meta.type,
+                  processingStatus: selectedSource.meta.processingStatus,
+                  analysisError: selectedSource.meta.analysisError,
+                  analysis: selectedSource.analysis,
+                  saved: selectedSource.meta.saved,
+                }}
+                onSave={async (title, content) => {
+                  const res = await fetch(`/api/sources/${selectedSource.meta.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title, content }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    const reloadRes = await fetch(`/api/sources/${selectedSource.meta.id}`);
+                    const reloadData = await reloadRes.json();
+                    if (reloadData.success && reloadData.source) {
+                      setSelectedSource(reloadData.source);
+                      library.refresh();
+                    }
+                  }
+                }}
+                onToggleSaved={async (saved) => {
+                  const res = await fetch(`/api/sources/${selectedSource.meta.id}/save`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ saved }),
+                  });
                   const data = await res.json();
                   if (data.success && data.source) {
                     setSelectedSource(data.source);
-                    loadSources();
+                    library.refresh();
                   }
                 }}
+                onClose={() => setSelectedSource(null)}
+                onReanalyze={() => handleReanalyze(selectedSource.meta.id)}
+                onReaction={(type, itemId, reaction) => handleReaction(selectedSource.meta.id, type, itemId, reaction)}
                 onNavigateToSource={navigateToSource}
                 isReanalyzing={reanalyzingId === selectedSource.meta.id}
+                originalFileUrl={`/api/sources/${selectedSource.meta.id}/original`}
                 palette={palette}
                 theme={theme}
                 getActionConfig={getActionConfig}
@@ -545,7 +569,7 @@ function HomeContent() {
               }
             }
             // Also refresh the library sidebar
-            loadSources();
+            library.refresh();
           }}
         />
       </div>
@@ -561,8 +585,7 @@ function HomeContent() {
 
       <ContextMenu
         menu={contextMenu}
-        onCopyUrl={handleCopyUrl}
-        onDeleteSource={onDeleteSource}
+        onDeleteEntry={onDeleteEntry}
         onRenameFolder={onStartRenameFolder}
         onDeleteFolder={onDeleteFolder}
       />

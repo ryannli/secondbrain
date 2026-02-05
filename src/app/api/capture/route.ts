@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { extractFromUrl, extractFromHtml, getSourceType, getTypeFromExtension } from "@/lib/content";
 import { analyzeContent, generateTitle, formatTextContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
-import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, findSourcePath } from "@/lib/storage";
+import { createPendingSource, completeSource, failSource, ensureLibraryExists, listSourcesForConnections, addConnectionToSource, saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, findEntryPath } from "@/lib/storage";
 import { SourceType, Connection } from "@/lib/types";
 
 const corsHeaders = {
@@ -451,7 +451,7 @@ async function loadSourceForMerge(
   sourceId: string
 ): Promise<{ title: string; connections: Connection[] } | null> {
   try {
-    const sourcePath = await findSourcePath(sourceId);
+    const sourcePath = await findEntryPath(sourceId);
     if (!sourcePath) return null;
 
     // Load title from content.md
@@ -461,11 +461,11 @@ async function loadSourceForMerge(
       const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
       if (titleMatch) title = titleMatch[1];
     } catch {
-      // Try original.json
+      // Try meta.json
       try {
-        const originalJson = await fs.readFile(path.join(sourcePath, "original.json"), "utf-8");
-        const original = JSON.parse(originalJson);
-        title = original.original_title || sourceId;
+        const metaContent = await fs.readFile(path.join(sourcePath, "meta.json"), "utf-8");
+        const meta = JSON.parse(metaContent);
+        title = meta.original_title || sourceId;
       } catch {
         // Use sourceId as fallback
       }

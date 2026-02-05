@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource, deleteSource, updateSourceContent, updateReadStatus } from "@/lib/storage";
+import { loadSource, deleteEntry, updateSourceContent, updateReadStatus } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +42,7 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const { id } = await params;
-    const deleted = await deleteSource(id);
+    const deleted = await deleteEntry(id);
 
     if (!deleted) {
       return NextResponse.json(

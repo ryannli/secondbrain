@@ -24,14 +24,14 @@ function getRootPath(): string {
 /**
  * Get library path (inside root)
  */
-function getLibraryPath(): string {
+export function getLibraryPath(): string {
   return process.env.SECONDBRAIN_LIBRARY || path.join(getRootPath(), "library");
 }
 
 /**
  * Get workspace path (inside root)
  */
-function getWorkspacePath(): string {
+export function getWorkspacePath(): string {
   return path.join(getRootPath(), "workspace");
 }
 
@@ -104,14 +104,61 @@ function getOriginalFileName(type: SourceType, content?: string | Buffer): strin
 }
 
 /**
+ * Helper to read meta.json
+ */
+async function readMetaJson(sourceDir: string): Promise<OriginalData> {
+  const content = await fs.readFile(path.join(sourceDir, "meta.json"), "utf-8");
+  return JSON.parse(content);
+}
+
+/**
+ * Helper to check if a directory is an entry (has meta.json)
+ */
+async function isEntryDirectory(dir: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(dir, "meta.json"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Update saved status in meta.json
+ */
+export async function updateEntrySaved(
+  id: string,
+  saved: boolean,
+  basePath = getLibraryPath()
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const entryPath = await findEntryPath(id, basePath);
+    if (!entryPath) {
+      return { success: false, error: "Entry not found" };
+    }
+
+    const metaPath = path.join(entryPath, "meta.json");
+    const metaContent = await fs.readFile(metaPath, "utf-8");
+    const meta = JSON.parse(metaContent);
+
+    meta.saved = saved;
+
+    await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+/**
  * Create a pending source immediately (before processing)
  * This allows the UI to show the source right away with a loading state.
  *
  * Creates:
- * - original.json (immutable metadata)
+ * - meta.json (immutable metadata)
  * - original file (raw content)
  *
- * Status "processing" is inferred from original.json existing without content.md
+ * Status "processing" is inferred from meta.json existing without content.md
  */
 export async function createPendingSource(
   meta: Omit<SourceMeta, "id" | "createdAt" | "processingStatus">,
@@ -128,7 +175,7 @@ export async function createPendingSource(
   // Determine original_file name
   const originalFile = options?.originalFileName || getOriginalFileName(meta.type, originalContent);
 
-  // Save original.json (immutable metadata)
+  // Save meta.json (immutable metadata)
   const originalData: OriginalData = {
     id,
     source_url: meta.sourceUrl,
@@ -138,7 +185,7 @@ export async function createPendingSource(
     original_title: meta.title,
   };
   await fs.writeFile(
-    path.join(sourceDir, "original.json"),
+    path.join(sourceDir, "meta.json"),
     JSON.stringify(originalData, null, 2),
     "utf-8"
   );
@@ -171,10 +218,8 @@ export async function updateReadStatus(
   try {
     // Find source directory
     let sourceDir = path.join(libraryPath, id);
-    try {
-      await fs.access(path.join(sourceDir, "original.json"));
-    } catch {
-      const foundPath = await findSourcePath(id, libraryPath);
+    if (!await isEntryDirectory(sourceDir)) {
+      const foundPath = await findEntryPath(id, libraryPath);
       if (!foundPath) {
         return { success: false, error: "Source not found" };
       }
@@ -253,9 +298,8 @@ export async function saveSourceAnalysis(
 ): Promise<void> {
   const sourceDir = path.join(libraryPath, id);
 
-  // Load original.json for metadata
-  const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
-  const originalData: OriginalData = JSON.parse(originalJson);
+  // Load meta.json for metadata (with fallback to original.json)
+  const originalData: OriginalData = await readMetaJson(sourceDir);
 
   // Load title from content.md if it exists
   let title = originalData.original_title;
@@ -353,9 +397,8 @@ export async function completeSource(
 ): Promise<Source> {
   const sourceDir = path.join(libraryPath, id);
 
-  // Load original.json
-  const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
-  const originalData: OriginalData = JSON.parse(originalJson);
+  // Load meta.json (with fallback to original.json)
+  const originalData: OriginalData = await readMetaJson(sourceDir);
 
   // Use provided title or fall back to original_title
   const finalTitle = title || originalData.original_title;
@@ -437,7 +480,7 @@ export async function failSource(
  * Save a fully processed source (one-shot, no pending state)
  *
  * Creates:
- * - original.json (immutable metadata)
+ * - meta.json (immutable metadata)
  * - original file (raw content)
  * - content.md (derived content)
  * - analysis.json
@@ -460,7 +503,7 @@ export async function saveSource(
   // Determine original_file name
   const originalFile = options?.originalFileName || getOriginalFileName(meta.type, originalContent);
 
-  // 1. Save original.json (immutable metadata)
+  // 1. Save meta.json (immutable metadata)
   const originalData: OriginalData = {
     id,
     source_url: meta.sourceUrl,
@@ -470,7 +513,7 @@ export async function saveSource(
     original_title: meta.title,
   };
   await fs.writeFile(
-    path.join(sourceDir, "original.json"),
+    path.join(sourceDir, "meta.json"),
     JSON.stringify(originalData, null, 2),
     "utf-8"
   );
@@ -565,17 +608,14 @@ export async function loadSource(
 ): Promise<Source | null> {
   // First try direct path (root level)
   const directPath = path.join(libraryPath, id);
-  try {
-    await fs.access(path.join(directPath, "original.json"));
+  if (await isEntryDirectory(directPath)) {
     const source = await loadSourceFromPath(directPath, id);
     // No folder for root level sources
     return source;
-  } catch {
-    // Not at direct path, search recursively
   }
 
   // Search recursively
-  const sourcePath = await findSourcePath(id, libraryPath);
+  const sourcePath = await findEntryPath(id, libraryPath);
   if (!sourcePath) return null;
 
   const source = await loadSourceFromPath(sourcePath, id);
@@ -616,7 +656,7 @@ export async function addConnectionToSource(
     try {
       await fs.access(path.join(sourceDir, "analysis.json"));
     } catch {
-      const foundPath = await findSourcePath(id, libraryPath);
+      const foundPath = await findEntryPath(id, libraryPath);
       if (!foundPath) return false;
       sourceDir = foundPath;
     }
@@ -750,9 +790,8 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
       const fullPath = path.join(dir, entry.name);
       const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-      // Check if this directory is a source (has original.json)
-      try {
-        await fs.access(path.join(fullPath, "original.json"));
+      // Check if this directory is a source (has meta.json or original.json)
+      if (await isEntryDirectory(fullPath)) {
         // It's a source directory - load it
         const source = await loadSourceFromPath(fullPath, entry.name);
         if (source) {
@@ -765,7 +804,7 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
             action: source.analysis?.triage.action,
           });
         }
-      } catch {
+      } else {
         // Not a source directory - recurse into it
         await scanDir(fullPath, entryRelativePath);
       }
@@ -810,8 +849,7 @@ export async function listSourcesForConnections(
 
       const fullPath = path.join(dir, entry.name);
 
-      try {
-        await fs.access(path.join(fullPath, "original.json"));
+      if (await isEntryDirectory(fullPath)) {
         // It's a source directory
         if (entry.name === excludeId) continue;
 
@@ -827,11 +865,10 @@ export async function listSourcesForConnections(
             const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
             if (titleMatch) title = titleMatch[1];
           } catch {
-            // Use original.json title as fallback
+            // Use meta.json title as fallback
             try {
-              const originalJson = await fs.readFile(path.join(fullPath, "original.json"), "utf-8");
-              const original = JSON.parse(originalJson);
-              title = original.original_title || entry.name;
+              const metaData = await readMetaJson(fullPath);
+              title = metaData.original_title || entry.name;
             } catch {
               // Keep entry.name as title
             }
@@ -851,7 +888,7 @@ export async function listSourcesForConnections(
         } catch {
           // No analysis.json - source still processing, skip
         }
-      } catch {
+      } else {
         // Not a source directory - recurse into it
         await scanDir(fullPath);
       }
@@ -864,16 +901,15 @@ export async function listSourcesForConnections(
 
 /**
  * Load source from a specific directory path
- * Reads original.json for metadata and content.md for processed content
+ * Reads meta.json for metadata and content.md for processed content
  */
 async function loadSourceFromPath(
   sourceDir: string,
   id: string
 ): Promise<Source | null> {
   try {
-    // Read original.json (required)
-    const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
-    const originalData: OriginalData = JSON.parse(originalJson);
+    // Read meta.json (with fallback to original.json)
+    const originalData: OriginalData = await readMetaJson(sourceDir);
 
     // Get processing status from file existence
     const { status, error } = await getProcessingStatus(sourceDir);
@@ -958,6 +994,7 @@ async function loadSourceFromPath(
       analysisError,
       readStatus,
       lastReadAt,
+      saved: originalData.saved,
     };
 
     return { meta, originalContent, content, analysis };
@@ -968,7 +1005,7 @@ async function loadSourceFromPath(
 
 /**
  * Update source content (title and/or body)
- * Only modifies content.md (derived data), never touches original.json
+ * Only modifies content.md (derived data), never touches meta.json
  */
 export async function updateSourceContent(
   id: string,
@@ -978,11 +1015,9 @@ export async function updateSourceContent(
   try {
     // Find source directory
     let sourceDir = path.join(libraryPath, id);
-    try {
-      await fs.access(path.join(sourceDir, "original.json"));
-    } catch {
+    if (!await isEntryDirectory(sourceDir)) {
       // Not at direct path, search recursively
-      const foundPath = await findSourcePath(id, libraryPath);
+      const foundPath = await findEntryPath(id, libraryPath);
       if (!foundPath) {
         return { success: false, error: "Source not found" };
       }
@@ -999,9 +1034,8 @@ export async function updateSourceContent(
       currentTitle = parsed.title;
       currentContent = parsed.content;
     } catch {
-      // content.md doesn't exist yet, use original.json title
-      const originalJson = await fs.readFile(path.join(sourceDir, "original.json"), "utf-8");
-      const originalData: OriginalData = JSON.parse(originalJson);
+      // content.md doesn't exist yet, use meta.json title
+      const originalData = await readMetaJson(sourceDir);
       currentTitle = originalData.original_title;
     }
 
@@ -1040,11 +1074,10 @@ export async function listFolders(libraryPath = getLibraryPath()): Promise<strin
       const fullPath = path.join(dir, entry.name);
       const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-      // Check if this is a source directory (has original.json)
-      try {
-        await fs.access(path.join(fullPath, "original.json"));
+      // Check if this is a source directory (has meta.json or original.json)
+      if (await isEntryDirectory(fullPath)) {
         // It's a source, not a folder - skip
-      } catch {
+      } else {
         // It's a folder
         folders.push(entryRelativePath);
         // Recurse into subfolders
@@ -1058,11 +1091,15 @@ export async function listFolders(libraryPath = getLibraryPath()): Promise<strin
 }
 
 /**
- * Find the full path to a source by its ID (searches recursively)
+ * Find the full path to an entry by its ID (searches recursively)
+ * @param id - Entry ID to find
+ * @param basePath - Base directory to search in
+ * @param markerFile - File that identifies a valid entry (e.g., "meta.json")
  */
-export async function findSourcePath(
+export async function findEntryPath(
   id: string,
-  libraryPath = getLibraryPath()
+  basePath = getLibraryPath(),
+  markerFile = "meta.json"
 ): Promise<string | null> {
   async function searchDir(dir: string): Promise<string | null> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -1072,13 +1109,13 @@ export async function findSourcePath(
 
       const fullPath = path.join(dir, entry.name);
 
-      // Check if this is the source we're looking for
+      // Check if this is the entry we're looking for
       if (entry.name === id) {
         try {
-          await fs.access(path.join(fullPath, "original.json"));
+          await fs.access(path.join(fullPath, markerFile));
           return fullPath;
         } catch {
-          // Not a source, continue
+          // Not a valid entry, continue
         }
       }
 
@@ -1090,7 +1127,7 @@ export async function findSourcePath(
     return null;
   }
 
-  return searchDir(libraryPath);
+  return searchDir(basePath);
 }
 
 /**
@@ -1100,7 +1137,7 @@ async function getSourceTitle(
   id: string,
   libraryPath = getLibraryPath()
 ): Promise<string | null> {
-  const sourcePath = await findSourcePath(id, libraryPath);
+  const sourcePath = await findEntryPath(id, libraryPath);
   if (!sourcePath) return null;
 
   // Try to get title from content.md first
@@ -1112,64 +1149,79 @@ async function getSourceTitle(
     // No content.md
   }
 
-  // Fall back to original.json
+  // Fall back to meta.json (with original.json fallback)
   try {
-    const originalJson = await fs.readFile(path.join(sourcePath, "original.json"), "utf-8");
-    const original = JSON.parse(originalJson);
-    return original.original_title || null;
+    const metaData = await readMetaJson(sourcePath);
+    return metaData.original_title || null;
   } catch {
     return null;
   }
 }
 
 /**
- * Move a source to a new folder
+ * Move an entry to a new folder
+ * @param id - Entry ID to move
+ * @param targetFolder - Target folder path (relative to basePath), empty string for root
+ * @param basePath - Base directory to search in
+ * @param markerFile - File that identifies a valid entry
  */
-export async function moveSource(
+export async function moveEntry(
   id: string,
-  targetFolder: string, // relative path, empty string for root
-  libraryPath = getLibraryPath()
+  targetFolder: string,
+  basePath = getLibraryPath(),
+  markerFile = "meta.json"
 ): Promise<boolean> {
-  const sourcePath = await findSourcePath(id, libraryPath);
-  if (!sourcePath) return false;
+  const entryPath = await findEntryPath(id, basePath, markerFile);
+  if (!entryPath) return false;
 
   const targetDir = targetFolder
-    ? path.join(libraryPath, targetFolder, id)
-    : path.join(libraryPath, id);
+    ? path.join(basePath, targetFolder, id)
+    : path.join(basePath, id);
 
   // Don't move if already in target location
-  if (sourcePath === targetDir) return true;
+  if (entryPath === targetDir) return true;
 
   // Ensure target parent directory exists
   const targetParent = path.dirname(targetDir);
   await fs.mkdir(targetParent, { recursive: true });
 
   // Move the directory
-  await fs.rename(sourcePath, targetDir);
+  await fs.rename(entryPath, targetDir);
   return true;
 }
 
-/**
- * Delete a source by ID
- */
-export async function deleteSource(
-  id: string,
-  libraryPath = getLibraryPath()
-): Promise<boolean> {
-  const sourcePath = await findSourcePath(id, libraryPath);
-  if (!sourcePath) return false;
+// Alias for backwards compatibility
+export const moveSource = moveEntry;
 
-  // Security check: ensure path is within library
-  const resolvedPath = path.resolve(sourcePath);
-  const resolvedLibrary = path.resolve(libraryPath);
-  if (!resolvedPath.startsWith(resolvedLibrary)) {
-    throw new Error("Security error: path is outside library");
+/**
+ * Delete an entry by ID
+ * @param id - Entry ID to delete
+ * @param basePath - Base directory to search in
+ * @param markerFile - File that identifies a valid entry
+ * @param cleanupConnections - Whether to clean up connections (only for library sources)
+ */
+export async function deleteEntry(
+  id: string,
+  basePath = getLibraryPath(),
+  markerFile = "meta.json",
+  cleanupConnections = true
+): Promise<boolean> {
+  const entryPath = await findEntryPath(id, basePath, markerFile);
+  if (!entryPath) return false;
+
+  // Security check: ensure path is within base path
+  const resolvedPath = path.resolve(entryPath);
+  const resolvedBase = path.resolve(basePath);
+  if (!resolvedPath.startsWith(resolvedBase)) {
+    throw new Error("Security error: path is outside allowed directory");
   }
 
-  // Clean up connections in other sources that reference this source
-  await removeConnectionsToSource(id, libraryPath);
+  // Clean up connections in other sources that reference this entry (library sources only)
+  if (cleanupConnections && markerFile === "meta.json") {
+    await removeConnectionsToSource(id, basePath);
+  }
 
-  await fs.rm(sourcePath, { recursive: true });
+  await fs.rm(entryPath, { recursive: true });
   return true;
 }
 
@@ -1190,10 +1242,8 @@ async function removeConnectionsToSource(
 
       const fullPath = path.join(dir, entry.name);
 
-      // Check if this is a source directory
-      try {
-        await fs.access(path.join(fullPath, "original.json"));
-
+      // Check if this is a source directory (has meta.json or original.json)
+      if (await isEntryDirectory(fullPath)) {
         // Skip the source being deleted
         if (entry.name === deletedSourceId) continue;
 
@@ -1219,7 +1269,7 @@ async function removeConnectionsToSource(
         } catch {
           // No analysis.json, skip
         }
-      } catch {
+      } else {
         // Not a source directory - recurse into it
         await scanAndClean(fullPath);
       }
@@ -1561,49 +1611,10 @@ export async function listWorkspaceFolders(workspacePath = getWorkspacePath()): 
 }
 
 /**
- * Find the full path to a document by its ID
- */
-export async function findDocumentPath(
-  id: string,
-  workspacePath = getWorkspacePath()
-): Promise<string | null> {
-  async function searchDir(dir: string): Promise<string | null> {
-    let entries;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-
-      const fullPath = path.join(dir, entry.name);
-
-      if (entry.name === id) {
-        try {
-          await fs.access(path.join(fullPath, "meta.json"));
-          return fullPath;
-        } catch {
-          // Not a document
-        }
-      }
-
-      const found = await searchDir(fullPath);
-      if (found) return found;
-    }
-
-    return null;
-  }
-
-  return searchDir(workspacePath);
-}
-
-/**
  * Load a document by ID
  */
 export async function loadWorkspaceDocument(id: string): Promise<{ meta: WorkspaceDocument; content: string } | null> {
-  const docPath = await findDocumentPath(id);
+  const docPath = await findEntryPath(id, getWorkspacePath(), "meta.json");
   if (!docPath) return null;
 
   try {
@@ -1632,7 +1643,7 @@ export async function loadWorkspaceDocument(id: string): Promise<{ meta: Workspa
  * Get the output file path for a document
  */
 export async function getDocumentOutputPath(id: string): Promise<string | null> {
-  const docPath = await findDocumentPath(id);
+  const docPath = await findEntryPath(id, getWorkspacePath(), "meta.json");
   if (!docPath) return null;
 
   try {
@@ -1641,5 +1652,43 @@ export async function getDocumentOutputPath(id: string): Promise<string | null> 
     return path.join(docPath, meta.output);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Update workspace document content (title and/or body)
+ */
+export async function updateWorkspaceDocument(
+  id: string,
+  updates: { title?: string; content?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const workspacePath = getWorkspacePath();
+    const docPath = await findEntryPath(id, workspacePath, "meta.json");
+    if (!docPath) {
+      return { success: false, error: "Document not found" };
+    }
+
+    const metaPath = path.join(docPath, "meta.json");
+    const metaContent = await fs.readFile(metaPath, "utf-8");
+    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+
+    // Update title in meta.json if provided
+    if (updates.title !== undefined && updates.title !== meta.title) {
+      meta.title = updates.title;
+      await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+    }
+
+    // Update content if provided (only for text-based formats)
+    if (updates.content !== undefined) {
+      const outputPath = path.join(docPath, meta.output);
+      if (meta.output.endsWith(".md") || meta.output.endsWith(".txt") || meta.output.endsWith(".html")) {
+        await fs.writeFile(outputPath, updates.content, "utf-8");
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }

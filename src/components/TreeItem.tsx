@@ -8,6 +8,8 @@ import {
   FolderOpen,
   FolderPlus,
   Loader2,
+  FileText,
+  FileImage,
 } from "lucide-react";
 import { TreeNode } from "@/lib/types";
 import { getSourceIcon } from "@/lib/sourceIcon";
@@ -16,11 +18,13 @@ export interface TreeItemProps {
   node: TreeNode;
   depth: number;
   selectedSourceId?: string;
+  selectedDocumentId?: string;
   expandedFolders: Set<string>;
   dragOverFolder: string | null;
   onToggleFolder: (path: string) => void;
   onSelectSource: (id: string) => void;
-  onContextMenu: (e: React.MouseEvent, sourceId: string, sourceUrl?: string) => void;
+  onSelectDocument?: (id: string) => void;
+  onEntryContextMenu: (e: React.MouseEvent, entryId: string, entryUrl?: string, entryType?: "source" | "document") => void;
   onFolderContextMenu: (e: React.MouseEvent, folderPath: string, folderName: string) => void;
   onDragStart: (e: React.DragEvent, sourceId: string) => void;
   onDragOver: (e: React.DragEvent, folderPath: string) => void;
@@ -48,11 +52,13 @@ export function TreeItem({
   node,
   depth,
   selectedSourceId,
+  selectedDocumentId,
   expandedFolders,
   dragOverFolder,
   onToggleFolder,
   onSelectSource,
-  onContextMenu,
+  onSelectDocument,
+  onEntryContextMenu,
   onFolderContextMenu,
   onDragStart,
   onDragOver,
@@ -170,11 +176,13 @@ export function TreeItem({
                 node={child}
                 depth={depth + 1}
                 selectedSourceId={selectedSourceId}
+                selectedDocumentId={selectedDocumentId}
                 expandedFolders={expandedFolders}
                 dragOverFolder={dragOverFolder}
                 onToggleFolder={onToggleFolder}
                 onSelectSource={onSelectSource}
-                onContextMenu={onContextMenu}
+                onSelectDocument={onSelectDocument}
+                onEntryContextMenu={onEntryContextMenu}
                 onFolderContextMenu={onFolderContextMenu}
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
@@ -203,18 +211,49 @@ export function TreeItem({
     );
   }
 
-  // Source item
-  const source = node.source!;
-  const isSelected = selectedSourceId === source.meta.id;
-  const isProcessing = source.meta.processingStatus === "processing";
-  const { Icon: SourceIcon, color: iconColor, isBrand } = getSourceIcon(source.meta.sourceUrl, source.meta.type, palette[500]);
+  // Entry item (source or document - unified rendering)
+  const isDocument = node.type === "document";
+  const doc = node.document;
+  const source = node.source;
+  const entryId = isDocument ? doc!.id : source!.meta.id;
+  const entryTitle = isDocument ? doc!.title : source!.meta.title;
+  const isSelected = isDocument
+    ? selectedDocumentId === entryId
+    : selectedSourceId === entryId;
+  const isProcessing = !isDocument && source?.meta.processingStatus === "processing";
+
+  // Get icon based on entry type
+  const getEntryIcon = () => {
+    if (isProcessing) {
+      return <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />;
+    }
+    if (isDocument && doc) {
+      const isPdf = doc.output.endsWith(".pdf");
+      const Icon = isPdf ? FileImage : FileText;
+      return <Icon className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />;
+    }
+    if (source) {
+      const { Icon, color, isBrand } = getSourceIcon(source.meta.sourceUrl, source.meta.type, palette[500]);
+      return <Icon className="w-4 h-4 flex-shrink-0" style={{ color: isBrand ? color : palette[500] }} />;
+    }
+    return <FileText className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />;
+  };
+
+  const handleClick = () => {
+    if (isProcessing) return;
+    if (isDocument) {
+      onSelectDocument?.(entryId);
+    } else {
+      onSelectSource(entryId);
+    }
+  };
 
   return (
     <div
       draggable={!isProcessing}
-      onClick={() => !isProcessing && onSelectSource(source.meta.id)}
-      onContextMenu={(e) => !isProcessing && onContextMenu(e, source.meta.id, source.meta.sourceUrl)}
-      onDragStart={(e) => !isProcessing && onDragStart(e, source.meta.id)}
+      onClick={handleClick}
+      onContextMenu={(e) => !isProcessing && onEntryContextMenu(e, entryId, source?.meta.sourceUrl, isDocument ? "document" : "source")}
+      onDragStart={(e) => !isProcessing && onDragStart(e, entryId)}
       onDragEnd={onDragEnd}
       className={`w-full py-1.5 flex items-center gap-2 transition-colors text-left rounded ${isProcessing ? "opacity-60" : "hover:bg-black/5 cursor-pointer"}`}
       style={{
@@ -222,28 +261,13 @@ export function TreeItem({
         backgroundColor: isSelected ? `${palette[500]}15` : undefined,
       }}
     >
-      {isProcessing ? (
-        <Loader2
-          className="w-4 h-4 flex-shrink-0 animate-spin"
-          style={{ color: palette[500] }}
-        />
-      ) : (
-        <SourceIcon
-          className="w-4 h-4 flex-shrink-0"
-          style={{
-            // Brand logos use their own colors, fallback icons use accent color
-            color: isBrand ? iconColor : palette[500],
-          }}
-        />
-      )}
+      {getEntryIcon()}
       <span
         className="text-sm truncate"
-        style={{
-          color: isProcessing ? theme.textMuted : isSelected ? palette[600] : theme.text,
-        }}
-        title={source.meta.title}
+        style={{ color: isProcessing ? theme.textMuted : isSelected ? palette[600] : theme.text }}
+        title={entryTitle}
       >
-        {source.meta.title}
+        {entryTitle}
       </span>
     </div>
   );

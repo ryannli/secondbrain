@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSource, findSourcePath } from "@/lib/storage";
+import { loadSource, findEntryPath } from "@/lib/storage";
 import { promises as fs } from "fs";
 import path from "path";
 import { Analysis } from "@/lib/types";
@@ -18,7 +18,7 @@ export async function PATCH(
     // reaction: the user's reaction/status
 
     // Find source path
-    const sourceDir = await findSourcePath(id);
+    const sourceDir = await findEntryPath(id);
     if (!sourceDir) {
       return NextResponse.json(
         { success: false, error: "Source not found" },

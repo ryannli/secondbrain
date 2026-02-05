@@ -11,7 +11,7 @@ export type SourceType = "html" | "text" | "document" | "image";
 
 /**
  * Original data captured at source creation time.
- * Stored in original.json - IMMUTABLE after creation.
+ * Stored in meta.json - mostly immutable, but some fields like `saved` can be updated.
  */
 export interface OriginalData {
   id: string;
@@ -20,13 +20,14 @@ export interface OriginalData {
   type: SourceType;
   original_file: string;  // e.g. "original.html", "original.pdf", "original.png"
   original_title: string; // Title at capture time (before AI processing)
+  saved?: boolean;        // User saved/bookmarked this entry
 }
 
 /**
  * Processing status derived from file existence:
- * - processing: only original.json exists
- * - ready: original.json + content.md + analysis.json exist
- * - failed: original.json + error.txt exist
+ * - processing: only meta.json exists
+ * - ready: meta.json + content.md + analysis.json exist
+ * - failed: meta.json + error.txt exist
  */
 export type ProcessingStatus = "processing" | "ready" | "failed";
 
@@ -45,6 +46,8 @@ export interface SourceMeta {
   readStatus?: "unread" | "reading" | "read";
   lastReadAt?: string;
   totalReadTimeSeconds?: number; // accumulated reading time
+  // Saved/bookmark
+  saved?: boolean;
 }
 
 export type ActionType =
@@ -141,13 +144,14 @@ export interface SourceSummary {
   action?: ActionType;
 }
 
-// Tree structure for folder view
+// Tree structure for folder view (used by both Library and Workspace)
 export interface TreeNode {
-  type: "folder" | "source";
+  type: "folder" | "source" | "document";
   name: string;
-  path: string; // relative path within library/
+  path: string; // relative path within library/ or workspace/
   children?: TreeNode[];
   source?: SourceSummary;
+  document?: WorkspaceDocument;
 }
 
 // API types

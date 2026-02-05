@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { SourceSummary, TreeNode } from "@/lib/types";
+import { SourceSummary } from "@/lib/types";
+import { buildTree } from "@/lib/tree";
 
 export function useLibrary() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
@@ -64,76 +65,19 @@ export function useLibrary() {
     });
   };
 
-  const buildTree = useCallback((): TreeNode[] => {
-    const tree: TreeNode[] = [];
-    const folderNodes = new Map<string, TreeNode>();
-
-    // Create folder nodes
-    for (const folderPath of folders) {
-      const parts = folderPath.split("/");
-      let currentPath = "";
-
-      for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        const parentPath = currentPath;
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
-
-        if (!folderNodes.has(currentPath)) {
-          const node: TreeNode = {
-            type: "folder",
-            name: part,
-            path: currentPath,
-            children: [],
-          };
-          folderNodes.set(currentPath, node);
-
-          if (parentPath) {
-            const parent = folderNodes.get(parentPath);
-            parent?.children?.push(node);
-          } else {
-            tree.push(node);
-          }
-        }
-      }
-    }
-
-    // Add sources to appropriate folders
-    for (const source of sources) {
-      const sourceNode: TreeNode = {
-        type: "source",
-        name: source.meta.title,
-        path: source.meta.folder ? `${source.meta.folder}/${source.meta.id}` : source.meta.id,
-        source,
-      };
-
-      if (source.meta.folder) {
-        const folderNode = folderNodes.get(source.meta.folder);
-        if (folderNode) {
-          folderNode.children?.push(sourceNode);
-        } else {
-          tree.push(sourceNode);
-        }
-      } else {
-        tree.push(sourceNode);
-      }
-    }
-
-    // Sort: folders first (alphabetically), then sources by time (newest first)
-    const sortNodes = (nodes: TreeNode[]) => {
-      nodes.sort((a, b) => {
-        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
-        if (a.type === "folder") return a.name.localeCompare(b.name);
-        const timeA = new Date(a.source?.meta.createdAt || 0).getTime();
-        const timeB = new Date(b.source?.meta.createdAt || 0).getTime();
-        return timeB - timeA;
-      });
-      for (const node of nodes) {
-        if (node.children) sortNodes(node.children);
-      }
-    };
-    sortNodes(tree);
-
-    return tree;
+  const buildSourceTree = useCallback(() => {
+    return buildTree(
+      sources.map(s => ({
+        id: s.meta.id,
+        name: s.meta.title,
+        folder: s.meta.folder,
+        createdAt: s.meta.createdAt,
+        source: s,
+      })),
+      folders,
+      "source",
+      (item) => ({ source: item.source })
+    );
   }, [sources, folders]);
 
   return {
@@ -145,7 +89,7 @@ export function useLibrary() {
     expandedFolders,
     setExpandedFolders,
     toggleFolder,
-    buildTree,
+    buildTree: buildSourceTree,
     isLibraryOpen,
     setIsLibraryOpen,
     isSidebarOpen,

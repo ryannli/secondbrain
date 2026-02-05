@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-import { findSourcePath } from "@/lib/storage";
+import { findEntryPath } from "@/lib/storage";
 
 /**
  * Serve the original file for a source (image, PDF, etc.)
@@ -14,7 +14,7 @@ export async function GET(
     const { id } = await params;
 
     // Find the source directory
-    const sourcePath = await findSourcePath(id);
+    const sourcePath = await findEntryPath(id);
     if (!sourcePath) {
       return NextResponse.json(
         { success: false, error: "Source not found" },
@@ -22,9 +22,8 @@ export async function GET(
       );
     }
 
-    // Read original.json to get the original file name
-    const originalJsonPath = path.join(sourcePath, "original.json");
-    const originalData = JSON.parse(await fs.readFile(originalJsonPath, "utf-8"));
+    // Read meta.json to get the original file name
+    const originalData = JSON.parse(await fs.readFile(path.join(sourcePath, "meta.json"), "utf-8"));
     const originalFileName = originalData.original_file;
 
     if (!originalFileName) {

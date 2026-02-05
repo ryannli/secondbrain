@@ -199,6 +199,9 @@ Status is **inferred from file existence**, not stored:
 
 ## Lessons Learned
 
+### Frontend: Always Extract Components
+Don't write long component files. Proactively split into separate components to keep files focused and manageable.
+
 ### Agent History Must Include Tool Traces (2026-02-02)
 Multi-turn agent history should include tool calls and results, not just the text responses.
 

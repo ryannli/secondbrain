@@ -734,7 +734,8 @@ export async function filterFeedItems(
         const result = parseJsonResponse(responseText, "filterFeedItems");
         if (!result) return items;
 
-        for (const scored of (result.items ?? [])) {
+        const scoredItems = Array.isArray(result.items) ? result.items : [];
+        for (const scored of scoredItems) {
           const idx = (scored.index ?? 1) - 1;
           if (idx < 0 || idx >= batch.length) continue;
 
