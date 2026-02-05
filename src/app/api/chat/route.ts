@@ -135,6 +135,7 @@ Be concise but thorough. Use markdown formatting when helpful.
           "--verbose",
           "--include-partial-messages",
           "--permission-mode", "acceptEdits",
+          "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep,Task,WebSearch,WebFetch",
         ], {
           stdio: ["pipe", "pipe", "pipe"],
           cwd: userDataPath,
@@ -164,6 +165,10 @@ Be concise but thorough. Use markdown formatting when helpful.
             return (input.pattern as string) || "";
           } else if (toolName === "Grep") {
             return (input.pattern as string) || "";
+          } else if (toolName === "WebSearch") {
+            return (input.query as string) || "";
+          } else if (toolName === "WebFetch") {
+            return (input.url as string) || "";
           } else if (toolName === "TodoWrite" || toolName === "TaskCreate") {
             return (input.subject as string) || (input.description as string) || "";
           } else {

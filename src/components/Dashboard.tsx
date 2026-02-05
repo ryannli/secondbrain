@@ -8,6 +8,8 @@ import {
   Clock,
   X,
   Inbox,
+  Bookmark,
+  Flame,
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG, FeedItem } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
@@ -58,6 +60,7 @@ export function Dashboard({
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
+  const [filter, setFilter] = useState<"all" | "saved" | "recommended">("all");
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -244,11 +247,18 @@ export function Dashboard({
     );
   }
 
+  // Apply filter first
+  const filteredSources = sources.filter((s) => {
+    if (filter === "saved") return s.meta.saved === true;
+    if (filter === "recommended") return s.action === "must_read" || s.action === "worth_reading";
+    return true; // "all"
+  });
+
   // Split sources into inbox (unread) and recent (read)
-  const inboxSources = sources.filter(
+  const inboxSources = filteredSources.filter(
     (s) => s.meta.readStatus !== "read"
   );
-  const recentSources = sources
+  const recentSources = filteredSources
     .filter((s) => s.meta.readStatus === "read")
     .sort((a, b) => {
       // Sort by lastReadAt descending
@@ -256,6 +266,10 @@ export function Dashboard({
       const timeB = b.meta.lastReadAt ? new Date(b.meta.lastReadAt).getTime() : 0;
       return timeB - timeA;
     });
+
+  // Count for filter badges
+  const savedCount = sources.filter((s) => s.meta.saved === true).length;
+  const recommendedCount = sources.filter((s) => s.action === "must_read" || s.action === "worth_reading").length;
 
   // Render a source card
   const renderSourceCard = (source: SourceSummary) => {
@@ -362,6 +376,75 @@ export function Dashboard({
         </p>
       </div>
       {captureInputElement}
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 mt-6 mb-4">
+        <button
+          onClick={() => setFilter("all")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "all" ? "text-white" : "hover:bg-black/5"}`}
+          style={{
+            backgroundColor: filter === "all" ? palette[500] : undefined,
+            color: filter === "all" ? "white" : theme.textMuted,
+          }}
+        >
+          All
+          {sources.length > 0 && (
+            <span
+              className="px-1.5 py-0.5 text-xs rounded-full"
+              style={{
+                backgroundColor: filter === "all" ? "rgba(255,255,255,0.2)" : `${palette[500]}15`,
+                color: filter === "all" ? "white" : palette[500],
+              }}
+            >
+              {sources.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setFilter("saved")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "saved" ? "text-white" : "hover:bg-black/5"}`}
+          style={{
+            backgroundColor: filter === "saved" ? palette[500] : undefined,
+            color: filter === "saved" ? "white" : theme.textMuted,
+          }}
+        >
+          <Bookmark className="w-4 h-4" />
+          Saved
+          {savedCount > 0 && (
+            <span
+              className="px-1.5 py-0.5 text-xs rounded-full"
+              style={{
+                backgroundColor: filter === "saved" ? "rgba(255,255,255,0.2)" : `${palette[500]}15`,
+                color: filter === "saved" ? "white" : palette[500],
+              }}
+            >
+              {savedCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setFilter("recommended")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "recommended" ? "text-white" : "hover:bg-black/5"}`}
+          style={{
+            backgroundColor: filter === "recommended" ? palette[500] : undefined,
+            color: filter === "recommended" ? "white" : theme.textMuted,
+          }}
+        >
+          <Flame className="w-4 h-4" />
+          Recommended
+          {recommendedCount > 0 && (
+            <span
+              className="px-1.5 py-0.5 text-xs rounded-full"
+              style={{
+                backgroundColor: filter === "recommended" ? "rgba(255,255,255,0.2)" : `${palette[500]}15`,
+                color: filter === "recommended" ? "white" : palette[500],
+              }}
+            >
+              {recommendedCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Feed Section */}
       {feed && (
