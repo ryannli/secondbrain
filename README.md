@@ -36,18 +36,19 @@ Each source lives in its own folder:
 
 ```
 library/{id}/
-├── original.json    # Metadata at capture (immutable)
+├── meta.json        # Metadata at capture (immutable)
 ├── original.*       # Raw content file (immutable) - html, txt, pdf, png, etc.
 ├── content.md       # Processed content (regeneratable, editable)
 ├── analysis.json    # AI analysis (regeneratable)
 └── README.md        # Human-readable triage card
 ```
 
-### original.json Schema
+### meta.json Schema
 
 ```typescript
 interface OriginalData {
   id: string;              // Unique 8-char ID
+  schemaVersion?: number;  // Metadata schema version (default: 1)
   created_at: string;      // ISO timestamp
   type: "html" | "text" | "document" | "image";  // File format type
   original_file: string;   // e.g. "original.html", "original.pdf", "original.png"
@@ -62,7 +63,7 @@ interface OriginalData {
 - `document` - PDF, DOC, DOCX, etc.
 - `image` - PNG, JPG, WebP, etc. (OCR extracted to Markdown)
 
-**Original vs Derived**: `original.json` and the original file are captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from them. This means you can always re-analyze with improved AI without losing the source material.
+**Original vs Derived**: `meta.json` and the original file are captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from them. This means you can always re-analyze with improved AI without losing the source material.
 
 ## Tech Stack
 

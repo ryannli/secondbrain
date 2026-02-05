@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { FeedItem } from "@/lib/types";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface FeedState {
   items: FeedItem[];
@@ -21,22 +22,11 @@ export function useFeed() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-
-  // Load dismissed items from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("feed-dismissed");
-      if (stored) {
-        setDismissed(new Set(JSON.parse(stored)));
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
+  const [dismissedIds, setDismissedIds] = useLocalStorage<string[]>("feed-dismissed", []);
+  const dismissedSet = useMemo(() => new Set(dismissedIds), [dismissedIds]);
 
   // Filter out dismissed items
-  const visibleItems = feed.items.filter((item) => !dismissed.has(item.id));
+  const visibleItems = feed.items.filter((item) => !dismissedSet.has(item.id));
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
@@ -96,18 +86,8 @@ export function useFeed() {
   }, []);
 
   const dismissItem = useCallback((id: string) => {
-    setDismissed((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      // Persist to localStorage
-      try {
-        localStorage.setItem("feed-dismissed", JSON.stringify([...next]));
-      } catch {
-        // Ignore localStorage errors
-      }
-      return next;
-    });
-  }, []);
+    setDismissedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, [setDismissedIds]);
 
   return {
     items: visibleItems,

@@ -3,9 +3,9 @@
 import React, { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
-import { Source, ActionType, ACTION_CONFIG, WorkspaceDocument } from "@/lib/types";
+import { Source, SourceSummary, ActionType, ACTION_CONFIG, WorkspaceDocument } from "@/lib/types";
 import { theme } from "@/lib/theme";
-import { EntryView, EntryData } from "@/components/EntryView";
+import { EntryView } from "@/components/EntryView";
 import { Dashboard } from "@/components/Dashboard";
 import { FeedSection } from "@/components/FeedSection";
 import { Header } from "@/components/Header";
@@ -13,11 +13,12 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { ContextMenu } from "@/components/ContextMenu";
 import { Sidebar } from "@/components/Sidebar";
 import { useSettings } from "@/hooks/useSettings";
-import { useLibrary } from "@/hooks/useLibrary";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
 import { useEntryCollection } from "@/hooks/useEntryCollection";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useResizable } from "@/hooks/useResizable";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -41,72 +42,26 @@ function HomeContent() {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<{ meta: WorkspaceDocument; content: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
-  const [isCoLearningInitialized, setIsCoLearningInitialized] = useState(false);
+  const [isCoLearningOpen, setIsCoLearningOpen] = useLocalStorage("agent-panel-open", false);
+  const [isSidebarOpen, setIsSidebarOpen] = useLocalStorage("sidebar-open", true);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const { addContext } = useCoLearning();
 
-  // Load agent panel state from localStorage after mount
-  useEffect(() => {
-    const saved = localStorage.getItem("agent-panel-open");
-    if (saved === "true") setIsCoLearningOpen(true);
-    setIsCoLearningInitialized(true);
-  }, []);
+  const sidebarResize = useResizable({
+    initialWidth: 256,
+    minWidth: 200,
+    maxWidth: 400,
+    storageKey: "sidebarWidth",
+    computeWidth: (e) => e.clientX,
+  });
 
-  // Persist agent panel open state (only after initialized)
-  useEffect(() => {
-    if (isCoLearningInitialized) {
-      localStorage.setItem("agent-panel-open", isCoLearningOpen.toString());
-    }
-  }, [isCoLearningOpen, isCoLearningInitialized]);
-
-  // Resizable panels - use default values, load from localStorage in useEffect
-  const [sidebarWidth, setSidebarWidth] = useState(256);
-  const [askPanelWidth, setAskPanelWidth] = useState(384);
-  const [resizing, setResizing] = useState<"sidebar" | "ask" | null>(null);
-
-  // Load saved widths from localStorage after mount (avoids hydration mismatch)
-  useEffect(() => {
-    const savedSidebar = localStorage.getItem("sidebarWidth");
-    const savedAsk = localStorage.getItem("askPanelWidth");
-    if (savedSidebar) setSidebarWidth(parseInt(savedSidebar, 10));
-    if (savedAsk) setAskPanelWidth(parseInt(savedAsk, 10));
-  }, []);
-
-  // Resize handlers
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (resizing === "sidebar") {
-      const newWidth = Math.min(400, Math.max(200, e.clientX));
-      setSidebarWidth(newWidth);
-    } else if (resizing === "ask") {
-      const newWidth = Math.min(600, Math.max(320, window.innerWidth - e.clientX));
-      setAskPanelWidth(newWidth);
-    }
-  }, [resizing]);
-
-  const handleMouseUp = useCallback(() => {
-    if (resizing === "sidebar") {
-      localStorage.setItem("sidebarWidth", sidebarWidth.toString());
-    } else if (resizing === "ask") {
-      localStorage.setItem("askPanelWidth", askPanelWidth.toString());
-    }
-    setResizing(null);
-  }, [resizing, sidebarWidth, askPanelWidth]);
-
-  useEffect(() => {
-    if (resizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-    }
-  }, [resizing, handleMouseMove, handleMouseUp]);
+  const askPanelResize = useResizable({
+    initialWidth: 384,
+    minWidth: 320,
+    maxWidth: 600,
+    storageKey: "askPanelWidth",
+    computeWidth: (e) => window.innerWidth - e.clientX,
+  });
 
   // Derive currentView from URL
   const currentView: "dashboard" | "foryou" = viewParam === "foryou" ? "foryou" : "dashboard";
@@ -137,9 +92,6 @@ function HomeContent() {
     saveFeedInterests,
   } = useSettings();
 
-  // Library (for Dashboard sources list and source actions)
-  const { sources, setSources, isSidebarOpen, setIsSidebarOpen } = useLibrary();
-
   // Entry collections (unified hooks for Library and Workspace)
   const library = useEntryCollection({ type: "library", setError });
   const workspace = useEntryCollection({ type: "workspace", setError });
@@ -154,6 +106,29 @@ function HomeContent() {
     handleFolderContextMenu,
     closeContextMenu,
   } = useContextMenu();
+
+  const upsertLibrarySummary = useCallback((summary: SourceSummary, options?: { prepend?: boolean }) => {
+    library.setEntries((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === summary.meta.id);
+      const updatedEntry = {
+        id: summary.meta.id,
+        name: summary.meta.title,
+        folder: summary.meta.folder,
+        createdAt: summary.meta.createdAt,
+        data: summary,
+      };
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = updatedEntry;
+        return next;
+      }
+      return options?.prepend ? [updatedEntry, ...prev] : [...prev, updatedEntry];
+    });
+  }, [library.setEntries]);
+
+  const removeLibrarySummary = useCallback((id: string) => {
+    library.setEntries((prev) => prev.filter((entry) => entry.id !== id));
+  }, [library.setEntries]);
 
   // Source actions
   const {
@@ -170,7 +145,8 @@ function HomeContent() {
     navigateToSource,
     navigateToDashboard,
   } = useSourceActions({
-    setSources,
+    onUpsertSourceSummary: upsertLibrarySummary,
+    onRemoveSourceSummary: removeLibrarySummary,
     selectedSource,
     setSelectedSource,
     setError,
@@ -202,7 +178,6 @@ function HomeContent() {
   const handleCaptureUrl = (url: string) => {
     setCaptureInput(url);
     // Trigger capture immediately
-    const displayName = new URL(url).hostname;
     fetch("/api/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -211,12 +186,12 @@ function HomeContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.source) {
-          setSources((prev) => [{
+          upsertLibrarySummary({
             meta: data.source.meta,
             score: data.source.analysis?.triage.score,
             reason: data.source.analysis?.triage.reason,
             action: data.source.analysis?.triage.action,
-          }, ...prev]);
+          }, { prepend: true });
         } else {
           setError(data.error || "Failed to capture content");
         }
@@ -391,7 +366,7 @@ function HomeContent() {
           onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
           onEntryContextMenu={handleEntryContextMenu}
           palette={palette}
-          width={sidebarWidth}
+          width={sidebarResize.width}
           sections={[
             {
               label: "Library",
@@ -431,8 +406,8 @@ function HomeContent() {
         {/* Resize handle between sidebar and content */}
         {isSidebarOpen && (
           <ResizeHandle
-            onMouseDown={() => setResizing("sidebar")}
-            isResizing={resizing === "sidebar"}
+            onMouseDown={sidebarResize.startResize}
+            isResizing={sidebarResize.isResizing}
           />
         )}
 
@@ -539,7 +514,7 @@ function HomeContent() {
               </div>
             ) : (
               <Dashboard
-                sources={sources}
+                sources={library.sourceSummaries}
                 onSelect={navigateToSource}
                 captureInput={captureInput}
                 setCaptureInput={setCaptureInput}
@@ -558,8 +533,8 @@ function HomeContent() {
         {/* Resize handle between content and Ask panel */}
         {isCoLearningOpen && (
           <ResizeHandle
-            onMouseDown={() => setResizing("ask")}
-            isResizing={resizing === "ask"}
+            onMouseDown={askPanelResize.startResize}
+            isResizing={askPanelResize.isResizing}
           />
         )}
 
@@ -568,7 +543,7 @@ function HomeContent() {
           isOpen={isCoLearningOpen}
           onToggle={() => setIsCoLearningOpen(!isCoLearningOpen)}
           palette={palette}
-          width={askPanelWidth}
+          width={askPanelResize.width}
           currentPath={sourceId ? `/?source=${sourceId}` : viewParam ? `/?view=${viewParam}` : "/"}
           sourcePath={selectedSource ? `./library/${selectedSource.meta.folder ? selectedSource.meta.folder + "/" : ""}${selectedSource.meta.id}` : undefined}
           sourceId={selectedSource?.meta.id}

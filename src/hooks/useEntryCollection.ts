@@ -1,18 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { TreeNode } from "@/lib/types";
+import { TreeNode, SourceSummary, WorkspaceDocument } from "@/lib/types";
 import { buildTree } from "@/lib/tree";
 
 type CollectionType = "library" | "workspace";
 
-interface EntrySummary {
+export interface EntrySummary {
   id: string;
   name: string;
   folder?: string;
   createdAt: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any;
+  data?: SourceSummary | WorkspaceDocument;
 }
 
 interface UseEntryCollectionProps {
@@ -107,14 +106,18 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     loadFolders();
   }, [loadEntries, loadFolders]);
 
-  // Poll for updates
+  // Poll for updates (faster when processing)
   useEffect(() => {
+    const hasProcessing = type === "library" && entries.some((e) =>
+      (e.data as SourceSummary | undefined)?.meta?.processingStatus === "processing"
+    );
+    const pollInterval = hasProcessing ? 2000 : 5000;
     const interval = setInterval(() => {
       loadEntries();
       loadFolders();
-    }, 5000);
+    }, pollInterval);
     return () => clearInterval(interval);
-  }, [loadEntries, loadFolders]);
+  }, [entries, loadEntries, loadFolders, type]);
 
   // Toggle type open/close
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
@@ -134,22 +137,20 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
 
   // Build tree
   const getTreeNodes = useCallback((): TreeNode[] => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = entries.map((e) => ({
       id: e.id,
       name: e.name,
       folder: e.folder,
       createdAt: e.createdAt,
-      source: type === "library" ? e.data : undefined,
-      document: type === "workspace" ? e.data : undefined,
+      source: type === "library" ? (e.data as SourceSummary | undefined) : undefined,
+      document: type === "workspace" ? (e.data as WorkspaceDocument | undefined) : undefined,
     }));
 
     return buildTree(
       items,
       folders,
       config.entryType,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (item: any) => (type === "library" ? { source: item.source } : { document: item.document })
+      (item) => (type === "library" ? { source: item.source } : { document: item.document })
     );
   }, [entries, folders, type, config.entryType]);
 
@@ -307,6 +308,7 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     // Section state
     type,
     entries,
+    setEntries,
     isOpen,
     toggle,
     isEmpty: entries.length === 0,
@@ -351,5 +353,12 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     refresh: useCallback(async () => {
       await Promise.all([loadEntries(), loadFolders()]);
     }, [loadEntries, loadFolders]),
+    // Typed convenience accessors
+    sourceSummaries: type === "library"
+      ? entries.map((e) => e.data).filter(Boolean) as SourceSummary[]
+      : [],
+    documents: type === "workspace"
+      ? entries.map((e) => e.data).filter(Boolean) as WorkspaceDocument[]
+      : [],
   };
 }

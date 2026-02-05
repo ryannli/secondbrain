@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, WorkspaceDocument } from "./types";
+import { AnalysisSchema, OriginalDataSchema } from "./schemas";
 
 /**
  * User configuration stored in config.json
@@ -104,11 +105,57 @@ function getOriginalFileName(type: SourceType, content?: string | Buffer): strin
 }
 
 /**
- * Helper to read meta.json
+ * Helper to read meta.json (with fallback to legacy original.json)
  */
 async function readMetaJson(sourceDir: string): Promise<OriginalData> {
-  const content = await fs.readFile(path.join(sourceDir, "meta.json"), "utf-8");
-  return JSON.parse(content);
+  const metaPath = path.join(sourceDir, "meta.json");
+  const legacyPath = path.join(sourceDir, "original.json");
+
+  let content: string;
+  let usedPath = metaPath;
+  try {
+    content = await fs.readFile(metaPath, "utf-8");
+  } catch {
+    content = await fs.readFile(legacyPath, "utf-8");
+    usedPath = legacyPath;
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(content);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid JSON";
+    throw new Error(`Failed to parse metadata at ${usedPath}: ${message}`);
+  }
+
+  const parsed = OriginalDataSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.error(`[readMetaJson] Invalid metadata at ${usedPath}:`, parsed.error.flatten());
+    throw new Error(`Invalid metadata at ${usedPath}`);
+  }
+
+  return parsed.data;
+}
+
+function parseAnalysisJson(
+  analysisJson: string,
+  context: string
+): { analysis?: Analysis; error?: string } {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(analysisJson);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid JSON";
+    return { error: `Invalid JSON in analysis.json: ${message}` };
+  }
+
+  const parsed = AnalysisSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.error(`[${context}] Invalid analysis.json schema:`, parsed.error.flatten());
+    return { error: "Invalid analysis.json schema" };
+  }
+
+  return { analysis: parsed.data as Analysis };
 }
 
 /**
@@ -138,11 +185,8 @@ export async function updateEntrySaved(
     }
 
     const metaPath = path.join(entryPath, "meta.json");
-    const metaContent = await fs.readFile(metaPath, "utf-8");
-    const meta = JSON.parse(metaContent);
-
+    const meta = await readMetaJson(entryPath);
     meta.saved = saved;
-
     await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
     return { success: true };
   } catch (error) {
@@ -178,6 +222,7 @@ export async function createPendingSource(
   // Save meta.json (immutable metadata)
   const originalData: OriginalData = {
     id,
+    schemaVersion: 1,
     source_url: meta.sourceUrl,
     created_at: createdAt,
     type: meta.type,
@@ -346,7 +391,11 @@ export async function setSourceConnections(
 
   // Read current analysis
   const analysisJson = await fs.readFile(analysisPath, "utf-8");
-  const analysis: Analysis = JSON.parse(analysisJson);
+  const parsed = parseAnalysisJson(analysisJson, id);
+  if (parsed.error || !parsed.analysis) {
+    throw new Error(`[${id}] Failed to parse analysis.json: ${parsed.error || "invalid analysis"}`);
+  }
+  const analysis = parsed.analysis;
 
   // Update only connections
   analysis.connections = connections;
@@ -371,7 +420,11 @@ export async function saveConnectionError(
 
   // Read current analysis
   const analysisJson = await fs.readFile(analysisPath, "utf-8");
-  const analysis: Analysis = JSON.parse(analysisJson);
+  const parsed = parseAnalysisJson(analysisJson, id);
+  if (parsed.error || !parsed.analysis) {
+    throw new Error(`[${id}] Failed to parse analysis.json: ${parsed.error || "invalid analysis"}`);
+  }
+  const analysis = parsed.analysis;
 
   // Set the error
   analysis.connectionError = error;
@@ -506,6 +559,7 @@ export async function saveSource(
   // 1. Save meta.json (immutable metadata)
   const originalData: OriginalData = {
     id,
+    schemaVersion: 1,
     source_url: meta.sourceUrl,
     created_at: createdAt,
     type: meta.type,
@@ -663,7 +717,12 @@ export async function addConnectionToSource(
 
     // Load existing analysis
     const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
-    const analysis: Analysis = JSON.parse(analysisJson);
+    const parsed = parseAnalysisJson(analysisJson, id);
+    if (parsed.error || !parsed.analysis) {
+      console.error(`[${id}] Failed to parse analysis.json: ${parsed.error || "invalid analysis"}`);
+      return false;
+    }
+    const analysis = parsed.analysis;
 
     // Initialize connections array if needed
     if (!analysis.connections) {
@@ -856,7 +915,12 @@ export async function listSourcesForConnections(
         // Load analysis.json
         try {
           const analysisJson = await fs.readFile(path.join(fullPath, "analysis.json"), "utf-8");
-          const analysis: Analysis = JSON.parse(analysisJson);
+          const parsed = parseAnalysisJson(analysisJson, entry.name);
+          if (parsed.error || !parsed.analysis) {
+            console.error(`[${entry.name}] Skipping analysis.json: ${parsed.error || "invalid analysis"}`);
+            continue;
+          }
+          const analysis = parsed.analysis;
 
           // Load title from content.md
           let title = entry.name;
@@ -959,12 +1023,12 @@ async function loadSourceFromPath(
     let analysisError: string | undefined;
     try {
       const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
-      try {
-        analysis = JSON.parse(analysisJson);
-      } catch (parseError) {
-        // File exists but JSON is malformed
-        analysisError = `Invalid JSON in analysis.json: ${parseError instanceof Error ? parseError.message : "Parse error"}`;
+      const parsed = parseAnalysisJson(analysisJson, id);
+      if (parsed.error) {
+        analysisError = parsed.error;
         console.error(`[${id}] ${analysisError}`);
+      } else {
+        analysis = parsed.analysis;
       }
 
       // Resolve connection titles dynamically
@@ -1251,7 +1315,12 @@ async function removeConnectionsToSource(
         try {
           const analysisPath = path.join(fullPath, "analysis.json");
           const analysisJson = await fs.readFile(analysisPath, "utf-8");
-          const analysis: Analysis = JSON.parse(analysisJson);
+          const parsed = parseAnalysisJson(analysisJson, entry.name);
+          if (parsed.error || !parsed.analysis) {
+            console.error(`[${entry.name}] Skipping analysis.json: ${parsed.error || "invalid analysis"}`);
+            continue;
+          }
+          const analysis = parsed.analysis;
 
           if (analysis.connections && analysis.connections.length > 0) {
             // Filter out connections that reference the deleted source

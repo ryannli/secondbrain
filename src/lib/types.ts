@@ -15,6 +15,7 @@ export type SourceType = "html" | "text" | "document" | "image";
  */
 export interface OriginalData {
   id: string;
+  schemaVersion?: number; // Schema version for meta.json (default: 1)
   source_url?: string;
   created_at: string;
   type: SourceType;

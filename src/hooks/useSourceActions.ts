@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import { Source, SourceSummary } from "@/lib/types";
 
 interface UseSourceActionsProps {
-  setSources: React.Dispatch<React.SetStateAction<SourceSummary[]>>;
+  onUpsertSourceSummary: (summary: SourceSummary, options?: { prepend?: boolean }) => void;
+  onRemoveSourceSummary: (id: string) => void;
   selectedSource: Source | null;
   setSelectedSource: (source: Source | null) => void;
   setError: (error: string | null) => void;
 }
 
 export function useSourceActions({
-  setSources,
+  onUpsertSourceSummary,
+  onRemoveSourceSummary,
   selectedSource,
   setSelectedSource,
   setError,
@@ -43,6 +45,13 @@ export function useSourceActions({
     if (pollingSourcesRef.current.has(sourceId)) return;
     pollingSourcesRef.current.add(sourceId);
 
+    const toSummary = (source: Source): SourceSummary => ({
+      meta: source.meta,
+      score: source.analysis?.triage.score,
+      reason: source.analysis?.triage.reason,
+      action: source.analysis?.triage.action,
+    });
+
     const poll = async () => {
       try {
         const res = await fetch(`/api/sources/${sourceId}`);
@@ -53,16 +62,7 @@ export function useSourceActions({
           // Check if analysis is complete (has triage data)
           if (source.analysis?.triage) {
             // Update sources list with complete data
-            setSources((prev) => prev.map((s) =>
-              s.meta.id === sourceId
-                ? {
-                    meta: source.meta,
-                    score: source.analysis.triage.score,
-                    reason: source.analysis.triage.reason,
-                    action: source.analysis.triage.action,
-                  }
-                : s
-            ));
+            onUpsertSourceSummary(toSummary(source));
             // If this source is currently selected, update it (use ref to avoid stale closure)
             if (selectedSourceIdRef.current === sourceId) {
               setSelectedSource(source);
@@ -84,7 +84,7 @@ export function useSourceActions({
 
     // Start polling after a short delay
     setTimeout(poll, 1000);
-  }, [setSources, setSelectedSource]);
+  }, [onUpsertSourceSummary, setSelectedSource]);
 
   const handleCapture = () => {
     if (!captureInput.trim()) return;
@@ -106,12 +106,12 @@ export function useSourceActions({
       .then((data) => {
         if (data.success && data.source) {
           const sourceId = data.source.meta.id;
-          setSources((prev) => [{
+          onUpsertSourceSummary({
             meta: data.source.meta,
             score: data.source.analysis?.triage?.score,
             reason: data.source.analysis?.triage?.reason,
             action: data.source.analysis?.triage?.action,
-          }, ...prev]);
+          }, { prepend: true });
           // Start polling if analysis is not ready yet
           if (!data.source.analysis?.triage) {
             pollSourceUntilReady(sourceId);
@@ -146,12 +146,12 @@ export function useSourceActions({
       .then((data) => {
         if (data.success && data.source) {
           const sourceId = data.source.meta.id;
-          setSources((prev) => [{
+          onUpsertSourceSummary({
             meta: data.source.meta,
             score: data.source.analysis?.triage?.score,
             reason: data.source.analysis?.triage?.reason,
             action: data.source.analysis?.triage?.action,
-          }, ...prev]);
+          }, { prepend: true });
           // Start polling if analysis is not ready yet
           if (!data.source.analysis?.triage) {
             pollSourceUntilReady(sourceId);
@@ -189,7 +189,7 @@ export function useSourceActions({
       const res = await fetch(`/api/sources/${sourceId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        setSources((prev) => prev.filter((s) => s.meta.id !== sourceId));
+        onRemoveSourceSummary(sourceId);
         if (selectedSource?.meta.id === sourceId) {
           router.push("/");
         }
@@ -208,6 +208,12 @@ export function useSourceActions({
       const data = await res.json();
       if (data.success) {
         setSelectedSource(data.source);
+        onUpsertSourceSummary({
+          meta: data.source.meta,
+          score: data.source.analysis?.triage?.score,
+          reason: data.source.analysis?.triage?.reason,
+          action: data.source.analysis?.triage?.action,
+        });
       } else {
         setError(data.error || "Failed to re-analyze");
       }

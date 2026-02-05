@@ -3,6 +3,7 @@ import { Analysis, Highlight, Connection, Concept, FeedItem } from "./types";
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
+import { getLibraryPath } from "./storage";
 import {
   promptGenerateTitle,
   promptGenerateBriefing,
@@ -140,7 +141,7 @@ export async function analyzeFile(
   originalFileName: string
 ): Promise<{ title: string; content: string }> {
   // File is saved at: user_data/library/{sourceId}/{originalFileName}
-  const filePath = path.join(process.cwd(), "user_data", "library", sourceId, originalFileName);
+  const filePath = path.join(getLibraryPath(), sourceId, originalFileName);
   const ext = originalFileName.split(".").pop()?.toLowerCase() || "";
   const isPDF = ext === "pdf";
 
@@ -301,20 +302,9 @@ Respond with ONLY the JSON object.`;
 
   const responseText = await callClaude(prompt);
 
-  let analysisData;
-  try {
-    // Strip markdown code block if present
-    let jsonText = responseText;
-    const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1];
-    }
-
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found");
-    analysisData = JSON.parse(jsonMatch[0]);
-  } catch {
-    console.error("Failed to parse:", responseText.slice(0, 500));
+  const analysisData = parseJsonResponse(responseText, "analyzeContent");
+  if (!analysisData) {
+    console.error("[analyzeContent] Failed to parse:", responseText.slice(0, 500));
     throw new Error("Failed to parse analysis response");
   }
 

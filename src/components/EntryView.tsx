@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -19,6 +19,7 @@ import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection }
 import { SourceError } from "./SourceError";
 import { MarkdownContent } from "./MarkdownContent";
 import { EntryActions } from "./EntryActions";
+import { useResizable } from "@/hooks/useResizable";
 
 // Unified entry interface - works for both Source and Document
 export interface EntryData {
@@ -111,45 +112,18 @@ export function EntryView({
   const [zoom, setZoom] = useState(100);
 
   // Resizable analysis panel
-  const [analysisWidth, setAnalysisWidth] = useState(384);
-  const [isResizing, setIsResizing] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
-
-  // Load saved width from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("analysisWidth");
-    if (saved) setAnalysisWidth(parseInt(saved, 10));
-  }, []);
-
-  // Resize handlers
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing || !containerRef.current) return;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const newWidth = Math.min(600, Math.max(280, containerRect.right - e.clientX));
-    setAnalysisWidth(newWidth);
-  }, [isResizing]);
-
-  const handleMouseUp = useCallback(() => {
-    if (isResizing) {
-      localStorage.setItem("analysisWidth", analysisWidth.toString());
-      setIsResizing(false);
-    }
-  }, [isResizing, analysisWidth]);
-
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-    }
-  }, [isResizing, handleMouseMove, handleMouseUp]);
+  const analysisResize = useResizable({
+    initialWidth: 384,
+    minWidth: 280,
+    maxWidth: 600,
+    storageKey: "analysisWidth",
+    computeWidth: (e) => {
+      if (!containerRef.current) return 384;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      return containerRect.right - e.clientX;
+    },
+  });
 
   // Reset state when entry changes
   useEffect(() => {
@@ -338,14 +312,14 @@ export function EntryView({
           <div className="self-stretch flex items-center mx-2">
             <div
               className="w-1 h-full cursor-col-resize group relative"
-              onMouseDown={() => setIsResizing(true)}
+              onMouseDown={analysisResize.startResize}
             >
-              <div className={`w-0.5 h-full rounded transition-colors ${isResizing ? "bg-black/30" : "bg-black/10 hover:bg-black/20"}`} />
+              <div className={`w-0.5 h-full rounded transition-colors ${analysisResize.isResizing ? "bg-black/30" : "bg-black/10 hover:bg-black/20"}`} />
             </div>
           </div>
 
           {analysis && getActionConfig && getScoreColor ? (
-            <div className="flex-shrink-0 pl-2" style={{ width: analysisWidth }}>
+            <div className="flex-shrink-0 pl-2" style={{ width: analysisResize.width }}>
               {/* Triage Card */}
               {(() => {
                 const score = analysis.triage.score ?? 50;
@@ -480,7 +454,7 @@ export function EntryView({
               </div>
             </div>
           ) : entry.analysisError ? (
-            <div className="flex-shrink-0 pl-2" style={{ width: analysisWidth }}>
+            <div className="flex-shrink-0 pl-2" style={{ width: analysisResize.width }}>
               <div className="p-4 rounded-xl border" style={{ borderColor: "#fecaca", backgroundColor: "#fef2f2" }}>
                 <p className="font-medium text-sm mb-2" style={{ color: "#b91c1c" }}>Analysis data corrupted</p>
                 <p className="text-xs mb-3" style={{ color: "#dc2626" }}>{entry.analysisError}</p>
@@ -498,7 +472,7 @@ export function EntryView({
               </div>
             </div>
           ) : (
-            <AnalysisLoader palette={palette} theme={theme} width={analysisWidth} />
+            <AnalysisLoader palette={palette} theme={theme} width={analysisResize.width} />
           )}
         </>
       )}
