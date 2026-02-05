@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
-import { Source, ActionType, ACTION_CONFIG } from "@/lib/types";
+import { Source, ActionType, ACTION_CONFIG, WorkspaceDocument } from "@/lib/types";
 import { theme } from "@/lib/theme";
 import { SourceView } from "@/components/SourceView";
 import { Dashboard } from "@/components/Dashboard";
@@ -40,6 +40,7 @@ function HomeContent() {
 
   // Core state
   const [selectedSource, setSelectedSource] = useState<Source | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<{ meta: WorkspaceDocument; content: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
   const [isCoLearningOpen, setIsCoLearningOpen] = useState(false);
@@ -205,6 +206,21 @@ function HomeContent() {
   // Workspace
   const workspace = useWorkspace();
 
+  // Navigate to document
+  const navigateToDocument = async (docId: string) => {
+    try {
+      const res = await fetch(`/api/workspace/${docId}`);
+      const data = await res.json();
+      if (data.success && data.document) {
+        setSelectedDocument(data.document);
+        setSelectedSource(null); // Clear source selection
+        router.push(`/?doc=${docId}`);
+      }
+    } catch (err) {
+      console.error("Failed to load document:", err);
+    }
+  };
+
   // Load feed when viewing For You
   useEffect(() => {
     if (!sourceId && currentView === "foryou") {
@@ -351,7 +367,7 @@ function HomeContent() {
           currentView={currentView}
           onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
           onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
-          onNavigateToSource={navigateToSource}
+          onNavigateToSource={(id) => { setSelectedDocument(null); navigateToSource(id); }}
           treeNodes={buildTree()}
           expandedFolders={expandedFolders}
           onToggleFolder={toggleFolder}
@@ -381,6 +397,8 @@ function HomeContent() {
           workspaceDocuments={workspace.documents}
           isWorkspaceOpen={workspace.isWorkspaceOpen}
           onToggleWorkspace={workspace.toggleWorkspace}
+          selectedDocumentId={selectedDocument?.meta.id}
+          onNavigateToDocument={navigateToDocument}
         />
 
         {/* Resize handle between sidebar and content */}
@@ -393,7 +411,45 @@ function HomeContent() {
 
         <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
-            {selectedSource ? (
+            {selectedDocument ? (
+              <div className="max-w-4xl mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h1 className="text-2xl font-semibold" style={{ color: theme.text }}>
+                    {selectedDocument.meta.title}
+                  </h1>
+                  <button
+                    onClick={() => setSelectedDocument(null)}
+                    className="px-3 py-1 text-sm rounded hover:bg-black/5"
+                    style={{ color: theme.textMuted }}
+                  >
+                    Close
+                  </button>
+                </div>
+                {selectedDocument.meta.output.endsWith(".md") ? (
+                  <div
+                    className="prose prose-sm max-w-none whitespace-pre-wrap"
+                    style={{ color: theme.text }}
+                  >
+                    {selectedDocument.content}
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-4" style={{ borderColor: theme.border }}>
+                    <p style={{ color: theme.textMuted }}>
+                      PDF document: {selectedDocument.meta.output}
+                    </p>
+                    <a
+                      href={`/api/workspace/${selectedDocument.meta.id}/file`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm underline"
+                      style={{ color: palette[500] }}
+                    >
+                      Open PDF
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : selectedSource ? (
               <SourceView
                 source={selectedSource}
                 activeTab={activeTab}
