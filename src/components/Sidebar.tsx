@@ -11,12 +11,14 @@ import {
   LayoutDashboard,
   FolderPlus,
   Rss,
+  FileText,
+  FileImage,
 } from "lucide-react";
-import { Source, TreeNode } from "@/lib/types";
+import { Source, TreeNode, WorkspaceDocument } from "@/lib/types";
 import { theme } from "@/lib/theme";
 import { TreeItem } from "@/components/TreeItem";
 
-export interface LibrarySidebarProps {
+export interface SidebarProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   isLibraryOpen: boolean;
@@ -61,9 +63,15 @@ export interface LibrarySidebarProps {
   isEmpty: boolean;
   // Width (for resizable)
   width?: number;
+  // Workspace
+  workspaceDocuments?: WorkspaceDocument[];
+  isWorkspaceOpen?: boolean;
+  onToggleWorkspace?: () => void;
+  selectedDocumentId?: string | null;
+  onNavigateToDocument?: (docId: string) => void;
 }
 
-export function LibrarySidebar({
+export function Sidebar({
   isSidebarOpen,
   onToggleSidebar,
   isLibraryOpen,
@@ -100,7 +108,12 @@ export function LibrarySidebar({
   palette,
   isEmpty,
   width = 256,
-}: LibrarySidebarProps) {
+  workspaceDocuments = [],
+  isWorkspaceOpen = true,
+  onToggleWorkspace,
+  selectedDocumentId,
+  onNavigateToDocument,
+}: SidebarProps) {
   return (
     <aside
       className="flex-shrink-0 border-r flex flex-col"
@@ -283,11 +296,68 @@ export function LibrarySidebar({
                   onDragOver={(e) => onDragOver(e, "")}
                   onDragLeave={onDragLeave}
                   onDrop={(e) => onDrop(e, "")}
-                  className="min-h-[100px] flex-1 transition-colors"
+                  className="min-h-[50px] transition-colors"
                   style={{
                     backgroundColor: dragOverFolder === "" ? `${palette[500]}10` : undefined,
                   }}
                 />
+              </div>
+            )}
+
+            {/* Workspace Section */}
+            <div className="px-3 py-1 mt-2">
+              <span className="text-xs font-medium uppercase tracking-wide" style={{ color: theme.textMuted }}>
+                Workspace
+              </span>
+            </div>
+
+            <div
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left cursor-pointer"
+              onClick={onToggleWorkspace}
+            >
+              {isWorkspaceOpen ? (
+                <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+              ) : (
+                <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+              )}
+              {isWorkspaceOpen ? (
+                <FolderOpen className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+              ) : (
+                <Folder className="w-4 h-4 flex-shrink-0" style={{ color: palette[500] }} />
+              )}
+              <span className="text-sm truncate">workspace</span>
+            </div>
+
+            {isWorkspaceOpen && (
+              <div className="ml-4">
+                {workspaceDocuments.length === 0 ? (
+                  <div className="px-3 py-2 text-sm" style={{ color: theme.textLight }}>
+                    No documents yet
+                  </div>
+                ) : (
+                  workspaceDocuments.map((doc) => (
+                    <button
+                      key={doc.id}
+                      onClick={() => onNavigateToDocument?.(doc.id)}
+                      className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-black/5 transition-colors text-left"
+                      style={{
+                        backgroundColor: selectedDocumentId === doc.id ? `${palette[500]}15` : undefined,
+                      }}
+                    >
+                      {doc.output.endsWith(".pdf") ? (
+                        <FileImage className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+                      ) : (
+                        <FileText className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
+                      )}
+                      <span
+                        className="text-sm truncate"
+                        style={{ color: selectedDocumentId === doc.id ? palette[600] : theme.text }}
+                      >
+                        {doc.title}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>

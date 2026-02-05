@@ -191,6 +191,16 @@ export interface FeedCache {
   briefing?: string;             // AI-generated briefing for the user
 }
 
+// Workspace types
+export interface WorkspaceDocument {
+  id: string;                    // doc-abc123
+  title: string;
+  createdAt: string;             // ISO timestamp
+  output: "content.pdf" | "content.md";
+  sources?: string[];            // Related Library source IDs
+  folder?: string;               // Folder path within workspace/
+}
+
 // Agent conversation types
 export type AgentContextType = "source" | "selection";
 

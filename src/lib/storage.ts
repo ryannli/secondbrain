@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, WorkspaceDocument } from "./types";
 
 /**
  * User configuration stored in config.json
@@ -26,6 +26,13 @@ function getRootPath(): string {
  */
 function getLibraryPath(): string {
   return process.env.SECONDBRAIN_LIBRARY || path.join(getRootPath(), "library");
+}
+
+/**
+ * Get workspace path (inside root)
+ */
+function getWorkspacePath(): string {
+  return path.join(getRootPath(), "workspace");
 }
 
 /**
@@ -1463,5 +1470,176 @@ export async function deleteConversation(id: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// ============================================================================
+// Workspace Storage Functions
+// ============================================================================
+
+/**
+ * Ensure workspace directory exists
+ */
+export async function ensureWorkspaceExists(workspacePath = getWorkspacePath()): Promise<void> {
+  await fs.mkdir(workspacePath, { recursive: true });
+}
+
+/**
+ * List all documents in workspace
+ */
+export async function listWorkspaceDocuments(workspacePath = getWorkspacePath()): Promise<WorkspaceDocument[]> {
+  await ensureWorkspaceExists(workspacePath);
+  const documents: WorkspaceDocument[] = [];
+
+  async function scanDir(dir: string, relativePath: string = "") {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+
+      // Check if this is a document directory (has meta.json)
+      try {
+        const metaPath = path.join(fullPath, "meta.json");
+        const metaContent = await fs.readFile(metaPath, "utf-8");
+        const meta = JSON.parse(metaContent) as WorkspaceDocument;
+        meta.folder = relativePath || undefined;
+        documents.push(meta);
+      } catch {
+        // Not a document, might be a folder - recurse
+        const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
+        await scanDir(fullPath, entryRelativePath);
+      }
+    }
+  }
+
+  await scanDir(workspacePath);
+  return documents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/**
+ * List all folders in workspace
+ */
+export async function listWorkspaceFolders(workspacePath = getWorkspacePath()): Promise<string[]> {
+  await ensureWorkspaceExists(workspacePath);
+  const folders: string[] = [];
+
+  async function scanDir(dir: string, relativePath: string = "") {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+      const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
+
+      // Check if this is a document directory (has meta.json)
+      try {
+        await fs.access(path.join(fullPath, "meta.json"));
+        // It's a document, not a folder - skip
+      } catch {
+        // It's a folder
+        folders.push(entryRelativePath);
+        await scanDir(fullPath, entryRelativePath);
+      }
+    }
+  }
+
+  await scanDir(workspacePath);
+  return folders.sort();
+}
+
+/**
+ * Find the full path to a document by its ID
+ */
+export async function findDocumentPath(
+  id: string,
+  workspacePath = getWorkspacePath()
+): Promise<string | null> {
+  async function searchDir(dir: string): Promise<string | null> {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return null;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.name === id) {
+        try {
+          await fs.access(path.join(fullPath, "meta.json"));
+          return fullPath;
+        } catch {
+          // Not a document
+        }
+      }
+
+      const found = await searchDir(fullPath);
+      if (found) return found;
+    }
+
+    return null;
+  }
+
+  return searchDir(workspacePath);
+}
+
+/**
+ * Load a document by ID
+ */
+export async function loadWorkspaceDocument(id: string): Promise<{ meta: WorkspaceDocument; content: string } | null> {
+  const docPath = await findDocumentPath(id);
+  if (!docPath) return null;
+
+  try {
+    const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
+    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+    
+    const outputPath = path.join(docPath, meta.output);
+    let content = "";
+    
+    // Only read content if it's a text-based format
+    if (meta.output.endsWith(".md") || meta.output.endsWith(".txt") || meta.output.endsWith(".html")) {
+      try {
+        content = await fs.readFile(outputPath, "utf-8");
+      } catch {
+        // Output file doesn't exist yet
+      }
+    }
+
+    return { meta, content };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the output file path for a document
+ */
+export async function getDocumentOutputPath(id: string): Promise<string | null> {
+  const docPath = await findDocumentPath(id);
+  if (!docPath) return null;
+
+  try {
+    const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
+    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+    return path.join(docPath, meta.output);
+  } catch {
+    return null;
   }
 }

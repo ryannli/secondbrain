@@ -11,7 +11,7 @@ import { FeedSection } from "@/components/FeedSection";
 import { Header } from "@/components/Header";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ContextMenu } from "@/components/ContextMenu";
-import { LibrarySidebar } from "@/components/LibrarySidebar";
+import { Sidebar } from "@/components/Sidebar";
 import { useSettings } from "@/hooks/useSettings";
 import { useLibrary } from "@/hooks/useLibrary";
 import { useFolderManagement } from "@/hooks/useFolderManagement";
@@ -19,6 +19,7 @@ import { useDragDrop } from "@/hooks/useDragDrop";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -201,6 +202,9 @@ function HomeContent() {
   // Feed
   const feed = useFeed();
 
+  // Workspace
+  const workspace = useWorkspace();
+
   // Load feed when viewing For You
   useEffect(() => {
     if (!sourceId && currentView === "foryou") {
@@ -337,7 +341,7 @@ function HomeContent() {
       />
 
       <div className="flex-1 flex min-h-0">
-        <LibrarySidebar
+        <Sidebar
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isLibraryOpen={isLibraryOpen}
@@ -374,6 +378,9 @@ function HomeContent() {
           palette={palette}
           isEmpty={sources.length === 0}
           width={sidebarWidth}
+          workspaceDocuments={workspace.documents}
+          isWorkspaceOpen={workspace.isWorkspaceOpen}
+          onToggleWorkspace={workspace.toggleWorkspace}
         />
 
         {/* Resize handle between sidebar and content */}
