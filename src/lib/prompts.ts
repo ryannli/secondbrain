@@ -22,7 +22,13 @@ ${content.slice(0, 3000)}`;
 }
 
 export function promptExtractContent(html: string): string {
-  return `Extract the main article content from this HTML. Ignore navigation, ads, sidebars. Format as clean Markdown with headings, lists, links preserved.
+  return `Extract the main content from this HTML. Format as clean Markdown.
+
+Your job is to PRESERVE the content, not describe or summarize it.
+
+For discussion pages (forums, comment threads): extract all comments with attribution.
+
+Ignore: navigation, ads, sidebars, footers.
 
 HTML:
 ${html}`;

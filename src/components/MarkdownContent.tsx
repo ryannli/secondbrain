@@ -28,6 +28,11 @@ export function MarkdownContent({ content, palette, className = "" }: MarkdownCo
               {children}
             </a>
           ),
+          pre: ({ children }) => (
+            <pre className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100 rounded-lg p-4 overflow-x-auto my-4">
+              {children}
+            </pre>
+          ),
           code: ({ className: codeClassName, children, ...props }) => {
             const match = /language-(\w+)/.exec(codeClassName || "");
             const lang = match ? match[1] : "";
@@ -41,15 +46,15 @@ export function MarkdownContent({ content, palette, className = "" }: MarkdownCo
             // Inline code
             if (!codeClassName) {
               return (
-                <code className="px-1.5 py-0.5 rounded bg-gray-100 text-sm font-mono" {...props}>
+                <code className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-sm font-mono" {...props}>
                   {children}
                 </code>
               );
             }
 
-            // Code block
+            // Code block (inside pre)
             return (
-              <code className={codeClassName} {...props}>
+              <code className="text-inherit bg-transparent" {...props}>
                 {children}
               </code>
             );

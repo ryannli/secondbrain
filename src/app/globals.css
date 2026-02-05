@@ -49,6 +49,12 @@ body {
   line-height: 1.25rem !important;
 }
 
+/* Remove backticks from inline code */
+.prose code::before,
+.prose code::after {
+  content: none !important;
+}
+
 /* Gentle Fade animation for taglines */
 @keyframes gentleFade {
   0% { opacity: 0; }
