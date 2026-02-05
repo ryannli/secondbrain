@@ -1,12 +1,13 @@
-// Design tokens
+// Design tokens - reference CSS variables for theme-aware colors
+// CSS variables are defined in globals.css and change with .dark class
 export const theme = {
-  bg: "#feffff",
-  text: "#252829",
-  textMuted: "#71717a",
-  textLight: "#a1a1aa",
-  border: "#e4e4e7",
-  borderLight: "#f4f4f5",
-  accent: "#3b6044", // Forest green default
+  bg: "var(--theme-bg)",
+  text: "var(--theme-text)",
+  textMuted: "var(--theme-text-muted)",
+  textLight: "var(--theme-text-light)",
+  border: "var(--theme-border)",
+  borderLight: "var(--theme-border-light)",
+  accent: "#3b6044",
 };
 
 // Color conversion utilities

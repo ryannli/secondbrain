@@ -37,13 +37,30 @@ export const metadata: Metadata = {
   description: "Your personal knowledge management system",
 };
 
+// Script to prevent flash of wrong theme on initial load
+// Runs before React hydrates to apply the correct theme class
+const themeScript = `
+(function() {
+  try {
+    const stored = localStorage.getItem('theme-mode');
+    const theme = stored || 'light';
+    const isDark = theme === 'dark' ||
+      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${inter.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${outfit.variable} ${sora.variable} ${plusJakarta.variable} antialiased`}
       >

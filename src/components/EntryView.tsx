@@ -176,7 +176,7 @@ export function EntryView({
     <div ref={containerRef} className="flex items-stretch">
       {/* Content Area */}
       <div className="flex-1 min-w-0 h-[calc(100vh-140px)] sticky top-0 pr-2">
-        <div className="bg-white border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
+        <div className="bg-white dark:bg-zinc-900 border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-2 pr-6">
             {isEditing ? (
@@ -196,7 +196,7 @@ export function EntryView({
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg border hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
                     style={{ borderColor: theme.border, color: palette[600] }}
                     title="Save changes"
                   >
@@ -205,7 +205,7 @@ export function EntryView({
                   <button
                     onClick={handleCancel}
                     disabled={isSaving}
-                    className="p-2 rounded-lg border hover:bg-black/5 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg border hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
                     style={{ borderColor: theme.border, color: theme.textMuted }}
                     title="Cancel"
                   >
@@ -263,19 +263,19 @@ export function EntryView({
                 >
                   <span className="text-xs font-medium" style={{ color: theme.textMuted }}>{zoom}%</span>
                   <div className="flex items-center gap-1">
-                    <button onClick={handleZoomOut} disabled={zoom <= 50} className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30" title="Zoom out">
+                    <button onClick={handleZoomOut} disabled={zoom <= 50} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-30" title="Zoom out">
                       <ZoomOut className="w-4 h-4" style={{ color: theme.textMuted }} />
                     </button>
-                    <button onClick={handleZoomReset} disabled={zoom === 100} className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30" title="Reset zoom">
+                    <button onClick={handleZoomReset} disabled={zoom === 100} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-30" title="Reset zoom">
                       <RotateCcw className="w-4 h-4" style={{ color: theme.textMuted }} />
                     </button>
-                    <button onClick={handleZoomIn} disabled={zoom >= 200} className="p-1.5 rounded hover:bg-black/5 transition-colors disabled:opacity-30" title="Zoom in">
+                    <button onClick={handleZoomIn} disabled={zoom >= 200} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-30" title="Zoom in">
                       <ZoomIn className="w-4 h-4" style={{ color: theme.textMuted }} />
                     </button>
                   </div>
                 </div>
                 {/* Content with zoom */}
-                <div className="flex-1 overflow-auto bg-gray-50">
+                <div className="flex-1 overflow-auto bg-gray-50 dark:bg-zinc-800">
                   {entry.type === "image" ? (
                     <img
                       src={originalFileUrl}
@@ -314,7 +314,7 @@ export function EntryView({
               className="w-1 h-full cursor-col-resize group relative"
               onMouseDown={analysisResize.startResize}
             >
-              <div className={`w-0.5 h-full rounded transition-colors ${analysisResize.isResizing ? "bg-black/30" : "bg-black/10 hover:bg-black/20"}`} />
+              <div className={`w-0.5 h-full rounded transition-colors ${analysisResize.isResizing ? "bg-black/30 dark:bg-white/30" : "bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20"}`} />
             </div>
           </div>
 
@@ -392,8 +392,8 @@ export function EntryView({
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className="flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all capitalize"
-                    style={activeTab === tab ? { backgroundColor: "white", color: theme.text } : { color: theme.textMuted }}
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all capitalize ${activeTab === tab ? "bg-white dark:bg-zinc-800" : ""}`}
+                    style={activeTab === tab ? { color: theme.text } : { color: theme.textMuted }}
                   >
                     {tab}
                   </button>
@@ -721,7 +721,7 @@ function ConnectionsSection({
 
             return (
               <div key={conn.id} className="rounded-lg border overflow-hidden" style={{ borderColor: theme.border }}>
-                <button onClick={() => toggleConnection(conn.id)} className="w-full p-3 flex items-start gap-2 text-left hover:bg-black/5 transition-colors">
+                <button onClick={() => toggleConnection(conn.id)} className="w-full p-3 flex items-start gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                   <span className="text-base flex-shrink-0">{config.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -741,7 +741,7 @@ function ConnectionsSection({
                           key={sourceId}
                           type="button"
                           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onNavigate?.(sourceId); }}
-                          className="text-xs px-2 py-1 rounded border hover:bg-black/5 transition-colors flex items-center gap-1 cursor-pointer"
+                          className="text-xs px-2 py-1 rounded border hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-1 cursor-pointer"
                           style={{ borderColor: theme.border, color: palette[600] }}
                         >
                           <LinkIcon className="w-3 h-3" />

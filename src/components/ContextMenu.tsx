@@ -33,7 +33,7 @@ export function ContextMenu({
 
   return (
     <div
-      className="fixed bg-white border rounded-lg shadow-lg py-1 z-50"
+      className="fixed bg-white dark:bg-zinc-800 border rounded-lg shadow-lg py-1 z-50"
       style={{
         left: menu.x,
         top: menu.y,

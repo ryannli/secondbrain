@@ -13,7 +13,7 @@ export function SourceError({ meta }: SourceErrorProps) {
   return (
     <div className="flex gap-6 items-start">
       <div className="flex-1 min-w-0 max-w-2xl">
-        <div className="bg-white border rounded-xl p-6" style={{ borderColor: theme.border }}>
+        <div className="bg-white dark:bg-zinc-900 border rounded-xl p-6" style={{ borderColor: theme.border }}>
           <h1 className="text-2xl font-semibold leading-tight mb-4">{meta.title}</h1>
           {meta.sourceUrl && (
             <a

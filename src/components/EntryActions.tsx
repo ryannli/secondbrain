@@ -277,7 +277,7 @@ function DropdownMenu({
 
   return (
     <div
-      className="absolute right-0 top-full mt-1 w-44 py-1 bg-white border rounded-lg shadow-lg z-20"
+      className="absolute right-0 top-full mt-1 w-44 py-1 bg-white dark:bg-zinc-800 border rounded-lg shadow-lg z-20"
       style={{ borderColor: theme.border }}
     >
       <DropdownItem onClick={onEdit} icon={<Pencil className="w-4 h-4" />} iconColor={iconColor}>

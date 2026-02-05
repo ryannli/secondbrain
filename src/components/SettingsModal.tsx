@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus, Copy, Check } from "lucide-react";
+import { X, Plus, Copy, Check, Sun, Moon, Monitor } from "lucide-react";
 import { theme } from "@/lib/theme";
+import type { ThemeMode } from "@/lib/storage";
 
 export interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   fontFamily: string;
   onFontChange: (font: string) => void;
+  themeMode: ThemeMode;
+  onThemeChange: (mode: ThemeMode) => void;
   rootPath: string;
   debugLoadingMode: "none" | "analysis" | "connections";
   onDebugModeChange: (mode: "none" | "analysis" | "connections") => void;
@@ -18,6 +21,24 @@ export interface SettingsModalProps {
   feedInterests?: string[];
   onFeedInterestsChange?: (interests: string[]) => void;
 }
+
+// Section header component
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h3
+      className="text-xs font-semibold uppercase tracking-wider mb-3"
+      style={{ color: theme.textMuted }}
+    >
+      {title}
+    </h3>
+  );
+}
+
+const THEME_OPTIONS = [
+  { id: "light" as const, label: "Light", icon: Sun },
+  { id: "dark" as const, label: "Dark", icon: Moon },
+  { id: "system" as const, label: "System", icon: Monitor },
+];
 
 const FONT_OPTIONS = [
   { id: "outfit", name: "Outfit" },
@@ -51,6 +72,8 @@ export function SettingsModal({
   onClose,
   fontFamily,
   onFontChange,
+  themeMode,
+  onThemeChange,
   rootPath,
   debugLoadingMode,
   onDebugModeChange,
@@ -112,14 +135,41 @@ export function SettingsModal({
         onClick={onClose}
       />
       <div
-        className="relative bg-white rounded-xl shadow-xl w-96 max-w-[90vw] max-h-[85vh] flex flex-col"
-        style={{ borderColor: theme.border }}
+        className="relative rounded-xl shadow-xl w-96 max-w-[90vw] max-h-[85vh] flex flex-col"
+        style={{ backgroundColor: theme.bg, borderColor: theme.border }}
       >
         <h2 className="text-lg font-semibold p-6 pb-4 border-b" style={{ borderColor: theme.border }}>Settings</h2>
         <div className="flex-1 overflow-y-auto p-6 pt-4">
 
-        {/* Font Family */}
+        {/* ===== APPEARANCE SECTION ===== */}
+        <SectionHeader title="Appearance" />
+
+        {/* Theme */}
         <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Theme</label>
+          <div className="flex gap-2">
+            {THEME_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => onThemeChange(option.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all"
+                  style={{
+                    borderColor: themeMode === option.id ? palette[500] : theme.border,
+                    backgroundColor: themeMode === option.id ? `${palette[500]}10` : "transparent",
+                  }}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Font Family */}
+        <div className="mb-6">
           <label className="block text-sm font-medium mb-2">Font</label>
           <div className="grid grid-cols-2 gap-2">
             {FONT_OPTIONS.map((option) => (
@@ -140,26 +190,8 @@ export function SettingsModal({
           </div>
         </div>
 
-        {/* Data Path */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Data Location</label>
-          <div className="flex items-start gap-2">
-            <p className="text-sm text-gray-500 break-all flex-1">{rootPath || "Loading..."}</p>
-            {rootPath && (
-              <button
-                onClick={copyPath}
-                className="p-1 rounded hover:bg-gray-100 transition-colors flex-shrink-0"
-                title="Copy path"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-            )}
-          </div>
-        </div>
+        {/* ===== FEED SECTION ===== */}
+        <SectionHeader title="Feed" />
 
         {/* Feed Interests */}
         {onFeedInterestsChange && (
@@ -318,9 +350,33 @@ export function SettingsModal({
           </div>
         )}
 
+        {/* ===== ADVANCED SECTION ===== */}
+        <SectionHeader title="Advanced" />
+
+        {/* Data Path */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">Data Location</label>
+          <div className="flex items-start gap-2">
+            <p className="text-sm break-all flex-1" style={{ color: theme.textMuted }}>{rootPath || "Loading..."}</p>
+            {rootPath && (
+              <button
+                onClick={copyPath}
+                className="p-1 rounded transition-colors flex-shrink-0 hover:opacity-70"
+                title="Copy path"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4" style={{ color: theme.textLight }} />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Debug Loading Mode */}
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Debug: Preview Loading UI</label>
+          <label className="block text-sm font-medium mb-2">Debug: Loading UI Preview</label>
           <div className="flex gap-2">
             {DEBUG_OPTIONS.map((option) => (
               <button

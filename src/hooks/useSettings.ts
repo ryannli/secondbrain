@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { generatePalette } from "@/lib/theme";
+import type { ThemeMode } from "@/lib/storage";
 
 // Default feed sources users commonly use
 const DEFAULT_FEED_SOURCES = ["reddit.com", "news.ycombinator.com"];
+
+// Apply theme class to <html> element
+function applyTheme(mode: ThemeMode) {
+  const isDark =
+    mode === "dark" ||
+    (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  if (isDark) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+}
 
 export function useSettings() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [accentColor, setAccentColor] = useState("#3b6044");
   const [fontFamily, setFontFamily] = useState("outfit");
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [rootPath, setRootPath] = useState("");
   const [libraryPath, setLibraryPath] = useState("");
   const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
@@ -38,6 +53,10 @@ export function useSettings() {
         }
         if (data.config.feedInterests) {
           setFeedInterests(data.config.feedInterests);
+        }
+        if (data.config.theme) {
+          setThemeModeState(data.config.theme);
+          applyTheme(data.config.theme);
         }
       }
     } catch (err) {
@@ -93,15 +112,48 @@ export function useSettings() {
     }
   };
 
+  const saveTheme = useCallback(async (mode: ThemeMode) => {
+    // Save to localStorage for flash prevention script
+    localStorage.setItem("theme-mode", mode);
+    // Apply immediately
+    setThemeModeState(mode);
+    applyTheme(mode);
+
+    // Persist to config.json
+    try {
+      await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: mode }),
+      });
+    } catch (err) {
+      console.error("Failed to save theme:", err);
+    }
+  }, []);
+
+  // Load config on mount
   useEffect(() => {
     loadConfig();
   }, []);
+
+  // Listen for system theme changes when in "system" mode
+  useEffect(() => {
+    if (themeMode !== "system") return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => applyTheme("system");
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [themeMode]);
 
   return {
     isSettingsOpen,
     setIsSettingsOpen,
     fontFamily,
     saveFont,
+    themeMode,
+    saveTheme,
     rootPath,
     libraryPath,
     debugLoadingMode,

@@ -124,12 +124,12 @@ export function Dashboard({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`rounded-xl border bg-white shadow-sm transition-all ${
+        className={`rounded-xl border bg-white dark:bg-zinc-900 shadow-sm transition-all ${
           isDragging ? "border-dashed border-2" : ""
         }`}
         style={{
           borderColor: isDragging ? palette[500] : theme.border,
-          backgroundColor: isDragging ? `${palette[500]}05` : "white",
+          backgroundColor: isDragging ? `${palette[500]}05` : undefined,
         }}
       >
         {/* Staged file preview */}

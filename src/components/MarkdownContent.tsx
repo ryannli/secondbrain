@@ -13,7 +13,7 @@ interface MarkdownContentProps {
 
 export function MarkdownContent({ content, palette, className = "" }: MarkdownContentProps) {
   return (
-    <div className={`prose prose-sm prose-neutral max-w-none ${className}`}>
+    <div className={`prose prose-sm prose-neutral dark:prose-invert max-w-none ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

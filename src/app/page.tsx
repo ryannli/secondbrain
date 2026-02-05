@@ -81,6 +81,8 @@ function HomeContent() {
     setIsSettingsOpen,
     fontFamily,
     saveFont,
+    themeMode,
+    saveTheme,
     rootPath,
     libraryPath,
     debugLoadingMode,
@@ -346,6 +348,8 @@ function HomeContent() {
         onClose={() => setIsSettingsOpen(false)}
         fontFamily={fontFamily}
         onFontChange={saveFont}
+        themeMode={themeMode}
+        onThemeChange={saveTheme}
         rootPath={rootPath}
         debugLoadingMode={debugLoadingMode}
         onDebugModeChange={setDebugLoadingMode}

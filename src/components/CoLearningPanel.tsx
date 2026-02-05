@@ -187,7 +187,7 @@ function ToolsSection({
     <div className="my-2 border rounded-lg overflow-hidden text-xs" style={{ borderColor: theme.border }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-zinc-800 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors text-left"
       >
         <Wrench className="w-3.5 h-3.5" style={{ color: palette[500] }} />
         <span className="flex-1 font-medium" style={{ color: theme.text }}>
@@ -200,14 +200,14 @@ function ToolsSection({
       {isOpen && (
         <div
           ref={contentRef}
-          className="px-3 py-2 bg-gray-50/30 max-h-64 overflow-y-auto space-y-1.5 text-[12px]"
+          className="px-3 py-2 bg-gray-50/30 dark:bg-zinc-800/50 max-h-64 overflow-y-auto space-y-1.5 text-[12px]"
           style={{ color: theme.textMuted }}
         >
           {tools.map((tool) => (
             <div key={tool.id}>
               {/* Main tool */}
               <div className="flex items-start gap-2">
-                <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-200/70 text-gray-600 font-medium">
+                <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-200/70 dark:bg-zinc-700 text-gray-600 dark:text-gray-300 font-medium">
                   {tool.name}
                 </span>
                 {tool.detail && (
@@ -224,11 +224,11 @@ function ToolsSection({
 
               {/* Children (subtools) */}
               {tool.children && tool.children.length > 0 && (
-                <div className="ml-4 mt-1 pl-2 border-l-2 border-gray-200 space-y-1">
+                <div className="ml-4 mt-1 pl-2 border-l-2 border-gray-200 dark:border-zinc-600 space-y-1">
                   {tool.children.map((child) => (
                     <div key={child.id}>
                       <div className="flex items-start gap-2">
-                        <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-100 text-gray-500 text-[11px]">
+                        <span className="px-1.5 py-0.5 rounded shrink-0 bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-gray-400 text-[11px]">
                           {child.name}
                         </span>
                         {child.detail && (
@@ -458,7 +458,7 @@ export function CoLearningPanel({
   const startNewConversation = () => {
     setCurrentConversationId(null);
     setMessages([]);
-    setContexts([]);
+    setContexts((prev) => prev.filter((c) => c.type === "source"));
     setInput("");
     setShowConversationList(false);
   };
@@ -597,7 +597,7 @@ export function CoLearningPanel({
 
   // Render a message (either from history or streaming)
   const renderMessage = (msg: AgentMessage, isStreaming: boolean, streamEvents?: StreamEvent[]) => {
-    const proseClasses = "prose prose-sm prose-neutral prose-tight max-w-none text-[13px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none";
+    const proseClasses = "prose prose-sm prose-neutral dark:prose-invert prose-tight max-w-none text-[13px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:my-1.5 [&>ul]:my-1.5 [&>ol]:my-1.5 [&>li]:my-0.5 [&_code]:bg-black/10 dark:[&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px] [&_code]:before:content-none [&_code]:after:content-none";
 
     if (msg.role === "user") {
       return (
@@ -640,8 +640,8 @@ export function CoLearningPanel({
     return (
       <div className="flex justify-start">
         <div
-          className="max-w-[85%] rounded-2xl px-4 py-2 break-words rounded-bl-md"
-          style={{ backgroundColor: "#f4f4f5", color: theme.text }}
+          className="max-w-[85%] rounded-2xl px-4 py-2 break-words rounded-bl-md bg-zinc-100 dark:bg-zinc-800"
+          style={{ color: theme.text }}
         >
           <div className="text-[13px] leading-snug">
             {parsed.segments.map((segment, i) => (
@@ -688,7 +688,7 @@ export function CoLearningPanel({
 
   return (
     <div
-      className="border-l flex flex-col h-full bg-white"
+      className="border-l border-zinc-200 dark:border-zinc-700 flex flex-col h-full bg-white dark:bg-zinc-900"
       style={{ width, borderColor: theme.border }}
     >
       {/* Header */}
@@ -703,7 +703,7 @@ export function CoLearningPanel({
           <div className="relative flex-1 min-w-0" ref={conversationListRef}>
             <button
               onClick={toggleConversationList}
-              className="flex items-center gap-1 hover:bg-gray-100 rounded px-2 py-1 transition-colors max-w-full"
+              className="flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded px-2 py-1 transition-colors max-w-full"
             >
               <span className="font-semibold truncate">
                 {currentConv ? currentConv.title : "Agent"}
@@ -714,7 +714,7 @@ export function CoLearningPanel({
             {/* Dropdown */}
             {showConversationList && (
               <div
-                className="absolute top-full left-0 mt-1 w-72 bg-white border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
+                className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-zinc-800 border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
                 style={{ borderColor: theme.border }}
               >
                 {conversations.length === 0 ? (
@@ -758,14 +758,14 @@ export function CoLearningPanel({
         <div className="flex items-center gap-1">
           <button
             onClick={startNewConversation}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
             title="New conversation"
           >
             <Plus className="w-4 h-4" style={{ color: theme.textMuted }} />
           </button>
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
           </button>
