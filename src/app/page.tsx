@@ -34,6 +34,7 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sourceId = searchParams.get("source");
+  const docId = searchParams.get("doc");
   const viewParam = searchParams.get("view");
 
   // Core state
@@ -233,6 +234,23 @@ function HomeContent() {
       setSelectedSource(null);
     }
   }, [sourceId, handleSelectSource]);
+
+  // Load document from URL param
+  useEffect(() => {
+    if (docId) {
+      fetch(`/api/workspace/${docId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.document) {
+            setSelectedDocument(data.document);
+            setSelectedSource(null);
+          }
+        })
+        .catch((err) => console.error("Failed to load document:", err));
+    } else {
+      setSelectedDocument(null);
+    }
+  }, [docId]);
 
   // Auto-expand folder when viewing a source (like VS Code "Reveal in Explorer")
   // Only run when the folder path changes, not on every render
