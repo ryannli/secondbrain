@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
-import { Source, SourceSummary, ActionType, ACTION_CONFIG, WorkspaceDocument } from "@/lib/types";
+import { SourceSummary, ActionType, ACTION_CONFIG } from "@/lib/types";
 import { theme } from "@/lib/theme";
 import { EntryView } from "@/components/EntryView";
 import { Dashboard } from "@/components/Dashboard";
@@ -19,6 +19,7 @@ import { useFeed } from "@/hooks/useFeed";
 import { useEntryCollection } from "@/hooks/useEntryCollection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useResizable } from "@/hooks/useResizable";
+import { useSelectedEntry } from "@/hooks/useSelectedEntry";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -39,8 +40,7 @@ function HomeContent() {
   const viewParam = searchParams.get("view");
 
   // Core state
-  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<{ meta: WorkspaceDocument; content: string } | null>(null);
+  const entry = useSelectedEntry();
   const [error, setError] = useState<string | null>(null);
   const [isCoLearningOpen, setIsCoLearningOpen] = useLocalStorage("agent-panel-open", false);
   const [isSidebarOpen, setIsSidebarOpen] = useLocalStorage("sidebar-open", true);
@@ -149,8 +149,8 @@ function HomeContent() {
   } = useSourceActions({
     onUpsertSourceSummary: upsertLibrarySummary,
     onRemoveSourceSummary: removeLibrarySummary,
-    selectedSource,
-    setSelectedSource,
+    selectedSource: entry.source,
+    setSelectedSource: entry.setSource,
     setError,
   });
 
@@ -160,8 +160,7 @@ function HomeContent() {
       const res = await fetch(`/api/workspace/${docId}`);
       const data = await res.json();
       if (data.success && data.document) {
-        setSelectedDocument(data.document);
-        setSelectedSource(null); // Clear source selection
+        entry.setDocument(data.document);
         router.push(`/?doc=${docId}`);
       }
     } catch (err) {
@@ -208,9 +207,9 @@ function HomeContent() {
     if (sourceId) {
       handleSelectSource(sourceId);
     } else {
-      setSelectedSource(null);
+      entry.setSource(null);
     }
-  }, [sourceId, handleSelectSource]);
+  }, [sourceId, handleSelectSource]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load document from URL param
   useEffect(() => {
@@ -219,34 +218,43 @@ function HomeContent() {
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.document) {
-            setSelectedDocument(data.document);
-            setSelectedSource(null);
+            entry.setDocument(data.document);
           }
         })
         .catch((err) => console.error("Failed to load document:", err));
     } else {
-      setSelectedDocument(null);
+      entry.setDocument(null);
     }
-  }, [docId]);
+  }, [docId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-expand folder when viewing a source (like VS Code "Reveal in Explorer")
+  // Auto-expand folder when viewing an entry (like VS Code "Reveal in Explorer")
   // Only run when the folder path changes, not on every render
+  const expandFolderPath = useCallback((folderPath: string, setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      const parts = folderPath.split("/");
+      let path = "";
+      for (const part of parts) {
+        path = path ? `${path}/${part}` : part;
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
-    if (selectedSource?.meta.folder) {
-      library.setExpandedFolders(prev => {
-        const next = new Set(prev);
-        // Expand all parent folders (e.g., "ai/agents" → expand "ai" and "ai/agents")
-        const parts = selectedSource.meta.folder!.split("/");
-        let path = "";
-        for (const part of parts) {
-          path = path ? `${path}/${part}` : part;
-          next.add(path);
-        }
-        return next;
-      });
+    if (entry.source?.meta.folder) {
+      expandFolderPath(entry.source.meta.folder, library.setExpandedFolders);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- library object changes on every render, but setExpandedFolders is stable
-  }, [selectedSource?.meta.folder]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.source?.meta.folder]);
+
+  useEffect(() => {
+    if (entry.document?.meta.folder) {
+      expandFolderPath(entry.document.meta.folder, workspace.setExpandedFolders);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.document?.meta.folder]);
 
   // Score color helper
   const getScoreColor = (score: number) => {
@@ -291,8 +299,8 @@ function HomeContent() {
         const res = await fetch(`/api/workspace/${entryId}`, { method: "DELETE" });
         const data = await res.json();
         if (data.success) {
-          if (selectedDocument?.meta.id === entryId) {
-            setSelectedDocument(null);
+          if (entry.document?.meta.id === entryId) {
+            entry.setDocument(null);
             router.push("/");
           }
           workspace.refresh();
@@ -364,7 +372,7 @@ function HomeContent() {
         <Sidebar
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          selectedSource={selectedSource}
+          selectedSource={entry.source}
           currentView={currentView}
           onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
           onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
@@ -382,8 +390,8 @@ function HomeContent() {
               treeNodes: library.treeNodes,
               expandedFolders: library.expandedFolders,
               onToggleFolder: library.toggleFolder,
-              selectedSourceId: selectedSource?.meta.id,
-              onSelectSource: (id) => { setSelectedDocument(null); navigateToSource(id); },
+              selectedSourceId: entry.source?.meta.id,
+              onSelectSource: (id) => { entry.setDocument(null); navigateToSource(id); },
               onFolderContextMenu: handleFolderContextMenu,
               dragDrop: library.dragDrop,
               folderManagement: library.folderManagement,
@@ -398,7 +406,7 @@ function HomeContent() {
               treeNodes: workspace.treeNodes,
               expandedFolders: workspace.expandedFolders,
               onToggleFolder: workspace.toggleFolder,
-              selectedDocumentId: selectedDocument?.meta.id,
+              selectedDocumentId: entry.document?.meta.id,
               onSelectDocument: navigateToDocument,
               onFolderContextMenu: handleWorkspaceFolderContextMenu,
               dragDrop: workspace.dragDrop,
@@ -417,77 +425,77 @@ function HomeContent() {
 
         <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
-            {selectedDocument ? (
+            {entry.document ? (
               <EntryView
                 entry={{
-                  id: selectedDocument.meta.id,
-                  title: selectedDocument.meta.title,
-                  content: selectedDocument.content,
-                  type: selectedDocument.meta.output.endsWith(".pdf") ? "document" : "text",
+                  id: entry.document.meta.id,
+                  title: entry.document.meta.title,
+                  content: entry.document.content,
+                  type: entry.document.meta.output.endsWith(".pdf") ? "document" : "text",
                 }}
                 onSave={async (title, content) => {
-                  const res = await fetch(`/api/workspace/${selectedDocument.meta.id}`, {
+                  const res = await fetch(`/api/workspace/${entry.document!.meta.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ title, content }),
                   });
                   const data = await res.json();
                   if (data.success && data.document) {
-                    setSelectedDocument(data.document);
+                    entry.setDocument(data.document);
                     workspace.refresh();
                   }
                 }}
-                onClose={() => { setSelectedDocument(null); router.push("/"); }}
+                onClose={() => { entry.setDocument(null); router.push("/"); }}
                 palette={palette}
                 theme={theme}
               />
-            ) : selectedSource ? (
+            ) : entry.source ? (
               <EntryView
                 entry={{
-                  id: selectedSource.meta.id,
-                  title: selectedSource.meta.title,
-                  content: selectedSource.content,
-                  sourceUrl: selectedSource.meta.sourceUrl,
-                  type: selectedSource.meta.type,
-                  processingStatus: selectedSource.meta.processingStatus,
-                  analysisError: selectedSource.meta.analysisError,
-                  analysis: selectedSource.analysis,
-                  saved: selectedSource.meta.saved,
+                  id: entry.source.meta.id,
+                  title: entry.source.meta.title,
+                  content: entry.source.content,
+                  sourceUrl: entry.source.meta.sourceUrl,
+                  type: entry.source.meta.type,
+                  processingStatus: entry.source.meta.processingStatus,
+                  analysisError: entry.source.meta.analysisError,
+                  analysis: entry.source.analysis,
+                  saved: entry.source.meta.saved,
                 }}
                 onSave={async (title, content) => {
-                  const res = await fetch(`/api/sources/${selectedSource.meta.id}`, {
+                  const res = await fetch(`/api/sources/${entry.source!.meta.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ title, content }),
                   });
                   const data = await res.json();
                   if (data.success) {
-                    const reloadRes = await fetch(`/api/sources/${selectedSource.meta.id}`);
+                    const reloadRes = await fetch(`/api/sources/${entry.source!.meta.id}`);
                     const reloadData = await reloadRes.json();
                     if (reloadData.success && reloadData.source) {
-                      setSelectedSource(reloadData.source);
+                      entry.setSource(reloadData.source);
                       library.refresh();
                     }
                   }
                 }}
                 onToggleSaved={async (saved) => {
-                  const res = await fetch(`/api/sources/${selectedSource.meta.id}/save`, {
+                  const res = await fetch(`/api/sources/${entry.source!.meta.id}/save`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ saved }),
                   });
                   const data = await res.json();
                   if (data.success && data.source) {
-                    setSelectedSource(data.source);
+                    entry.setSource(data.source);
                     library.refresh();
                   }
                 }}
-                onClose={() => setSelectedSource(null)}
-                onReanalyze={() => handleReanalyze(selectedSource.meta.id)}
-                onReaction={(type, itemId, reaction) => handleReaction(selectedSource.meta.id, type, itemId, reaction)}
+                onClose={() => entry.setSource(null)}
+                onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
+                onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
                 onNavigateToSource={navigateToSource}
-                isReanalyzing={reanalyzingId === selectedSource.meta.id}
-                originalFileUrl={`/api/sources/${selectedSource.meta.id}/original`}
+                isReanalyzing={reanalyzingId === entry.source.meta.id}
+                originalFileUrl={`/api/sources/${entry.source.meta.id}/original`}
                 palette={palette}
                 theme={theme}
                 getActionConfig={getActionConfig}
@@ -548,34 +556,27 @@ function HomeContent() {
           onToggle={() => setIsCoLearningOpen(!isCoLearningOpen)}
           palette={palette}
           width={askPanelResize.width}
-          currentPath={sourceId ? `/?source=${sourceId}` : viewParam ? `/?view=${viewParam}` : "/"}
-          sourcePath={selectedSource ? `./library/${selectedSource.meta.folder ? selectedSource.meta.folder + "/" : ""}${selectedSource.meta.id}` : undefined}
-          sourceId={selectedSource?.meta.id}
-          sourceTitle={selectedSource?.meta.title}
+          currentPath={sourceId ? `/?source=${sourceId}` : docId ? `/?doc=${docId}` : viewParam ? `/?view=${viewParam}` : "/"}
+          sourcePath={entry.source ? `./library/${entry.source.meta.folder ? entry.source.meta.folder + "/" : ""}${entry.source.meta.id}` : undefined}
+          sourceId={entry.source?.meta.id}
+          sourceTitle={entry.source?.meta.title}
+          documentPath={entry.document ? `./workspace/${entry.document.meta.folder ? entry.document.meta.folder + "/" : ""}${entry.document.meta.id}` : undefined}
+          documentId={entry.document?.meta.id}
+          documentTitle={entry.document?.meta.title}
           onAgentComplete={async () => {
-            // Reload current source when agent finishes (in case it modified files)
-            if (selectedSource) {
-              try {
-                const res = await fetch(`/api/sources/${selectedSource.meta.id}`);
-                const data = await res.json();
-                if (data.success && data.source) {
-                  setSelectedSource(data.source);
-                }
-              } catch (e) {
-                console.error("Failed to reload source after agent completion:", e);
-              }
-            }
-            // Also refresh the library sidebar
+            // Reload whatever entry is currently selected
+            await entry.refresh();
             library.refresh();
+            workspace.refresh();
           }}
         />
       </div>
 
       {/* Selection Popover for adding context - only when viewing a source */}
-      {selectedSource && (
+      {entry.source && (
         <SelectionPopover
           containerRef={mainContentRef as React.RefObject<HTMLElement>}
-          sourceTitle={selectedSource.meta.title}
+          sourceTitle={entry.source.meta.title}
           palette={palette}
         />
       )}

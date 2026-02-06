@@ -263,9 +263,12 @@ interface CoLearningPanelProps {
   palette: Record<number, string>;
   width?: number;
   currentPath?: string;
-  sourcePath?: string;  // Full path to current source directory (e.g., ./library/folder/id)
-  sourceId?: string;    // Current source ID (for explicit context display)
-  sourceTitle?: string; // Current source title (for explicit context display)
+  sourcePath?: string;    // Full path to current source directory (e.g., ./library/folder/id)
+  sourceId?: string;      // Current source ID (for explicit context display)
+  sourceTitle?: string;   // Current source title (for explicit context display)
+  documentPath?: string;  // Full path to current workspace document directory
+  documentId?: string;    // Current document ID
+  documentTitle?: string; // Current document title
   onAgentComplete?: () => void;
 }
 
@@ -277,6 +280,9 @@ export function CoLearningPanel({
   sourcePath,
   sourceId,
   sourceTitle,
+  documentPath,
+  documentId,
+  documentTitle,
   onAgentComplete,
   width = 384,
 }: CoLearningPanelProps) {
@@ -346,26 +352,30 @@ export function CoLearningPanel({
     };
   }, [isOpen, onToggle]);
 
-  // Auto-add source as context when viewing a source
+  // Auto-add entry (source or document) as context when viewing one
+  const entryId = sourceId || documentId;
+  const entryTitle = sourceTitle || documentTitle;
+  const entryType: "source" | "document" = sourceId ? "source" : "document";
+
   useEffect(() => {
-    if (sourceId && sourceTitle) {
+    if (entryId && entryTitle) {
       setContexts((prev) => {
         // Don't add if already exists
-        if (prev.some((c) => c.type === "source" && c.id === sourceId)) return prev;
-        // Remove any other source context (only one source at a time)
-        const filtered = prev.filter((c) => c.type !== "source");
-        const sourceContext: AgentContext = {
-          type: "source",
-          id: sourceId,
-          title: sourceTitle,
+        if (prev.some((c) => c.type === entryType && c.id === entryId)) return prev;
+        // Remove any other source/document context (only one entry at a time)
+        const filtered = prev.filter((c) => c.type !== "source" && c.type !== "document");
+        const entryContext: AgentContext = {
+          type: entryType,
+          id: entryId,
+          title: entryTitle,
         };
-        return [sourceContext, ...filtered];
+        return [entryContext, ...filtered];
       });
     } else {
-      // Remove source context when navigating away
-      setContexts((prev) => prev.filter((c) => c.type !== "source"));
+      // Remove entry context when navigating away
+      setContexts((prev) => prev.filter((c) => c.type !== "source" && c.type !== "document"));
     }
-  }, [sourceId, sourceTitle]);
+  }, [entryId, entryTitle, entryType]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -510,12 +520,13 @@ export function CoLearningPanel({
         body: JSON.stringify({
           message: messageText,
           contexts: currentContexts.map((c) => ({
-            text: c.type === "source" ? `[Source: ${c.title}]` : (c.content || ""),
+            text: (c.type === "source" || c.type === "document") ? `[${c.type === "source" ? "Source" : "Document"}: ${c.title}]` : (c.content || ""),
             source: c.title,
           })),
           history: currentHistory,
           currentPath,
           sourcePath,
+          documentPath,
         }),
       });
 

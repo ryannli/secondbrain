@@ -207,7 +207,7 @@ export interface WorkspaceDocument {
 }
 
 // Agent conversation types
-export type AgentContextType = "source" | "selection";
+export type AgentContextType = "source" | "document" | "selection";
 
 export interface AgentContext {
   type: AgentContextType;

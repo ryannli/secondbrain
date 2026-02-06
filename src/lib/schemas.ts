@@ -23,8 +23,8 @@ export const OriginalDataSchema = z.object({
 const HighlightSchema = z.object({
   id: z.string().optional(),
   text: z.string().default(""),
-  type: z.enum(["insight", "fact", "actionable"]).default("insight"),
-  reaction: z.enum(["star", "dismiss"]).optional(),
+  type: z.enum(["insight", "fact", "actionable"]).catch("insight"),
+  reaction: z.enum(["star", "dismiss"]).optional().catch(undefined),
   reactionAt: z.string().optional(),
 });
 
@@ -32,7 +32,7 @@ const ConceptSchema = z.object({
   id: z.string().optional(),
   term: z.string().default(""),
   definition: z.string().default(""),
-  status: z.enum(["knew", "learned"]).optional(),
+  status: z.enum(["knew", "learned"]).optional().catch(undefined),
   statusAt: z.string().optional(),
 });
 
