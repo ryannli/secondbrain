@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus, Copy, Check, Sun, Moon, Monitor } from "lucide-react";
+import { X, Plus, Copy, Check, Sun, Moon, Monitor, ChevronDown } from "lucide-react";
 import { theme } from "@/lib/theme";
 import type { ThemeMode } from "@/lib/storage";
 
@@ -22,15 +22,41 @@ export interface SettingsModalProps {
   onFeedInterestsChange?: (interests: string[]) => void;
 }
 
-// Section header component
-function SectionHeader({ title }: { title: string }) {
+// Collapsible section component
+function CollapsibleSection({
+  title,
+  isFirst = false,
+  isExpanded,
+  onToggle,
+  children
+}: {
+  title: string;
+  isFirst?: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <h3
-      className="text-xs font-semibold uppercase tracking-wider mb-3"
-      style={{ color: theme.textMuted }}
-    >
-      {title}
-    </h3>
+    <div className={isFirst ? "" : "mt-4 pt-4 border-t"} style={{ borderColor: theme.border }}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-2 hover:opacity-80 transition-opacity"
+      >
+        <h3
+          className="text-xs font-semibold uppercase tracking-wider"
+          style={{ color: theme.textMuted }}
+        >
+          {title}
+        </h3>
+        <ChevronDown
+          className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "" : "-rotate-90"}`}
+          style={{ color: theme.textMuted }}
+        />
+      </button>
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[1000px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -87,6 +113,15 @@ export function SettingsModal({
   const [newInterest, setNewInterest] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    appearance: true,
+    feed: true,
+    advanced: false,
+  });
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const copyPath = () => {
     if (rootPath) {
@@ -142,131 +177,139 @@ export function SettingsModal({
         <div className="flex-1 overflow-y-auto p-6 pt-4">
 
         {/* ===== APPEARANCE SECTION ===== */}
-        <SectionHeader title="Appearance" />
+        <CollapsibleSection
+          title="Appearance"
+          isFirst
+          isExpanded={expandedSections.appearance}
+          onToggle={() => toggleSection("appearance")}
+        >
+          {/* Theme */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Theme</label>
+            <div className="flex gap-2">
+              {THEME_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => onThemeChange(option.id)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all"
+                    style={{
+                      borderColor: themeMode === option.id ? palette[500] : theme.border,
+                      backgroundColor: themeMode === option.id ? `${palette[500]}10` : "transparent",
+                    }}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-sm">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        {/* Theme */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Theme</label>
-          <div className="flex gap-2">
-            {THEME_OPTIONS.map((option) => {
-              const Icon = option.icon;
-              return (
+          {/* Font Family */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Font</label>
+            <div className="grid grid-cols-2 gap-2">
+              {FONT_OPTIONS.map((option) => (
                 <button
                   key={option.id}
-                  onClick={() => onThemeChange(option.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all"
+                  onClick={() => onFontChange(option.id)}
+                  className="px-3 py-2 rounded-lg border text-center transition-all hover:border-gray-300"
                   style={{
-                    borderColor: themeMode === option.id ? palette[500] : theme.border,
-                    backgroundColor: themeMode === option.id ? `${palette[500]}10` : "transparent",
+                    fontFamily: `var(--font-${option.id})`,
+                    borderColor: fontFamily === option.id ? palette[500] : theme.border,
+                    backgroundColor: fontFamily === option.id ? `${palette[500]}10` : "transparent",
                   }}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm">{option.label}</span>
+                  <div className="font-medium text-sm">Second Brain</div>
+                  <div className="text-xs text-gray-400">{option.name}</div>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Font Family */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Font</label>
-          <div className="grid grid-cols-2 gap-2">
-            {FONT_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => onFontChange(option.id)}
-                className="px-3 py-2 rounded-lg border text-center transition-all hover:border-gray-300"
-                style={{
-                  fontFamily: `var(--font-${option.id})`,
-                  borderColor: fontFamily === option.id ? palette[500] : theme.border,
-                  backgroundColor: fontFamily === option.id ? `${palette[500]}10` : "transparent",
-                }}
-              >
-                <div className="font-medium text-sm">Second Brain</div>
-                <div className="text-xs text-gray-400">{option.name}</div>
-              </button>
-            ))}
-          </div>
-        </div>
+        </CollapsibleSection>
 
         {/* ===== FEED SECTION ===== */}
-        <SectionHeader title="Feed" />
-
-        {/* Feed Interests */}
-        {onFeedInterestsChange && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium">Your Radar</label>
-              <button
-                onClick={generateFromLibrary}
-                disabled={isGenerating}
-                className="text-xs px-2 py-1 rounded border hover:bg-gray-50 transition-colors disabled:opacity-50"
-                style={{ borderColor: theme.border, color: palette[600] }}
-              >
-                {isGenerating ? "Generating..." : "Generate from library"}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mb-3">We'll keep you updated on these topics</p>
-
-            {/* Interest tags */}
-            <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
-              {feedInterests.map((interest) => (
-                <span
-                  key={interest}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm"
-                  style={{ backgroundColor: `${palette[500]}15`, color: palette[700] }}
+        <CollapsibleSection
+          title="Feed"
+          isExpanded={expandedSections.feed}
+          onToggle={() => toggleSection("feed")}
+        >
+          {/* Feed Interests */}
+          {onFeedInterestsChange && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium">Your Radar</label>
+                <button
+                  onClick={generateFromLibrary}
+                  disabled={isGenerating}
+                  className="text-xs px-2 py-1 rounded border hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  style={{ borderColor: theme.border, color: palette[600] }}
                 >
-                  {interest}
-                  <button
-                    onClick={() => onFeedInterestsChange(feedInterests.filter(i => i !== interest))}
-                    className="hover:opacity-70 ml-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              {feedInterests.length === 0 && (
-                <span className="text-sm text-gray-400 italic">Add topics to your radar</span>
-              )}
-            </div>
+                  {isGenerating ? "Generating..." : "Generate from library"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">We'll keep you updated on these topics</p>
 
-            {/* Add interest input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newInterest}
-                onChange={(e) => setNewInterest(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newInterest.trim()) {
+              {/* Interest tags */}
+              <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
+                {feedInterests.map((interest) => (
+                  <span
+                    key={interest}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm"
+                    style={{ backgroundColor: `${palette[500]}15`, color: palette[700] }}
+                  >
+                    {interest}
+                    <button
+                      onClick={() => onFeedInterestsChange(feedInterests.filter(i => i !== interest))}
+                      className="hover:opacity-70 ml-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                {feedInterests.length === 0 && (
+                  <span className="text-sm text-gray-400 italic">Add topics to your radar</span>
+                )}
+              </div>
+
+              {/* Add interest input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newInterest}
+                  onChange={(e) => setNewInterest(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newInterest.trim()) {
+                      const trimmed = newInterest.trim();
+                      if (!feedInterests.includes(trimmed)) {
+                        onFeedInterestsChange([...feedInterests, trimmed]);
+                      }
+                      setNewInterest("");
+                    }
+                  }}
+                  placeholder="e.g. AI agents, startups, web dev"
+                  className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                  style={{ borderColor: theme.border }}
+                />
+                <button
+                  onClick={() => {
                     const trimmed = newInterest.trim();
-                    if (!feedInterests.includes(trimmed)) {
+                    if (trimmed && !feedInterests.includes(trimmed)) {
                       onFeedInterestsChange([...feedInterests, trimmed]);
                     }
                     setNewInterest("");
-                  }
-                }}
-                placeholder="e.g. AI agents, startups, web dev"
-                className="flex-1 px-3 py-2 text-sm border rounded-lg"
-                style={{ borderColor: theme.border }}
-              />
-              <button
-                onClick={() => {
-                  const trimmed = newInterest.trim();
-                  if (trimmed && !feedInterests.includes(trimmed)) {
-                    onFeedInterestsChange([...feedInterests, trimmed]);
-                  }
-                  setNewInterest("");
-                }}
-                disabled={!newInterest.trim()}
-                className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
-                style={{ backgroundColor: palette[500] }}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+                  }}
+                  disabled={!newInterest.trim()}
+                  className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
+                  style={{ backgroundColor: palette[500] }}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Feed Sources */}
         {onFeedSourcesChange && (
@@ -349,52 +392,57 @@ export function SettingsModal({
             )}
           </div>
         )}
+        </CollapsibleSection>
 
         {/* ===== ADVANCED SECTION ===== */}
-        <SectionHeader title="Advanced" />
-
-        {/* Data Path */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Data Location</label>
-          <div className="flex items-start gap-2">
-            <p className="text-sm break-all flex-1" style={{ color: theme.textMuted }}>{rootPath || "Loading..."}</p>
-            {rootPath && (
-              <button
-                onClick={copyPath}
-                className="p-1 rounded transition-colors flex-shrink-0 hover:opacity-70"
-                title="Copy path"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4" style={{ color: theme.textLight }} />
-                )}
-              </button>
-            )}
+        <CollapsibleSection
+          title="Advanced"
+          isExpanded={expandedSections.advanced}
+          onToggle={() => toggleSection("advanced")}
+        >
+          {/* Data Path */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Data Location</label>
+            <div className="flex items-start gap-2">
+              <p className="text-sm break-all flex-1" style={{ color: theme.textMuted }}>{rootPath || "Loading..."}</p>
+              {rootPath && (
+                <button
+                  onClick={copyPath}
+                  className="p-1 rounded transition-colors flex-shrink-0 hover:opacity-70"
+                  title="Copy path"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" style={{ color: theme.textLight }} />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Debug Loading Mode */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Debug: Loading UI Preview</label>
-          <div className="flex gap-2">
-            {DEBUG_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => onDebugModeChange(option.id)}
-                className="px-3 py-1.5 rounded-lg border text-sm transition-all"
-                style={{
-                  borderColor: debugLoadingMode === option.id ? palette[500] : theme.border,
-                  backgroundColor: debugLoadingMode === option.id ? `${palette[500]}10` : "transparent",
-                  color: debugLoadingMode === option.id ? palette[600] : theme.textMuted,
-                }}
-              >
+          {/* Debug Loading Mode */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Debug: Loading UI Preview</label>
+            <div className="flex gap-2">
+              {DEBUG_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => onDebugModeChange(option.id)}
+                  className="px-3 py-1.5 rounded-lg border text-sm transition-all"
+                  style={{
+                    borderColor: debugLoadingMode === option.id ? palette[500] : theme.border,
+                    backgroundColor: debugLoadingMode === option.id ? `${palette[500]}10` : "transparent",
+                    color: debugLoadingMode === option.id ? palette[600] : theme.textMuted,
+                  }}
+                >
                 {option.label}
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
-        </div>
+            <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
+          </div>
+        </CollapsibleSection>
 
         </div>
         {/* Close Button */}
