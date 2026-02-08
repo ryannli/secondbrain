@@ -207,7 +207,7 @@ async function findConnectionsForSource(
         id: s.id,
         title: s.title,
         summary: s.summary,
-        highlights: s.highlights,
+        highlights: s.highlights.map((h) => h.text),
         concepts: s.concepts.map((c) => ({ term: c.term, definition: c.definition })),
       })),
       learnedConcepts

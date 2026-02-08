@@ -20,7 +20,7 @@ export async function POST() {
     const sourcesForInterests = sources.map((s) => ({
       title: s.title,
       concepts: s.concepts,
-      highlights: s.highlights,
+      highlights: s.highlights.map((h) => h.text),
     }));
 
     const interests = await extractUserInterests(sourcesForInterests);

@@ -208,7 +208,8 @@ export async function analyzeContent(
 
   const responseText = await callClaude(prompt);
 
-  const analysisData = parseJsonResponse(responseText, "analyzeContent");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const analysisData = parseJsonResponse(responseText, "analyzeContent") as any;
   if (!analysisData) {
     console.error("[analyzeContent] Failed to parse:", responseText.slice(0, 500));
     throw new Error("Failed to parse analysis response");
@@ -485,6 +486,35 @@ export async function extractUserInterests(
 }
 
 /**
+ * Build interaction context string from user's attention signals
+ * (starred highlights + learned concepts from recent sources)
+ */
+export function buildInteractionContext(
+  starredHighlights: { text: string; sourceTitle: string }[],
+  learnedConcepts: { term: string; sourceTitle: string }[]
+): string {
+  if (starredHighlights.length === 0 && learnedConcepts.length === 0) return "";
+
+  const parts: string[] = [];
+
+  if (starredHighlights.length > 0) {
+    parts.push("## User's Starred Highlights (what they find important)");
+    for (const h of starredHighlights.slice(0, 10)) {
+      parts.push(`- "${h.text}" (from: ${h.sourceTitle})`);
+    }
+  }
+
+  if (learnedConcepts.length > 0) {
+    parts.push("## User's Learned Concepts (topics they actively study)");
+    for (const c of learnedConcepts.slice(0, 10)) {
+      parts.push(`- ${c.term} (from: ${c.sourceTitle})`);
+    }
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Source summary for feed filtering
  */
 interface SourceSummaryForFeed {
@@ -501,7 +531,9 @@ interface SourceSummaryForFeed {
 export async function filterFeedItems(
   searchResults: BraveSearchResult[],
   userSources: SourceSummaryForFeed[],
-  preferredSources: string[] = []
+  preferredSources: string[] = [],
+  interactionContext: string = "",
+  interests: string[] = []
 ): Promise<FeedItem[]> {
   if (searchResults.length === 0) return [];
 
@@ -525,7 +557,7 @@ export async function filterFeedItems(
    Source: ${r.meta_url?.hostname ?? "unknown"}, Age: ${r.age ?? "recent"}`)
         .join("\n");
 
-      const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources);
+      const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources, interactionContext, interests);
       const responseText = await callClaude(prompt);
 
       const items: FeedItem[] = [];
@@ -593,7 +625,9 @@ function generateFeedItemId(url: string): string {
  */
 export async function generateBriefing(
   feedItems: FeedItem[],
-  userSources: { title: string; concepts: string[] }[]
+  userSources: { title: string; concepts: string[] }[],
+  interactionContext: string = "",
+  interests: string[] = []
 ): Promise<string> {
   // Only use recommended items for briefing
   const recommendedItems = feedItems.filter(item => item.scoring.action === "recommend");
@@ -614,7 +648,7 @@ export async function generateBriefing(
     ? userSources.slice(0, 10).map(s => `- "${s.title}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
     : "Empty library";
 
-  const prompt = promptGenerateBriefing(libraryContext, feedContext);
+  const prompt = promptGenerateBriefing(libraryContext, feedContext, interactionContext, interests);
 
   try {
     const briefing = await callClaude(prompt);

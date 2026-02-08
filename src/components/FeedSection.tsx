@@ -283,7 +283,6 @@ function StructuredBriefing({
 
   // Find specific sections
   const whatsNew = sections.find(s => s.title.toLowerCase().includes("what"));
-  const connects = sections.find(s => s.title.toLowerCase().includes("connect") || s.title.toLowerCase().includes("matter"));
   const goDeeper = sections.find(s => s.title.toLowerCase().includes("deeper") || s.title.toLowerCase().includes("start"));
 
   // Helper to strip markdown formatting for plain text context
@@ -312,42 +311,22 @@ function StructuredBriefing({
 
   return (
     <div className="space-y-4 group/briefing">
-      {/* Top row: What's new + Connects side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* What's new */}
-        {whatsNew && (
-          <div
-            className="group/section p-4 rounded-lg"
-            style={{ backgroundColor: `${palette[500]}08` }}
-          >
-            <SectionHeader title={whatsNew.title} content={whatsNew.content} color={palette[600]} />
-            <div className="space-y-1.5">
-              {whatsNew.content.map((line, i) => (
-                <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
-                  <TextWithRefs text={line} items={items} palette={palette} theme={theme} />
-                </p>
-              ))}
-            </div>
+      {/* What's new */}
+      {whatsNew && (
+        <div
+          className="group/section p-4 rounded-lg"
+          style={{ backgroundColor: `${palette[500]}08` }}
+        >
+          <SectionHeader title={whatsNew.title} content={whatsNew.content} color={palette[600]} />
+          <div className="space-y-1.5">
+            {whatsNew.content.map((line, i) => (
+              <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
+                <TextWithRefs text={line} items={items} palette={palette} theme={theme} />
+              </p>
+            ))}
           </div>
-        )}
-
-        {/* Connects to your knowledge */}
-        {connects && (
-          <div
-            className="group/section p-4 rounded-lg"
-            style={{ backgroundColor: theme.bgMuted }}
-          >
-            <SectionHeader title="Connects to your knowledge" content={connects.content} color={theme.text} />
-            <div className="space-y-1.5">
-              {connects.content.map((line, i) => (
-                <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
-                  <TextWithRefs text={line} items={items} palette={palette} theme={theme} />
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Bottom: Go deeper */}
       {goDeeper && (

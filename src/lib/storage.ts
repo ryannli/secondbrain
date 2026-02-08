@@ -888,8 +888,8 @@ export interface SourceForConnections {
   id: string;
   title: string;
   summary: string;
-  highlights: string[];
-  concepts: { term: string; definition: string; status?: "knew" | "learned" }[];
+  highlights: { text: string; type: string; reaction?: "star" | "dismiss"; reactionAt?: string }[];
+  concepts: { term: string; definition: string; status?: "knew" | "learned"; statusAt?: string }[];
 }
 
 /**
@@ -945,11 +945,17 @@ export async function listSourcesForConnections(
             id: entry.name,
             title,
             summary: analysis.digest?.summary ?? "",
-            highlights: (analysis.digest?.highlights ?? []).map((h) => h.text),
+            highlights: (analysis.digest?.highlights ?? []).map((h) => ({
+              text: h.text,
+              type: h.type,
+              reaction: h.reaction,
+              reactionAt: h.reactionAt,
+            })),
             concepts: (analysis.digest?.concepts ?? []).map((c) => ({
               term: c.term,
               definition: c.definition,
               status: c.status,
+              statusAt: c.statusAt,
             })),
           });
         } catch {
@@ -1509,6 +1515,71 @@ export async function saveFeedCache(cache: FeedCache): Promise<void> {
   await fs.mkdir(feedDir, { recursive: true });
   const cachePath = path.join(feedDir, "cache.json");
   await fs.writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+}
+
+// =============================================================================
+// Feed History Functions (dedup)
+// =============================================================================
+
+interface FeedHistoryEntry {
+  url: string;
+  seenAt: string;
+}
+
+interface FeedHistory {
+  seen: FeedHistoryEntry[];
+}
+
+/**
+ * Load feed history from disk
+ */
+export async function loadFeedHistory(): Promise<FeedHistory> {
+  try {
+    const historyPath = path.join(getFeedPath(), "history.json");
+    const content = await fs.readFile(historyPath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return { seen: [] };
+  }
+}
+
+/**
+ * Save feed history to disk
+ */
+async function saveFeedHistory(history: FeedHistory): Promise<void> {
+  const feedDir = getFeedPath();
+  await fs.mkdir(feedDir, { recursive: true });
+  const historyPath = path.join(feedDir, "history.json");
+  await fs.writeFile(historyPath, JSON.stringify(history, null, 2), "utf-8");
+}
+
+/**
+ * Mark feed item URLs as seen
+ */
+export async function markFeedItemsSeen(urls: string[]): Promise<void> {
+  const history = await loadFeedHistory();
+  const existingUrls = new Set(history.seen.map((e) => e.url));
+  const now = new Date().toISOString();
+
+  for (const url of urls) {
+    if (!existingUrls.has(url)) {
+      history.seen.push({ url, seenAt: now });
+    }
+  }
+
+  // Prune entries older than 7 days
+  pruneFeedHistory(history);
+  await saveFeedHistory(history);
+}
+
+/**
+ * Prune feed history entries older than 7 days (mutates in place)
+ */
+function pruneFeedHistory(history: FeedHistory): void {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  history.seen = history.seen.filter(
+    (e) => new Date(e.seenAt).getTime() > cutoff
+  );
 }
 
 // =============================================================================

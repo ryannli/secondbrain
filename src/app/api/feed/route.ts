@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig } from "@/lib/storage";
+import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
-import { extractUserInterests, filterFeedItems, generateBriefing } from "@/lib/claude";
+import { extractUserInterests, filterFeedItems, generateBriefing, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
 import { FeedCache } from "@/lib/types";
 
@@ -122,8 +122,14 @@ async function generateFeed() {
   console.log(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
 
   // 3. Search for news (including preferred sources)
-  const searchResults = await searchNews(interests, feedSources);
-  console.log(`[generateFeed] Found ${searchResults.length} search results`);
+  const allSearchResults = await searchNews(interests, feedSources);
+  console.log(`[generateFeed] Found ${allSearchResults.length} search results`);
+
+  // 3.5 Filter out previously seen URLs
+  const history = await loadFeedHistory();
+  const seenUrls = new Set(history.seen.map((e) => e.url));
+  const searchResults = allSearchResults.filter((r) => !seenUrls.has(r.url));
+  console.log(`[generateFeed] After dedup: ${searchResults.length} results (${allSearchResults.length - searchResults.length} seen before)`);
 
   if (searchResults.length === 0) {
     return {
@@ -135,6 +141,27 @@ async function generateFeed() {
     };
   }
 
+  // 3.6 Extract interaction signals (starred highlights + learned concepts from past 30 days)
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const starredHighlights: { text: string; sourceTitle: string }[] = [];
+  const learnedConcepts: { term: string; sourceTitle: string }[] = [];
+
+  for (const s of sources) {
+    for (const h of s.highlights) {
+      if (h.reaction === "star" && h.reactionAt && new Date(h.reactionAt).getTime() > thirtyDaysAgo) {
+        starredHighlights.push({ text: h.text, sourceTitle: s.title });
+      }
+    }
+    for (const c of s.concepts) {
+      if (c.status === "learned" && c.statusAt && new Date(c.statusAt).getTime() > thirtyDaysAgo) {
+        learnedConcepts.push({ term: c.term, sourceTitle: s.title });
+      }
+    }
+  }
+
+  const interactionContext = buildInteractionContext(starredHighlights, learnedConcepts);
+  console.log(`[generateFeed] Interaction signals: ${starredHighlights.length} starred highlights, ${learnedConcepts.length} learned concepts`);
+
   // 4. Filter and score results
   const sourcesForFilter = sources.map((s) => ({
     id: s.id,
@@ -142,7 +169,7 @@ async function generateFeed() {
     summary: s.summary,
     concepts: s.concepts.map((c) => c.term),
   }));
-  const feedItems = await filterFeedItems(searchResults, sourcesForFilter, feedSources);
+  const feedItems = await filterFeedItems(searchResults, sourcesForFilter, feedSources, interactionContext, interests);
   console.log(`[generateFeed] Filtered to ${feedItems.length} feed items`);
 
   // 5. Generate briefing
@@ -150,7 +177,7 @@ async function generateFeed() {
     title: s.title,
     concepts: s.concepts.map((c) => c.term),
   }));
-  const briefing = await generateBriefing(feedItems, sourcesForBriefing);
+  const briefing = await generateBriefing(feedItems, sourcesForBriefing, interactionContext, interests);
   console.log(`[generateFeed] Generated briefing: ${briefing.slice(0, 100)}...`);
 
   // 6. Save cache

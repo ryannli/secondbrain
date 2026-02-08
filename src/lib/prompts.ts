@@ -288,17 +288,28 @@ export function promptFilterFeed(
   libraryContext: string,
   resultsContext: string,
   maxItems: number,
-  preferredSources: string[] = []
+  preferredSources: string[] = [],
+  interactionContext: string = "",
+  interests: string[] = []
 ): string {
   const preferredSourcesText = preferredSources.length > 0
     ? `\n## User's Preferred Sources\nThe user specifically wants content from: ${preferredSources.join(", ")}\nThese are trusted sources for this user.\n`
     : "";
 
+  const interactionSection = interactionContext
+    ? `\n${interactionContext}\n`
+    : "";
+
+  const interestsText = interests.length > 0
+    ? `## User's Configured Interests (explicitly chosen topics)\n${interests.map(i => `- ${i}`).join("\n")}\n`
+    : "";
+
   return `You are a Chief of Staff helping a busy knowledge worker stay informed in their areas of interest.
 
-## User's Interest Areas (from their library)
+${interestsText}
+## User's Library (what they've been reading)
 ${libraryContext}
-${preferredSourcesText}
+${preferredSourcesText}${interactionSection}
 ## Today's Search Results
 ${resultsContext}
 
@@ -310,11 +321,12 @@ For each result, decide: **Recommend** or **Skip**?
 The user wants to EXPAND their knowledge in their interest areas, NOT just see content similar to what they already have.
 
 ### Recommend if:
-1. **New development**: Something that just happened this week (announcements, releases, events)
-2. **High engagement/discussion**: Posts with significant community discussion (check for comment counts, upvotes in snippet)
-3. **New perspective or debate**: Different viewpoint, controversy, or evolving discussion
-4. **Deepens understanding**: Goes deeper than what they have, even on familiar topics
+1. **Matches configured interests**: Directly about one of the user's configured interest topics
+2. **New development**: Something that just happened this week (announcements, releases, events)
+3. **High engagement/discussion**: Posts with significant community discussion (check for comment counts, upvotes in snippet)
+4. **New perspective or debate**: Different viewpoint, controversy, or evolving discussion
 5. **From trusted sources**: Established publications or user's preferred sources
+6. **Matches active interactions**: Directly relates to user's starred highlights or learned concepts
 
 ### Skip if:
 1. **Exact same content**: Literally the same story they already have
@@ -322,6 +334,7 @@ The user wants to EXPAND their knowledge in their interest areas, NOT just see c
 3. **Generic intro content**: "What is X?" when they clearly know X deeply
 4. **SEO spam / clickbait**: Low-quality content farming
 5. **Outdated**: Old content repackaged
+6. **Off-topic**: Not related to configured interests OR library topics
 
 ## KEY PRINCIPLE: Domain ≠ Duplicate
 
@@ -377,11 +390,21 @@ Example:
 {"items": [{"index": 1, "action": "recommend", "score": 85, "whyRead": "200+ comments"}, {"index": 2, "action": "skip", "score": 30, "whySkip": "Outdated news"}]}`;
 }
 
-export function promptGenerateBriefing(libraryContext: string, feedContext: string): string {
+export function promptGenerateBriefing(libraryContext: string, feedContext: string, interactionContext: string = "", interests: string[] = []): string {
+  const interactionSection = interactionContext
+    ? `\n${interactionContext}\n`
+    : "";
+
+  const interestsText = interests.length > 0
+    ? `## User's Configured Interests (explicitly chosen topics)\n${interests.map(i => `- ${i}`).join("\n")}\n`
+    : "";
+
   return `You are a Chief of Staff briefing a busy executive on what's happening in their areas of interest.
 
+${interestsText}
 ## User's Knowledge Base (what they ALREADY know)
 ${libraryContext}
+${interactionSection}
 
 ## Today's News Feed (numbered)
 ${feedContext}
@@ -402,11 +425,6 @@ Tell the user NEW information they don't already know. The briefing itself shoul
 - [Another news item]
 (Use #N to reference the source number so user can click to jump)
 
-**Connects to your knowledge**
-- [How this relates to their existing article/note - be specific]
-- [Another connection if relevant]
-(Always include #N so user can jump to the related article)
-
 **Go deeper**
 - #N — [What extra detail this article has]
 - #N — [Why worth clicking]
@@ -417,10 +435,6 @@ Tell the user NEW information they don't already know. The briefing itself shoul
 - **Company X** raised **$500M** at **$5B valuation**, 3x increase from last round (#1)
 - **Major product** launching **new feature** that changes how users do [task] (#3)
 - **Industry report** shows **40% adoption rate** for [technology] (#7)
-
-**Connects to your knowledge**
-- Funding news validates the trend you noted in your article about [topic] (#1)
-- New feature relates to the **limitations** you explored in [your article] (#7)
 
 **Go deeper**
 - #1 — Full breakdown of the investor list and terms
