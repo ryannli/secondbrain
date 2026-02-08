@@ -19,6 +19,7 @@ import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection }
 import { SourceError } from "./SourceError";
 import { MarkdownContent } from "./MarkdownContent";
 import { EntryActions } from "./EntryActions";
+import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
 
 // Unified entry interface - works for both Source and Document
@@ -53,6 +54,8 @@ export interface EntryData {
     };
     connections?: (Connection & { relatedSourceTitles?: string[] })[];
     connectionError?: string;
+    userRating?: number;
+    userRatingAt?: string;
   };
 }
 
@@ -66,6 +69,7 @@ export interface EntryViewProps {
   // Source-specific handlers (optional)
   onReanalyze?: () => void;
   onReaction?: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
+  onRating?: (rating: number | undefined) => void;
   onNavigateToSource?: (sourceId: string) => void;
   isReanalyzing?: boolean;
   // Original file viewing (for Sources)
@@ -85,6 +89,7 @@ export function EntryView({
   onToggleSaved,
   onReanalyze,
   onReaction,
+  onRating,
   onNavigateToSource,
   isReanalyzing = false,
   originalFileUrl,
@@ -355,6 +360,12 @@ export function EntryView({
                         <div style={{ color: theme.textLight }}>originality</div>
                       </div>
                     </div>
+                    {onRating && (
+                      <div className="mt-4 pt-3 flex items-center justify-between" style={{ borderTop: `1px solid ${theme.border}` }}>
+                        <span className="text-xs" style={{ color: theme.textLight }}>Your rating</span>
+                        <StarRating value={analysis.userRating} onChange={onRating} theme={theme} />
+                      </div>
+                    )}
                   </div>
                 );
               })()}

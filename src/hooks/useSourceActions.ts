@@ -245,6 +245,22 @@ export function useSourceActions({
     }
   };
 
+  const handleRating = async (sourceId: string, rating: number | undefined) => {
+    try {
+      const res = await fetch(`/api/sources/${sourceId}/reaction`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "rating", reaction: rating !== undefined ? String(rating) : "" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedSource(data.source);
+      }
+    } catch (err) {
+      console.error("Failed to update rating:", err);
+    }
+  };
+
   const navigateToSource = (id: string) => {
     router.push(`/?source=${id}`);
   };
@@ -263,6 +279,7 @@ export function useSourceActions({
     handleDeleteSource,
     handleReanalyze,
     handleReaction,
+    handleRating,
     reanalyzingId,
     navigateToSource,
     navigateToDashboard,

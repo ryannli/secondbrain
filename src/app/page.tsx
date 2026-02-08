@@ -143,6 +143,7 @@ function HomeContent() {
     handleDeleteSource,
     handleReanalyze,
     handleReaction,
+    handleRating,
     reanalyzingId,
     navigateToSource,
     navigateToDashboard,
@@ -493,6 +494,7 @@ function HomeContent() {
                 onClose={() => entry.setSource(null)}
                 onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
+                onRating={(rating) => handleRating(entry.source!.meta.id, rating)}
                 onNavigateToSource={navigateToSource}
                 isReanalyzing={reanalyzingId === entry.source.meta.id}
                 originalFileUrl={`/api/sources/${entry.source.meta.id}/original`}

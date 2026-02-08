@@ -66,4 +66,6 @@ export const AnalysisSchema = z.object({
   connections: z.array(z.unknown()).optional(),
   connectionError: z.string().optional(),
   analyzedAt: z.string().optional(),
+  userRating: z.number().min(0.5).max(5).optional(),
+  userRatingAt: z.string().optional(),
 }).passthrough().default({});

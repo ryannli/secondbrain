@@ -64,6 +64,20 @@ export async function PATCH(
       }
     }
 
+    if (type === "rating") {
+      // reaction is the numeric value as string (e.g. "3.5"), or "" to clear
+      if (reaction === "" || reaction === undefined) {
+        analysis.userRating = undefined;
+        analysis.userRatingAt = undefined;
+      } else {
+        const numValue = parseFloat(reaction);
+        if (!isNaN(numValue) && numValue >= 0.5 && numValue <= 5) {
+          analysis.userRating = numValue;
+          analysis.userRatingAt = now;
+        }
+      }
+    }
+
     // Save updated analysis directly to file
     await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
 

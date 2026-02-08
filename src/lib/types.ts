@@ -128,6 +128,8 @@ export interface Analysis {
   connections?: Connection[];   // Cross-source connections (optional for backward compatibility)
   connectionError?: string;     // Error message if connection analysis failed
   analyzedAt: string;
+  userRating?: number;          // 0.5 to 5, in 0.5 increments
+  userRatingAt?: string;        // ISO timestamp
 }
 
 export interface Source {
