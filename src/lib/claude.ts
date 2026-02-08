@@ -9,6 +9,13 @@ import {
   promptGenerateBriefing,
   promptExtractInterests,
   promptExtractContent,
+  promptFormatText,
+  promptAnalyzeFile,
+  promptAnalyzeContent,
+  promptFindRelatedSources,
+  promptAnalyzeConnections,
+  promptMergeConnections,
+  promptFilterFeed,
 } from "./prompts";
 
 /**
@@ -112,13 +119,7 @@ export async function extractReadableContent(html: string): Promise<string> {
  * Format raw text into readable Markdown
  */
 export async function formatTextContent(text: string): Promise<string> {
-  const prompt = `Reformat this text into clean Markdown. Add headings (H2 and below), lists, and paragraph breaks to improve readability. Preserve all original content.
-
-IMPORTANT: Do NOT add a main title (H1). The title is stored separately. Start directly with the content.
-IMPORTANT: Output raw Markdown directly. Do NOT wrap in a code fence (\`\`\`markdown).
-
-${text.slice(0, 30000)}`;
-
+  const prompt = promptFormatText(text.slice(0, 30000));
   return await callClaude(prompt);
 }
 
@@ -139,29 +140,7 @@ export async function analyzeFile(
   const ext = originalFileName.split(".").pop()?.toLowerCase() || "";
   const isPDF = ext === "pdf";
 
-  const prompt = `Read the file at ${filePath} and extract its content.
-
-${isPDF ? "This is a PDF document." : "This is an image file (likely a screenshot, document scan, or note)."}
-
-Your job is to:
-1. Extract ALL text content from the file
-2. Format it as clean Markdown, preserving the structure (headings, lists, paragraphs, tables, etc.)
-3. Generate a concise title (5-10 words) that captures the main topic
-
-Format your response EXACTLY as:
-TITLE: [your title here]
-
-CONTENT:
-[extracted text formatted as Markdown - preserve structure, use ## for headings, - for lists, etc.]
-
-Rules:
-- Extract ALL text, don't summarize or paraphrase
-- Preserve the original structure as much as possible
-- If there are multiple sections or pages, use Markdown headings to organize
-- If there are bullet points or numbered lists, preserve them
-- If there are tables, format them as Markdown tables
-- ${isPDF ? "For multi-page PDFs, process all pages" : "If the image text is hard to read, do your best to interpret it"}
-- If the file doesn't contain meaningful text, describe what you see instead`;
+  const prompt = promptAnalyzeFile(filePath, isPDF);
 
   // Call Claude with Read tool to analyze the file
   const result = await callClaudeWithReadTool(prompt);
@@ -224,75 +203,8 @@ export async function analyzeContent(
   content: string,
   sourceUrl?: string
 ): Promise<Analysis> {
-  const prompt = `Analyze the following content and help the reader decide how to allocate their attention.
-
-Title: ${title}
-${sourceUrl ? `Source: ${sourceUrl}` : ""}
-
-Content:
-${content.slice(0, 20000)}${content.length > 20000 ? "\n\n[Content truncated...]" : ""}
-
-## Your Task
-
-Give a single **recommendation score (0-100)** that answers: "How much attention is this worth?"
-
-Think objectively: **Would many people find this valuable?**
-
-Consider:
-- **Information density**: Signal vs noise ratio. How much can you learn per paragraph?
-- **Originality**: Is this genuine content (from experience, expertise, or research), or AI-generated fluff / rehashed content that adds nothing new?
-- **Quality of content**: Well-explained? Clear? Teaches something effectively?
-
-Content can be valuable in different ways:
-- **Educational**: Explains concepts, teaches skills, shares knowledge
-- **Insightful**: Offers deep analysis, unique perspectives, or non-obvious observations
-- **Informational**: Provides useful facts, data, or reference material
-
-**IMPORTANT - Do NOT penalize for:**
-- Brevity or concise format (dense content is GOOD, not bad)
-- Lack of detailed argumentation (ideas can be valuable without lengthy justification)
-- Informal style or personal notes format
-- Missing citations or data (judge the ideas themselves)
-
-**Scoring Guide** (action MUST match score range):
-- 80-100 → action: "must_read" — Must read. Every sentence counts.
-- 60-79 → action: "worth_reading" — Worth reading. Read key sections.
-- 40-59 → action: "skim" — Mixed value. Quick scan only.
-- 20-39 → action: "summary_only" — Low value. Just read the summary.
-- 0-19 → action: "skip" — Not worth your time.
-
-Provide your analysis as a JSON object:
-{
-  "triage": {
-    "score": <0-100>,
-    "reason": "<one sentence: why this score?>",
-    "action": "<must_read|worth_reading|skim|summary_only|skip>",
-    "readTimeMinutes": <estimated minutes to read and understand>,
-    "density": <0-100, information per unit text>,
-    "originality": <0-100, genuine thinking vs rehashed/AI content>
-  },
-  "digest": {
-    "summary": "<2-3 sentences>",
-    "highlights": [
-      {"id": "h1", "text": "<key point or takeaway>", "type": "<insight|fact|actionable>"}
-    ],
-    "concepts": [{"id": "c1", "term": "<term>", "definition": "<definition>"}],
-    "structure": ["<outline>"]
-  },
-  "critique": {
-    "hiddenAssumptions": ["<items>"],
-    "potentialIssues": ["<items>"],
-    "needsVerification": ["<items>"],
-    "biasIndicators": ["<items>"]
-  }
-}
-
-**Highlight Types**:
-- insight: Core idea, observation, or argument (whether fact or opinion)
-- fact: Specific verifiable claim or data point
-- actionable: Practical advice or recommendation to act on
-
-Respond with ONLY the JSON object.`;
+  const truncatedContent = content.slice(0, 20000) + (content.length > 20000 ? "\n\n[Content truncated...]" : "");
+  const prompt = promptAnalyzeContent(title, truncatedContent, sourceUrl);
 
   const responseText = await callClaude(prompt);
 
@@ -368,26 +280,7 @@ export async function findRelatedSources(
     .map((s) => `- ID: ${s.id}\n  Title: ${s.title}\n  Summary: ${s.summary}`)
     .join("\n\n");
 
-  const prompt = `You are analyzing a knowledge library to find connections between articles.
-
-## New Source Summary
-${newSourceSummary}
-
-## Existing Sources in Library
-${sourcesContext}
-
-## Task
-Identify which existing sources might have meaningful connections with the new source. Look for:
-1. **Topic overlap** - Similar subjects, concepts, or domains
-2. **Potential contradictions** - Opposing viewpoints or conflicting claims
-3. **Conceptual extensions** - The new source builds on ideas from existing sources
-4. **Supporting/related evidence** - Sources that support or relate to each other
-
-Return a JSON array of source IDs that have potential connections, ordered by relevance.
-Maximum 5 sources. If no relevant connections exist, return an empty array.
-
-Respond with ONLY the JSON array, no explanation.
-Example: ["abc123", "def456"]`;
+  const prompt = promptFindRelatedSources(newSourceSummary, sourcesContext);
 
   console.log("[findRelatedSources] Calling Claude...");
   const responseText = await callClaude(prompt);
@@ -442,48 +335,7 @@ ${newSource.highlights.map((h) => `  - ${h}`).join("\n")}
 Concepts:
 ${newSource.concepts.map((c) => `  - ${c.term}: ${c.definition}`).join("\n")}`;
 
-  const prompt = `You are analyzing connections between a new article and existing sources in a knowledge library.
-
-## New Source: ${newSource.title}
-${newSourceContext}
-
-## Related Sources
-${relatedContext}
-${learnedContext}
-
-## Task
-Identify specific, meaningful connections between the new source and the related sources.
-
-## Connection Types
-1. **redundant** - The new source covers similar ground as an existing source. User can skip one.
-2. **contradicts** - The new source contradicts or presents opposing viewpoints to an existing source. User should read critically.
-3. **related** - The sources share concepts, build on each other, or discuss related topics. Worth reading together.
-
-## Rules
-- Be specific about what conflicts, overlaps, or relates
-- Reference specific claims, highlights, or concepts
-- Keep summaries concise (one sentence)
-- IMPORTANT: In the summary field, always refer to sources by their TITLE, not their ID. For example, write "Overlaps with 'Article Title'" instead of "Overlaps with ID abc123"
-- Provide enough detail for user to understand without reading both sources
-- Only report meaningful connections, not superficial topic overlaps
-- A single connection can reference multiple related sources if they all relate to the same point
-
-Return a JSON array of connections:
-{
-  "connections": [
-    {
-      "id": "conn1",
-      "type": "redundant|contradicts|related",
-      "summary": "One-line description of the connection",
-      "details": "2-3 sentences explaining the connection with specific references",
-      "relatedSourceIds": ["id1", "id2"]
-    }
-  ]
-}
-
-If no meaningful connections exist, return: { "connections": [] }
-
-Respond with ONLY the JSON object.`;
+  const prompt = promptAnalyzeConnections(newSource.title, newSourceContext, relatedContext, learnedContext);
 
   const responseText = await callClaude(prompt);
 
@@ -537,42 +389,7 @@ export async function mergeSourceIntoConnections(
     .map((c, i) => `${i + 1}. [${c.type}] "${c.summary}" - Sources: ${c.relatedSourceIds.join(", ")}`)
     .join("\n");
 
-  const prompt = `You are helping organize connections between knowledge sources.
-
-## Target Source: "${targetSourceTitle}"
-
-## Existing Connections:
-${connectionsContext}
-
-## New Source to Merge:
-- ID: ${newSource.id}
-- Title: "${newSource.title}"
-- Summary: ${newSource.summary}
-
-## Task
-Decide how to integrate the new source into the target's connections:
-1. **Merge**: If the new source discusses the same topic as an existing connection, add it to that connection's relatedSourceIds
-2. **Create new**: If the new source discusses a different topic, create a new connection
-
-## Rules
-- Only merge if the topics are semantically the same (not just vaguely related)
-- Keep connection summaries general enough to cover all related sources
-- If merging, you may update the summary to better reflect all sources
-
-Return the complete updated connections array as JSON:
-{
-  "connections": [
-    {
-      "id": "existing-or-new-id",
-      "type": "redundant|contradicts|related",
-      "summary": "Updated or new summary",
-      "details": "Updated or new details",
-      "relatedSourceIds": ["id1", "id2", "newSourceId"]
-    }
-  ]
-}
-
-Respond with ONLY the JSON object.`;
+  const prompt = promptMergeConnections(targetSourceTitle, connectionsContext, newSource.id, newSource.title, newSource.summary);
 
   const responseText = await callClaude(prompt);
 
@@ -692,8 +509,6 @@ export async function filterFeedItems(
   const libraryContext = userSources.length > 0
     ? userSources.slice(0, 15).map((s) => `- "${escapeForJson(s.title?.slice(0, 60) ?? "")}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
     : "Empty library";
-
-  const { promptFilterFeed } = await import("./prompts");
 
   // Split into batches and process in parallel
   const BATCH_SIZE = 30;

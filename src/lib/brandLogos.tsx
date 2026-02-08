@@ -192,12 +192,16 @@ export function ArxivLogo({ className, style }: LogoProps) {
   );
 }
 
-// Anthropic logo
+// Anthropic logo (using favicon image)
 export function AnthropicLogo({ className, style }: LogoProps) {
   return (
-    <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor">
-      <path d="M17.604 3.332 12 2.395L6.396 3.332 5.03 8.567l2.75 2.75-1.65 4.95 3.87 1.29 2-2 2 2 3.87-1.29-1.65-4.95 2.75-2.75-1.366-5.235zM12 4.605l3.594.613.877 3.347-1.78 1.78L12 7.652l-2.69 2.693-1.78-1.78.876-3.347L12 4.605zm.7 11.053-1.02 1.02-.98-.326V14.63l2 2.028zm-1.4-4.3L12 10.655l.7.703-1.4 1.4v-1.4zm-.28 4.974-.98.327-1.02-1.021 2-2.028v1.722zm3.68-6.68 1.14 1.14-1.36 4.08-1.19-.397 1.41-4.823z" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/favicons/anthropic.png"
+      alt="Anthropic"
+      className={className}
+      style={style}
+    />
   );
 }
 

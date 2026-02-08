@@ -22,13 +22,10 @@ ${content.slice(0, 3000)}`;
 }
 
 export function promptExtractContent(html: string): string {
-  return `Extract the main content from this HTML. Format as clean Markdown.
+  return `Convert this HTML page into clean Markdown. Preserve ALL content completely — do not summarize, skip, or describe. Omit only navigation, ads, and boilerplate.
 
-Your job is to PRESERVE the content, not describe or summarize it.
-
-For discussion pages (forums, comment threads): extract all comments with attribution.
-
-Ignore: navigation, ads, sidebars, footers.
+IMPORTANT: Do NOT add a main title (H1). The title is stored separately. Start directly with the content.
+IMPORTANT: Output raw Markdown directly. Do NOT wrap in a code fence (\`\`\`markdown).
 
 HTML:
 ${html}`;
@@ -37,232 +34,224 @@ ${html}`;
 export function promptFormatText(text: string): string {
   return `Reformat this text into clean Markdown. Add headings (H2 and below), lists, and paragraph breaks to improve readability. Preserve all original content.
 
-Text:
+IMPORTANT: Do NOT add a main title (H1). The title is stored separately. Start directly with the content.
+IMPORTANT: Output raw Markdown directly. Do NOT wrap in a code fence (\`\`\`markdown).
+
 ${text}`;
 }
 
-export function promptAnalyzeFile(filePath: string, fileType: string, context?: string): string {
-  const imageInstructions = `- Describe what you see in the image
-- Extract any text visible in the image (OCR)
-- Note key visual elements, diagrams, or data visualizations
-- If it's a screenshot of an article or document, extract the full text content`;
-
-  const pdfInstructions = `- Extract the main text content
-- Preserve document structure (headings, lists, tables)
-- Note any figures or diagrams`;
-
+export function promptAnalyzeFile(filePath: string, isPDF: boolean): string {
   return `Read the file at ${filePath} and extract its content.
 
-File type: ${fileType}
+${isPDF ? "This is a PDF document." : "This is an image file (likely a screenshot, document scan, or note)."}
 
-Instructions:
-${fileType === "image" ? imageInstructions : ""}
-${fileType === "pdf" ? pdfInstructions : ""}
-${context ? `\nContext about this file:\n${context}` : ""}
+Your job is to:
+1. Extract ALL text content from the file
+2. Format it as clean Markdown, preserving the structure (headings, lists, paragraphs, tables, etc.)
+3. Generate a concise title (5-10 words) that captures the main topic
 
-Output clean Markdown that captures the content of this file.`;
+Format your response EXACTLY as:
+TITLE: [your title here]
+
+CONTENT:
+[extracted text formatted as Markdown - preserve structure, use ## for headings, - for lists, etc.]
+
+Rules:
+- Extract ALL text, don't summarize or paraphrase
+- Preserve the original structure as much as possible
+- If there are multiple sections or pages, use Markdown headings to organize
+- If there are bullet points or numbered lists, preserve them
+- If there are tables, format them as Markdown tables
+- ${isPDF ? "For multi-page PDFs, process all pages" : "If the image text is hard to read, do your best to interpret it"}
+- If the file doesn't contain meaningful text, describe what you see instead`;
 }
 
-export function promptAnalyzeContent(title: string, content: string): string {
+export function promptAnalyzeContent(title: string, content: string, sourceUrl?: string): string {
   return `Analyze the following content and help the reader decide how to allocate their attention.
 
-## Content Title
-${title}
+Title: ${title}
+${sourceUrl ? `Source: ${sourceUrl}` : ""}
 
-## Content
+Content:
 ${content}
 
-## Task
-Analyze this content and generate a structured analysis with TWO modes:
+## Your Task
 
-### Mode 1: Digest (Understanding)
-Help the reader understand and absorb the content efficiently.
+Give a single **recommendation score (0-100)** that answers: "How much attention is this worth?"
 
-### Mode 2: Critique (Evaluation)
-Help the reader evaluate the content critically.
+Think objectively: **Would many people find this valuable?**
 
-## Output Format
-Return a JSON object with this structure:
+Consider:
+- **Information density**: Signal vs noise ratio. How much can you learn per paragraph?
+- **Originality**: Is this genuine content (from experience, expertise, or research), or AI-generated fluff / rehashed content that adds nothing new?
+- **Quality of content**: Well-explained? Clear? Teaches something effectively?
+
+Content can be valuable in different ways:
+- **Educational**: Explains concepts, teaches skills, shares knowledge
+- **Insightful**: Offers deep analysis, unique perspectives, or non-obvious observations
+- **Informational**: Provides useful facts, data, or reference material
+
+**IMPORTANT - Do NOT penalize for:**
+- Brevity or concise format (dense content is GOOD, not bad)
+- Lack of detailed argumentation (ideas can be valuable without lengthy justification)
+- Informal style or personal notes format
+- Missing citations or data (judge the ideas themselves)
+
+**Scoring Guide** (action MUST match score range):
+- 80-100 → action: "must_read" — Must read. Every sentence counts.
+- 60-79 → action: "worth_reading" — Worth reading. Read key sections.
+- 40-59 → action: "skim" — Mixed value. Quick scan only.
+- 20-39 → action: "summary_only" — Low value. Just read the summary.
+- 0-19 → action: "skip" — Not worth your time.
+
+Provide your analysis as a JSON object:
 {
   "triage": {
-    "score": <0-100 attention score>,
-    "action": "must_read" | "worth_reading" | "skim" | "summary_only" | "skip",
-    "reason": "<one sentence explaining why>",
-    "readTimeMinutes": <estimated minutes to read>,
-    "informationDensity": <0-100>,
-    "noveltyScore": <0-100>
+    "score": <0-100>,
+    "reason": "<one sentence: why this score?>",
+    "action": "<must_read|worth_reading|skim|summary_only|skip>",
+    "readTimeMinutes": <estimated minutes to read and understand>,
+    "density": <0-100, information per unit text>,
+    "originality": <0-100, genuine thinking vs rehashed/AI content>
   },
   "digest": {
-    "summary": "<2-3 sentence summary>",
+    "summary": "<2-3 sentences>",
     "highlights": [
-      {"id": "h1", "type": "insight" | "fact" | "actionable", "text": "<highlight>"},
-      ...
+      {"id": "h1", "text": "<key point or takeaway>", "type": "<insight|fact|actionable>"}
     ],
-    "concepts": [
-      {"id": "c1", "term": "<concept>", "definition": "<brief definition>", "importance": "core" | "supporting" | "peripheral"},
-      ...
-    ]
+    "concepts": [{"id": "c1", "term": "<term>", "definition": "<definition>"}],
+    "structure": ["<outline>"]
   },
   "critique": {
-    "assumptions": ["<hidden assumption 1>", ...],
-    "issues": ["<potential issue or weakness>", ...],
-    "questions": ["<question this raises>", ...],
-    "verificationNeeded": ["<claim that should be verified>", ...]
+    "hiddenAssumptions": ["<items>"],
+    "potentialIssues": ["<items>"],
+    "needsVerification": ["<items>"],
+    "biasIndicators": ["<items>"]
   }
 }
 
-## Scoring Guidelines
-
-**Action thresholds:**
-- must_read (90-100): Essential, high-impact, time-sensitive
-- worth_reading (70-89): Valuable, good insights
-- skim (40-69): Some useful parts, not essential
-- summary_only (20-39): Low value, summary sufficient
-- skip (0-19): Not worth time
-
-**Information density**: How much substance per paragraph
-**Novelty score**: How much is genuinely new vs rehashing known ideas
-
-Respond with ONLY the JSON object, no markdown code fences.`;
-}
-
-export function promptFindRelated(
-  newTitle: string,
-  newConcepts: string,
-  newSummary: string,
-  libraryContext: string
-): string {
-  return `You are analyzing a knowledge library to find connections between articles.
-
-## New Source
-Title: ${newTitle}
-Key Concepts: ${newConcepts}
-Summary: ${newSummary}
-
-## Existing Library
-${libraryContext}
-
-## Task
-Find the most relevant connections between the new source and existing library items.
-
-For each connection, explain:
-1. The type of relationship (supports, contradicts, extends, same_topic, prerequisite)
-2. Why they're connected
-3. Confidence level (high/medium/low)
-
-Return JSON:
-{
-  "connections": [
-    {
-      "sourceId": "<id of related source>",
-      "type": "supports" | "contradicts" | "extends" | "same_topic" | "prerequisite",
-      "reason": "<brief explanation>",
-      "confidence": "high" | "medium" | "low"
-    }
-  ]
-}
-
-Rules:
-- Only include genuinely meaningful connections
-- Maximum 5 connections
-- Prefer quality over quantity
-- "prerequisite" means the existing source should be read before the new one
+**Highlight Types**:
+- insight: Core idea, observation, or argument (whether fact or opinion)
+- fact: Specific verifiable claim or data point
+- actionable: Practical advice or recommendation to act on
 
 Respond with ONLY the JSON object.`;
 }
 
+export function promptFindRelatedSources(newSourceSummary: string, sourcesContext: string): string {
+  return `You are analyzing a knowledge library to find connections between articles.
+
+## New Source Summary
+${newSourceSummary}
+
+## Existing Sources in Library
+${sourcesContext}
+
+## Task
+Identify which existing sources might have meaningful connections with the new source. Look for:
+1. **Topic overlap** - Similar subjects, concepts, or domains
+2. **Potential contradictions** - Opposing viewpoints or conflicting claims
+3. **Conceptual extensions** - The new source builds on ideas from existing sources
+4. **Supporting/related evidence** - Sources that support or relate to each other
+
+Return a JSON array of source IDs that have potential connections, ordered by relevance.
+Maximum 5 sources. If no relevant connections exist, return an empty array.
+
+Respond with ONLY the JSON array, no explanation.
+Example: ["abc123", "def456"]`;
+}
+
 export function promptAnalyzeConnections(
-  newTitle: string,
-  newSummary: string,
-  newConcepts: string,
-  newHighlights: string,
-  relatedContext: string
+  newSourceTitle: string,
+  newSourceContext: string,
+  relatedContext: string,
+  learnedContext: string
 ): string {
   return `You are analyzing connections between a new article and existing sources in a knowledge library.
 
-## New Source
-Title: ${newTitle}
-Summary: ${newSummary}
-Key Concepts: ${newConcepts}
-Highlights: ${newHighlights}
+## New Source: ${newSourceTitle}
+${newSourceContext}
 
-## Potentially Related Sources
+## Related Sources
 ${relatedContext}
+${learnedContext}
 
 ## Task
-Analyze how the new source relates to each potentially related source.
+Identify specific, meaningful connections between the new source and the related sources.
 
-For each meaningful connection, provide:
-1. **type**: The relationship type
-   - "supports": New source provides evidence for the other
-   - "contradicts": Sources disagree on key points
-   - "extends": New source builds on or updates the other
-   - "same_topic": Cover the same subject from different angles
-   - "prerequisite": Other source provides needed background
+## Connection Types
+1. **redundant** - The new source covers similar ground as an existing source. User can skip one.
+2. **contradicts** - The new source contradicts or presents opposing viewpoints to an existing source. User should read critically.
+3. **related** - The sources share concepts, build on each other, or discuss related topics. Worth reading together.
 
-2. **summary**: A 1-2 sentence explanation of the specific connection
+## Rules
+- Be specific about what conflicts, overlaps, or relates
+- Reference specific claims, highlights, or concepts
+- Keep summaries concise (one sentence)
+- IMPORTANT: In the summary field, always refer to sources by their TITLE, not their ID. For example, write "Overlaps with 'Article Title'" instead of "Overlaps with ID abc123"
+- Provide enough detail for user to understand without reading both sources
+- Only report meaningful connections, not superficial topic overlaps
+- A single connection can reference multiple related sources if they all relate to the same point
 
-3. **strength**: How strong is this connection (1-10)
-
-Return JSON:
+Return a JSON array of connections:
 {
   "connections": [
     {
-      "targetId": "<source id>",
-      "type": "supports" | "contradicts" | "extends" | "same_topic" | "prerequisite",
-      "summary": "<specific explanation of how they connect>",
-      "strength": <1-10>
+      "id": "conn1",
+      "type": "redundant|contradicts|related",
+      "summary": "One-line description of the connection",
+      "details": "2-3 sentences explaining the connection with specific references",
+      "relatedSourceIds": ["id1", "id2"]
     }
   ]
 }
 
-Rules:
-- Only include connections with strength >= 5
-- Be specific about WHY they connect, not just that they do
-- If sources barely relate, don't force a connection
-- Maximum 10 connections
+If no meaningful connections exist, return: { "connections": [] }
 
 Respond with ONLY the JSON object.`;
 }
 
 export function promptMergeConnections(
-  existingTitle: string,
-  existingConnections: string,
-  newTitle: string,
+  targetSourceTitle: string,
+  connectionsContext: string,
   newSourceId: string,
-  proposedType: string,
-  proposedReason: string
+  newSourceTitle: string,
+  newSourceSummary: string
 ): string {
   return `You are helping organize connections between knowledge sources.
 
-## Existing Connections for "${existingTitle}"
-${existingConnections}
+## Target Source: "${targetSourceTitle}"
 
-## Proposed New Connection
-From: ${newTitle}
-Type: ${proposedType}
-Reason: ${proposedReason}
+## Existing Connections:
+${connectionsContext}
+
+## New Source to Merge:
+- ID: ${newSourceId}
+- Title: "${newSourceTitle}"
+- Summary: ${newSourceSummary}
 
 ## Task
-Decide how to handle this new connection:
+Decide how to integrate the new source into the target's connections:
+1. **Merge**: If the new source discusses the same topic as an existing connection, add it to that connection's relatedSourceIds
+2. **Create new**: If the new source discusses a different topic, create a new connection
 
-1. If it's genuinely new and valuable, ADD it
-2. If it duplicates an existing connection, SKIP it
-3. If it conflicts with existing connections, decide which is more accurate
+## Rules
+- Only merge if the topics are semantically the same (not just vaguely related)
+- Keep connection summaries general enough to cover all related sources
+- If merging, you may update the summary to better reflect all sources
 
-Return JSON:
+Return the complete updated connections array as JSON:
 {
-  "action": "add" | "skip" | "replace",
-  "reason": "<brief explanation>",
-  "connection": {
-    "sourceId": "${newSourceId}",
-    "type": "<final connection type>",
-    "summary": "<final summary>"
-  }
+  "connections": [
+    {
+      "id": "existing-or-new-id",
+      "type": "redundant|contradicts|related",
+      "summary": "Updated or new summary",
+      "details": "Updated or new details",
+      "relatedSourceIds": ["id1", "id2", "newSourceId"]
+    }
+  ]
 }
-
-If action is "skip", connection can be null.
-If action is "replace", include the index of connection to replace as "replaceIndex".
 
 Respond with ONLY the JSON object.`;
 }
