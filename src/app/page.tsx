@@ -457,6 +457,7 @@ function HomeContent() {
                   title: entry.source.meta.title,
                   content: entry.source.content,
                   sourceUrl: entry.source.meta.sourceUrl,
+                  createdAt: entry.source.meta.createdAt,
                   type: entry.source.meta.type,
                   processingStatus: entry.source.meta.processingStatus,
                   analysisError: entry.source.meta.analysisError,
@@ -513,6 +514,7 @@ function HomeContent() {
                   fromCache={feed.fromCache}
                   message={feed.message}
                   briefing={feed.briefing}
+                  signals={feed.signals}
                   loading={feed.loading}
                   error={feed.error}
                   onCapture={handleCaptureUrl}

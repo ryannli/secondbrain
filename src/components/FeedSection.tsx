@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Image as ImageIcon } from "lucide-react";
-import { FeedItem } from "@/lib/types";
+import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Image as ImageIcon, Sparkles } from "lucide-react";
+import { FeedItem, FeedSignals } from "@/lib/types";
+import { formatRelativeTime } from "@/lib/utils";
 
 interface FeedSectionProps {
   items: FeedItem[];
@@ -11,6 +12,7 @@ interface FeedSectionProps {
   fromCache: boolean;
   message?: string;
   briefing?: string;
+  signals?: FeedSignals;
   loading: boolean;
   error: string | null;
   onCapture: (url: string) => void;
@@ -28,6 +30,7 @@ export function FeedSection({
   fromCache,
   message,
   briefing,
+  signals,
   loading,
   error,
   onCapture,
@@ -43,20 +46,7 @@ export function FeedSection({
   const recommendedItems = items.filter(item => item.scoring.action === "recommend");
   const filteredItems = items.filter(item => item.scoring.action === "skip");
 
-  // Format relative time
-  const formatRelativeTime = (isoDate: string) => {
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
+  // Format relative time (shared utility)
 
   // Don't render if no items and no message
   if (items.length === 0 && !message && !loading && !error && !briefing) {
@@ -114,6 +104,18 @@ export function FeedSection({
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Signals: three variants for comparison */}
+      {items.length > 0 && !loading && (signals || interests.length > 0) && (
+        <div className="space-y-3 mb-4">
+          {/* Variant A: Segmented bar */}
+          <SignalsBarVariant interests={interests} signals={signals} palette={palette} theme={theme} />
+          {/* Variant B: Colored dots */}
+          <SignalsDotsVariant interests={interests} signals={signals} palette={palette} theme={theme} />
+          {/* Variant C: Inline sentence */}
+          <SignalsSentenceVariant interests={interests} signals={signals} palette={palette} theme={theme} />
         </div>
       )}
 
@@ -242,6 +244,127 @@ export function FeedSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Signal variants (pick one, delete the rest)
+// =============================================================================
+
+interface SignalsVariantProps {
+  interests: string[];
+  signals?: FeedSignals;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}
+
+/**
+ * Variant A: Segmented color bar — proportional segments, hover to see labels
+ */
+function SignalsBarVariant({ interests, signals, palette, theme }: SignalsVariantProps) {
+  const segments: { label: string; value: number; color: string }[] = [];
+  if (interests.length > 0) segments.push({ label: `${interests.length} topics`, value: interests.length, color: palette[400] });
+  if (signals?.libraryCount) segments.push({ label: `${signals.libraryCount} articles`, value: signals.libraryCount, color: palette[300] });
+  if (signals?.starredCount) segments.push({ label: `${signals.starredCount} starred`, value: signals.starredCount, color: palette[500] });
+  if (signals?.learnedCount) segments.push({ label: `${signals.learnedCount} learned`, value: signals.learnedCount, color: palette[600] });
+  if (segments.length === 0) return null;
+
+  const total = segments.reduce((sum, s) => sum + s.value, 0);
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
+
+  return (
+    <div className="px-3">
+      <p className="text-[11px] font-medium mb-1.5 tracking-wide uppercase" style={{ color: theme.textMuted }}>
+        Variant A — Segmented bar
+      </p>
+      <div className="flex items-center gap-2">
+        <span className="text-xs shrink-0" style={{ color: theme.textMuted }}>Curated for you</span>
+        <div className="flex-1 flex h-1.5 rounded-full overflow-hidden gap-px">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className="h-full rounded-full transition-opacity cursor-default"
+              style={{
+                width: `${Math.max((seg.value / total) * 100, 8)}%`,
+                backgroundColor: seg.color,
+                opacity: hoveredIdx === null || hoveredIdx === i ? 1 : 0.3,
+              }}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              title={seg.label}
+            />
+          ))}
+        </div>
+        {hoveredIdx !== null && (
+          <span className="text-xs shrink-0 tabular-nums" style={{ color: segments[hoveredIdx].color }}>
+            {segments[hoveredIdx].label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Variant B: Colored dots with text labels
+ */
+function SignalsDotsVariant({ interests, signals, palette, theme }: SignalsVariantProps) {
+  const items: { label: string; color: string }[] = [];
+  if (interests.length > 0) items.push({ label: `${interests.length} topics`, color: palette[400] });
+  if (signals?.libraryCount) items.push({ label: `${signals.libraryCount} articles`, color: palette[300] });
+  if (signals?.starredCount) items.push({ label: `${signals.starredCount} starred`, color: palette[500] });
+  if (signals?.learnedCount) items.push({ label: `${signals.learnedCount} learned`, color: palette[600] });
+  if (items.length === 0) return null;
+
+  return (
+    <div className="px-3">
+      <p className="text-[11px] font-medium mb-1.5 tracking-wide uppercase" style={{ color: theme.textMuted }}>
+        Variant B — Colored dots
+      </p>
+      <div className="flex items-center gap-1">
+        <span className="text-xs" style={{ color: theme.textMuted }}>Curated for you</span>
+        <span className="text-xs mx-1" style={{ color: theme.textMuted }}>—</span>
+        {items.map((item, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <span className="text-xs mx-0.5" style={{ color: theme.textMuted }}>·</span>}
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="text-xs" style={{ color: theme.textMuted }}>{item.label}</span>
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Variant C: Inline sentence with highlighted numbers
+ */
+function SignalsSentenceVariant({ interests, signals, palette, theme }: SignalsVariantProps) {
+  const parts: string[] = [];
+  if (interests.length > 0) parts.push(`${interests.length} topic${interests.length > 1 ? "s" : ""}`);
+  if (signals?.libraryCount) parts.push(`${signals.libraryCount} article${signals.libraryCount > 1 ? "s" : ""}`);
+  if (signals?.starredCount) parts.push(`${signals.starredCount} starred highlight${signals.starredCount > 1 ? "s" : ""}`);
+  if (signals?.learnedCount) parts.push(`${signals.learnedCount} learned concept${signals.learnedCount > 1 ? "s" : ""}`);
+  if (parts.length === 0) return null;
+
+  // Join with commas and "and"
+  const text = parts.length === 1
+    ? parts[0]
+    : parts.slice(0, -1).join(", ") + ", and " + parts[parts.length - 1];
+
+  return (
+    <div className="px-3">
+      <p className="text-[11px] font-medium mb-1.5 tracking-wide uppercase" style={{ color: theme.textMuted }}>
+        Variant C — Sentence
+      </p>
+      <p className="text-xs" style={{ color: theme.textMuted }}>
+        Curated from{" "}
+        <span style={{ color: palette[500] }}>{text}</span>
+        {" "}in your library
+      </p>
     </div>
   );
 }

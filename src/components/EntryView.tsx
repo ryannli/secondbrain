@@ -21,6 +21,7 @@ import { MarkdownContent } from "./MarkdownContent";
 import { EntryActions } from "./EntryActions";
 import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
+import { formatRelativeTime } from "@/lib/utils";
 
 // Unified entry interface - works for both Source and Document
 export interface EntryData {
@@ -28,6 +29,7 @@ export interface EntryData {
   title: string;
   content: string;
   sourceUrl?: string;
+  createdAt?: string; // ISO timestamp
   type?: string; // "article", "image", etc.
   processingStatus?: "processing" | "ready" | "failed";
   analysisError?: string;
@@ -236,17 +238,24 @@ export function EntryView({
             </div>
           </div>
 
-          {/* Source URL display */}
-          {entry.sourceUrl && (
-            <a
-              href={entry.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm hover:underline pr-6"
-              style={{ color: theme.textLight }}
-            >
-              {new URL(entry.sourceUrl).hostname} ↗
-            </a>
+          {/* Source URL and timestamp */}
+          {(entry.sourceUrl || entry.createdAt) && (
+            <div className="flex items-center gap-2 text-sm pr-6" style={{ color: theme.textLight }}>
+              {entry.sourceUrl && (
+                <a
+                  href={entry.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {new URL(entry.sourceUrl).hostname} ↗
+                </a>
+              )}
+              {entry.sourceUrl && entry.createdAt && <span>·</span>}
+              {entry.createdAt && (
+                <span>Added {formatRelativeTime(entry.createdAt)}</span>
+              )}
+            </div>
           )}
 
           {/* Content */}
