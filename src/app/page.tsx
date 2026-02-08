@@ -8,6 +8,7 @@ import { theme } from "@/lib/theme";
 import { EntryView } from "@/components/EntryView";
 import { Dashboard } from "@/components/Dashboard";
 import { FeedSection } from "@/components/FeedSection";
+import { HistorySection } from "@/components/HistorySection";
 import { Header } from "@/components/Header";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ContextMenu } from "@/components/ContextMenu";
@@ -16,6 +17,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useSourceActions } from "@/hooks/useSourceActions";
 import { useFeed } from "@/hooks/useFeed";
+import { useHistory } from "@/hooks/useHistory";
 import { useEntryCollection } from "@/hooks/useEntryCollection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useResizable } from "@/hooks/useResizable";
@@ -64,14 +66,15 @@ function HomeContent() {
   });
 
   // Derive currentView from URL
-  const currentView: "dashboard" | "foryou" = viewParam === "foryou" ? "foryou" : "dashboard";
+  const currentView: "dashboard" | "foryou" | "history" =
+    viewParam === "foryou" ? "foryou" : viewParam === "history" ? "history" : "dashboard";
 
   // Navigation helpers
-  const navigateToView = (view: "dashboard" | "foryou") => {
-    if (view === "foryou") {
-      router.push("/?view=foryou");
-    } else {
+  const navigateToView = (view: "dashboard" | "foryou" | "history") => {
+    if (view === "dashboard") {
       router.push("/");
+    } else {
+      router.push(`/?view=${view}`);
     }
   };
 
@@ -100,6 +103,9 @@ function HomeContent() {
 
   // Feed
   const feed = useFeed();
+
+  // History
+  const history = useHistory();
 
   // Context menu
   const {
@@ -173,6 +179,13 @@ function HomeContent() {
   useEffect(() => {
     if (!sourceId && currentView === "foryou") {
       feed.loadFeed();
+    }
+  }, [sourceId, currentView]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load history when viewing History
+  useEffect(() => {
+    if (!sourceId && currentView === "history") {
+      history.loadHistory();
     }
   }, [sourceId, currentView]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -377,6 +390,7 @@ function HomeContent() {
           currentView={currentView}
           onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
           onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
+          onNavigateToHistory={() => { navigateToDashboard(); navigateToView("history"); }}
           onEntryContextMenu={handleEntryContextMenu}
           palette={palette}
           width={sidebarResize.width}
@@ -505,6 +519,17 @@ function HomeContent() {
                 getScoreColor={getScoreColor}
                 debugLoadingMode={debugLoadingMode}
               />
+            ) : currentView === "history" ? (
+              <div className="max-w-2xl mx-auto">
+                <HistorySection
+                  events={history.events}
+                  loading={history.loading}
+                  error={history.error}
+                  onNavigateToSource={navigateToSource}
+                  palette={palette}
+                  theme={theme}
+                />
+              </div>
             ) : currentView === "foryou" ? (
               <div className="max-w-3xl mx-auto">
                 <FeedSection

@@ -1835,3 +1835,122 @@ export async function updateWorkspaceDocument(
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
+
+/**
+ * List all user interaction events across the library for the History timeline.
+ * Scans each source's analysis.json + meta.json for timestamped interactions.
+ */
+export async function listInteractionHistory(
+  libraryPath = getLibraryPath()
+): Promise<HistoryEvent[]> {
+  await ensureLibraryExists(libraryPath);
+  const events: HistoryEvent[] = [];
+
+  async function scanDir(dir: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+
+      const fullPath = path.join(dir, entry.name);
+
+      if (await isEntryDirectory(fullPath)) {
+        const sourceId = entry.name;
+
+        // Load analysis.json
+        let analysis: Analysis | null = null;
+        try {
+          const analysisJson = await fs.readFile(path.join(fullPath, "analysis.json"), "utf-8");
+          const parsed = parseAnalysisJson(analysisJson, sourceId);
+          if (!parsed.error && parsed.analysis) {
+            analysis = parsed.analysis;
+          }
+        } catch {
+          continue; // No analysis = no interactions to extract
+        }
+        if (!analysis) continue;
+
+        // Load title from content.md, fallback to meta.json
+        let title = sourceId;
+        try {
+          const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
+          const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+          if (titleMatch) title = titleMatch[1];
+        } catch {
+          try {
+            const metaData = await readMetaJson(fullPath);
+            title = metaData.original_title || sourceId;
+          } catch {
+            // Keep sourceId as title
+          }
+        }
+
+        // Load lastReadAt from meta.json
+        let lastReadAt: string | undefined;
+        try {
+          const metaPath = path.join(fullPath, "meta.json");
+          const metaRaw = await fs.readFile(metaPath, "utf-8");
+          const metaJson = JSON.parse(metaRaw);
+          lastReadAt = metaJson.lastReadAt;
+        } catch {
+          // No meta or no lastReadAt
+        }
+
+        // Extract events
+        if (analysis.userRatingAt) {
+          events.push({
+            id: `${sourceId}-rating`,
+            type: "rating",
+            timestamp: analysis.userRatingAt,
+            sourceId,
+            sourceTitle: title,
+            rating: analysis.userRating,
+          });
+        }
+
+        for (const h of analysis.digest?.highlights ?? []) {
+          if (h.reactionAt && h.reaction) {
+            events.push({
+              id: `${sourceId}-${h.id}`,
+              type: h.reaction === "star" ? "star" : "dismiss",
+              timestamp: h.reactionAt,
+              sourceId,
+              sourceTitle: title,
+              highlightText: h.text,
+            });
+          }
+        }
+
+        for (const c of analysis.digest?.concepts ?? []) {
+          if (c.statusAt && c.status) {
+            events.push({
+              id: `${sourceId}-${c.id}`,
+              type: c.status,
+              timestamp: c.statusAt,
+              sourceId,
+              sourceTitle: title,
+              conceptTerm: c.term,
+              conceptDefinition: c.definition,
+            });
+          }
+        }
+
+        if (lastReadAt) {
+          events.push({
+            id: `${sourceId}-read`,
+            type: "read",
+            timestamp: lastReadAt,
+            sourceId,
+            sourceTitle: title,
+          });
+        }
+      } else {
+        await scanDir(fullPath);
+      }
+    }
+  }
+
+  await scanDir(libraryPath);
+  events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return events;
+}

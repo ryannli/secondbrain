@@ -6,6 +6,7 @@ import {
   PanelLeft,
   LayoutDashboard,
   Rss,
+  Clock,
 } from "lucide-react";
 import { Source, TreeNode } from "@/lib/types";
 import { theme } from "@/lib/theme";
@@ -61,9 +62,10 @@ export interface SidebarProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   selectedSource: Source | null;
-  currentView: "dashboard" | "foryou";
+  currentView: "dashboard" | "foryou" | "history";
   onNavigateToDashboard: () => void;
   onNavigateToForYou: () => void;
+  onNavigateToHistory: () => void;
   // Sections (Library, Workspace, etc.)
   sections: SectionConfig[];
   // Context menu for entries (shared)
@@ -81,6 +83,7 @@ export function Sidebar({
   currentView,
   onNavigateToDashboard,
   onNavigateToForYou,
+  onNavigateToHistory,
   sections,
   onEntryContextMenu,
   palette,
@@ -149,6 +152,26 @@ export function Sidebar({
               style={{ color: !selectedSource && currentView === "foryou" ? palette[600] : theme.text }}
             >
               For You
+            </span>
+          </button>
+
+          {/* History Entry */}
+          <button
+            onClick={onNavigateToHistory}
+            className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            style={{
+              backgroundColor: !selectedSource && currentView === "history" ? `${palette[500]}15` : undefined,
+            }}
+          >
+            <Clock
+              className="w-4 h-4"
+              style={{ color: !selectedSource && currentView === "history" ? palette[500] : theme.textMuted }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: !selectedSource && currentView === "history" ? palette[600] : theme.text }}
+            >
+              History
             </span>
           </button>
 
