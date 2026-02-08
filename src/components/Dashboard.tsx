@@ -14,6 +14,7 @@ import {
 import { SourceSummary, ACTION_CONFIG, FeedItem } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
 import { getSourceIcon } from "@/lib/sourceIcon";
+import { formatRelativeTime } from "@/lib/utils";
 import { FeedSection } from "@/components/FeedSection";
 
 interface FeedProps {
@@ -337,11 +338,11 @@ export function Dashboard({
             <h3 className="font-medium leading-snug line-clamp-2 text-sm" style={{ color: theme.text }}>
               {source.meta.title}
             </h3>
-            {source.meta.sourceUrl && (
-              <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
-                {new URL(source.meta.sourceUrl).hostname}
-              </p>
-            )}
+            <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
+              {source.meta.sourceUrl && <>{new URL(source.meta.sourceUrl).hostname}</>}
+              {source.meta.sourceUrl && source.meta.createdAt && " · "}
+              {source.meta.createdAt && formatRelativeTime(source.meta.createdAt)}
+            </p>
           </div>
         </div>
 

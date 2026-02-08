@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { TreeNode } from "@/lib/types";
 import { getSourceIcon } from "@/lib/sourceIcon";
-import { formatRelativeTime } from "@/lib/utils";
 
 export interface TreeItemProps {
   node: TreeNode;
@@ -264,17 +263,12 @@ export function TreeItem({
     >
       {getEntryIcon()}
       <span
-        className="text-sm truncate flex-1 min-w-0"
+        className="text-sm truncate"
         style={{ color: isProcessing ? theme.textMuted : isSelected ? palette[600] : theme.text }}
         title={entryTitle}
       >
         {entryTitle}
       </span>
-      {source?.meta.createdAt && (
-        <span className="text-[10px] flex-shrink-0 tabular-nums" style={{ color: theme.textLight }}>
-          {formatRelativeTime(source.meta.createdAt)}
-        </span>
-      )}
     </div>
   );
 }
