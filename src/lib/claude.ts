@@ -486,14 +486,22 @@ export async function extractUserInterests(
 }
 
 /**
- * Build interaction context string from user's attention signals
- * (starred highlights + learned concepts from recent sources)
+ * Interaction signals extracted from user's library
  */
-export function buildInteractionContext(
-  starredHighlights: { text: string; sourceTitle: string }[],
-  learnedConcepts: { term: string; sourceTitle: string }[]
-): string {
-  if (starredHighlights.length === 0 && learnedConcepts.length === 0) return "";
+export interface InteractionSignals {
+  starredHighlights: { text: string; sourceTitle: string }[];
+  dismissedHighlights: { text: string; sourceTitle: string }[];
+  learnedConcepts: { term: string; sourceTitle: string }[];
+  knewConcepts: { term: string; sourceTitle: string }[];
+}
+
+/**
+ * Build interaction context string from user's attention signals
+ */
+export function buildInteractionContext(signals: InteractionSignals): string {
+  const { starredHighlights, dismissedHighlights, learnedConcepts, knewConcepts } = signals;
+  const hasAny = starredHighlights.length + dismissedHighlights.length + learnedConcepts.length + knewConcepts.length > 0;
+  if (!hasAny) return "";
 
   const parts: string[] = [];
 
@@ -510,6 +518,23 @@ export function buildInteractionContext(
       parts.push(`- ${c.term} (from: ${c.sourceTitle})`);
     }
   }
+
+  if (dismissedHighlights.length > 0) {
+    parts.push("## User's Dismissed Highlights (what they are NOT interested in)");
+    for (const h of dismissedHighlights.slice(0, 10)) {
+      parts.push(`- "${h.text}" (from: ${h.sourceTitle})`);
+    }
+  }
+
+  if (knewConcepts.length > 0) {
+    parts.push("## User's Already-Known Concepts (skip basics on these)");
+    for (const c of knewConcepts.slice(0, 10)) {
+      parts.push(`- ${c.term} (from: ${c.sourceTitle})`);
+    }
+  }
+
+  parts.push("");
+  parts.push("NOTE: These signals are noisy — users may star/dismiss casually. Use as soft hints, not hard rules.");
 
   return parts.join("\n");
 }

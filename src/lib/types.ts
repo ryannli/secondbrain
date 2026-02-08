@@ -191,11 +191,18 @@ export interface FeedItem {
   };
 }
 
+export interface FeedSignals {
+  searchCalls: number;       // Number of search API calls triggered
+  libraryCount: number;
+  interactionCount: number;  // Total: starred + dismissed + learned + knew
+}
+
 export interface FeedCache {
   generatedAt: string;           // ISO timestamp
   interests: string[];           // Extracted interest terms
   items: FeedItem[];
   briefing?: string;             // AI-generated briefing for the user
+  signals?: FeedSignals;         // What the AI considered when filtering
 }
 
 // Workspace types
@@ -206,6 +213,19 @@ export interface WorkspaceDocument {
   output: "content.pdf" | "content.md";
   sources?: string[];            // Related Library source IDs
   folder?: string;               // Folder path within workspace/
+}
+
+// History timeline event
+export interface HistoryEvent {
+  id: string;                  // e.g. "abc123-rating"
+  type: "rating" | "star" | "dismiss" | "knew" | "learned" | "read";
+  timestamp: string;           // ISO
+  sourceId: string;
+  sourceTitle: string;
+  rating?: number;             // for rating events
+  highlightText?: string;      // for star/dismiss
+  conceptTerm?: string;        // for knew/learned
+  conceptDefinition?: string;
 }
 
 // Agent conversation types

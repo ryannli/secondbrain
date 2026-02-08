@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { FeedItem } from "@/lib/types";
+import { FeedItem, FeedSignals } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface FeedState {
@@ -11,6 +11,7 @@ interface FeedState {
   fromCache: boolean;
   message?: string;
   briefing?: string;
+  signals?: FeedSignals;
 }
 
 export function useFeed() {
@@ -59,6 +60,7 @@ export function useFeed() {
           fromCache: data.feed.fromCache ?? false,
           message: data.feed.message,
           briefing: data.feed.briefing,
+          signals: data.feed.signals,
         });
         markSeen(feedItems);
       } else if (data.message) {
@@ -91,6 +93,7 @@ export function useFeed() {
           fromCache: false,
           message: data.feed.message,
           briefing: data.feed.briefing,
+          signals: data.feed.signals,
         });
         markSeen(feedItems);
       } else {
@@ -114,6 +117,7 @@ export function useFeed() {
     fromCache: feed.fromCache,
     message: feed.message,
     briefing: feed.briefing,
+    signals: feed.signals,
     loading,
     error,
     loadFeed,

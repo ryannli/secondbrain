@@ -3,7 +3,7 @@ import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig
 import { searchNews } from "@/lib/search";
 import { extractUserInterests, filterFeedItems, generateBriefing, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
-import { FeedCache } from "@/lib/types";
+import { FeedCache, FeedSignals } from "@/lib/types";
 
 /**
  * Check if cache is still fresh
@@ -41,6 +41,7 @@ export async function GET() {
           generatedAt: cache.generatedAt,
           fromCache: true,
           briefing: cache.briefing,
+          signals: cache.signals,
         },
       });
     }
@@ -141,26 +142,34 @@ async function generateFeed() {
     };
   }
 
-  // 3.6 Extract interaction signals (starred highlights + learned concepts from past 30 days)
+  // 3.6 Extract interaction signals from past 30 days
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const starredHighlights: { text: string; sourceTitle: string }[] = [];
-  const learnedConcepts: { term: string; sourceTitle: string }[] = [];
+  const interactionSignals: Parameters<typeof buildInteractionContext>[0] = {
+    starredHighlights: [],
+    dismissedHighlights: [],
+    learnedConcepts: [],
+    knewConcepts: [],
+  };
 
   for (const s of sources) {
     for (const h of s.highlights) {
-      if (h.reaction === "star" && h.reactionAt && new Date(h.reactionAt).getTime() > thirtyDaysAgo) {
-        starredHighlights.push({ text: h.text, sourceTitle: s.title });
-      }
+      if (!h.reactionAt || new Date(h.reactionAt).getTime() <= thirtyDaysAgo) continue;
+      const entry = { text: h.text, sourceTitle: s.title };
+      if (h.reaction === "star") interactionSignals.starredHighlights.push(entry);
+      else if (h.reaction === "dismiss") interactionSignals.dismissedHighlights.push(entry);
     }
     for (const c of s.concepts) {
-      if (c.status === "learned" && c.statusAt && new Date(c.statusAt).getTime() > thirtyDaysAgo) {
-        learnedConcepts.push({ term: c.term, sourceTitle: s.title });
-      }
+      if (!c.statusAt || new Date(c.statusAt).getTime() <= thirtyDaysAgo) continue;
+      const entry = { term: c.term, sourceTitle: s.title };
+      if (c.status === "learned") interactionSignals.learnedConcepts.push(entry);
+      else if (c.status === "knew") interactionSignals.knewConcepts.push(entry);
     }
   }
 
-  const interactionContext = buildInteractionContext(starredHighlights, learnedConcepts);
-  console.log(`[generateFeed] Interaction signals: ${starredHighlights.length} starred highlights, ${learnedConcepts.length} learned concepts`);
+  const totalInteractions = interactionSignals.starredHighlights.length + interactionSignals.dismissedHighlights.length
+    + interactionSignals.learnedConcepts.length + interactionSignals.knewConcepts.length;
+  const interactionContext = buildInteractionContext(interactionSignals);
+  console.log(`[generateFeed] Interaction signals: ${totalInteractions} total (${interactionSignals.starredHighlights.length} starred, ${interactionSignals.dismissedHighlights.length} dismissed, ${interactionSignals.learnedConcepts.length} learned, ${interactionSignals.knewConcepts.length} knew)`);
 
   // 4. Filter and score results
   const sourcesForFilter = sources.map((s) => ({
@@ -182,11 +191,18 @@ async function generateFeed() {
 
   // 6. Save cache
   const generatedAt = new Date().toISOString();
+  const signals: FeedSignals = {
+    searchCalls: (feedSources.includes("news.ycombinator.com") ? 1 : 0)
+      + interests.length * (1 + feedSources.filter(s => s !== "news.ycombinator.com").length),
+    libraryCount: sources.length,
+    interactionCount: totalInteractions,
+  };
   const cache: FeedCache = {
     generatedAt,
     interests,
     items: feedItems,
     briefing,
+    signals,
   };
   await saveFeedCache(cache);
 
@@ -196,5 +212,6 @@ async function generateFeed() {
     generatedAt,
     fromCache: false,
     briefing,
+    signals,
   };
 }
