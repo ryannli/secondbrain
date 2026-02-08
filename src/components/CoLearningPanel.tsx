@@ -673,7 +673,7 @@ export function CoLearningPanel({
               )
             ))}
 
-            {isStreaming && parsed.segments.length === 0 && (
+            {isStreaming && (parsed.segments.length === 0 || parsed.segments[parsed.segments.length - 1]?.type === "text") && (
               <span className="inline-block w-2 h-4 ml-0.5 bg-gray-400 animate-pulse" />
             )}
           </div>

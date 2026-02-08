@@ -130,7 +130,7 @@ export function FeedSection({
       {/* Briefing */}
       {briefing && !loading && (
         <div
-          className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 border"
+          className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 border"
           style={{ borderColor: theme.border }}
         >
           <StructuredBriefing text={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} />
@@ -411,7 +411,7 @@ function TextWithRefs({
                   el?.classList.add("ring-2", "ring-offset-2");
                   setTimeout(() => el?.classList.remove("ring-2", "ring-offset-2"), 1500);
                 }}
-                className="font-medium hover:underline px-1 py-0.5 rounded bg-slate-200/50"
+                className="font-medium hover:underline px-1 py-0.5 rounded bg-slate-200/50 dark:bg-zinc-600/50"
                 style={{ color: palette[600] }}
                 title={item.title}
               >
@@ -508,7 +508,7 @@ function FeedCard({
               e.stopPropagation();
               onCapture(item.url);
             }}
-            className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium shadow-sm hover:bg-gray-50 transition-colors flex items-center gap-1"
+            className="px-3 py-1.5 bg-white dark:bg-zinc-700 rounded-lg text-xs font-medium shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors flex items-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" />
             Save
@@ -517,7 +517,7 @@ function FeedCard({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-white/90 rounded-lg text-xs font-medium shadow-sm hover:bg-white transition-colors flex items-center gap-1"
+            className="px-3 py-1.5 bg-white/90 dark:bg-zinc-700/90 rounded-lg text-xs font-medium shadow-sm hover:bg-white dark:hover:bg-zinc-600 transition-colors flex items-center gap-1"
             onClick={(e) => e.stopPropagation()}
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -531,7 +531,7 @@ function FeedCard({
             e.stopPropagation();
             onDismiss(item.id);
           }}
-          className={`absolute top-2 right-2 p-1 rounded-full bg-white/80 hover:bg-white transition-all ${
+          className={`absolute top-2 right-2 p-1 rounded-full bg-white/80 dark:bg-zinc-700/80 hover:bg-white dark:hover:bg-zinc-600 transition-all ${
             hovering ? "opacity-100" : "opacity-0"
           }`}
         >

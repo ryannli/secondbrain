@@ -8,6 +8,7 @@ import {
   promptGenerateTitle,
   promptGenerateBriefing,
   promptExtractInterests,
+  promptExtractContent,
 } from "./prompts";
 
 /**
@@ -100,16 +101,10 @@ export async function extractReadableContent(html: string): Promise<string> {
   const cleanedHtml = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "");
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\s{2,}/g, " ");
 
-  const prompt = `Extract the main article content from this HTML. Ignore navigation, ads, sidebars. Format as clean Markdown with headings, lists, links preserved.
-
-IMPORTANT: Do NOT include the article's main title (H1). The title is stored separately. Start from the first section or paragraph after the title.
-
-Output only the content.
-
-${cleanedHtml.slice(0, 50000)}`;
-
+  const prompt = promptExtractContent(cleanedHtml.slice(0, 120000));
   return await callClaude(prompt);
 }
 
@@ -120,8 +115,7 @@ export async function formatTextContent(text: string): Promise<string> {
   const prompt = `Reformat this text into clean Markdown. Add headings (H2 and below), lists, and paragraph breaks to improve readability. Preserve all original content.
 
 IMPORTANT: Do NOT add a main title (H1). The title is stored separately. Start directly with the content.
-
-Output only the formatted Markdown.
+IMPORTANT: Output raw Markdown directly. Do NOT wrap in a code fence (\`\`\`markdown).
 
 ${text.slice(0, 30000)}`;
 
