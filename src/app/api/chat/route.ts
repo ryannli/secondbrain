@@ -127,9 +127,17 @@ Be concise but thorough. Use markdown formatting when helpful.
     // Agent runs in user_data directory (can read all, write to library/)
     const userDataPath = getUserDataPath();
 
+    let proc: ReturnType<typeof spawn> | null = null;
+
     const stream = new ReadableStream({
+      cancel() {
+        // Client disconnected (e.g. fetch aborted) — kill the subprocess
+        if (proc) {
+          proc.kill();
+        }
+      },
       start(controller) {
-        const proc = spawn("claude", [
+        proc = spawn("claude", [
           "--print",
           "--output-format", "stream-json",
           "--verbose",
@@ -177,7 +185,7 @@ Be concise but thorough. Use markdown formatting when helpful.
           }
         };
 
-        proc.stdout.on("data", (data) => {
+        proc!.stdout!.on("data", (data) => {
           buffer += data.toString();
 
           // Process complete JSON lines
@@ -263,24 +271,24 @@ Be concise but thorough. Use markdown formatting when helpful.
           }
         });
 
-        proc.stderr.on("data", (data) => {
+        proc!.stderr!.on("data", (data) => {
           console.error("[Claude stderr]:", data.toString());
         });
 
-        proc.on("close", (code) => {
+        proc!.on("close", (code) => {
           if (code !== 0) {
             sendEvent({ type: "error", message: `Claude exited with code ${code}` });
           }
           controller.close();
         });
 
-        proc.on("error", (err) => {
+        proc!.on("error", (err) => {
           sendEvent({ type: "error", message: err.message });
           controller.close();
         });
 
-        proc.stdin.write(prompt);
-        proc.stdin.end();
+        proc!.stdin!.write(prompt);
+        proc!.stdin!.end();
       },
     });
 

@@ -303,6 +303,7 @@ export function CoLearningPanel({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationListRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load conversation list and restore last session on mount
   useEffect(() => {
@@ -466,10 +467,14 @@ export function CoLearningPanel({
   };
 
   const startNewConversation = () => {
+    abortControllerRef.current?.abort();
     setCurrentConversationId(null);
     setMessages([]);
     setContexts((prev) => prev.filter((c) => c.type === "source"));
     setInput("");
+    setStreamingEvents([]);
+    setStreamingMessageId(null);
+    setIsLoading(false);
     setShowConversationList(false);
   };
 
@@ -513,6 +518,9 @@ export function CoLearningPanel({
       console.error("Failed to save conversation early:", e);
     }
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -528,6 +536,7 @@ export function CoLearningPanel({
           sourcePath,
           documentPath,
         }),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
@@ -585,6 +594,10 @@ export function CoLearningPanel({
       onAgentComplete?.();
 
     } catch (err) {
+      // Don't show error for user-initiated abort (e.g. new chat)
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       const errorMessage: AgentMessage = {
         id: `msg-${Date.now()}-error`,
         role: "assistant",
@@ -595,6 +608,7 @@ export function CoLearningPanel({
       setStreamingEvents([]);
       setStreamingMessageId(null);
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
   };
