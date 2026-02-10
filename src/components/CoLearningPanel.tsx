@@ -303,7 +303,10 @@ export function CoLearningPanel({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationListRef = useRef<HTMLDivElement>(null);
-  const activeSessionRef = useRef(0);
+  // Track current conversation ID in a ref so background fetches can check it
+  const currentConvIdRef = useRef<string | null>(null);
+  // Track active background streams: convId → { messageId, events (live reference) }
+  const activeStreamsRef = useRef<Map<string, { messageId: string; events: StreamEvent[] }>>(new Map());
 
   // Load conversation list and restore last session on mount
   useEffect(() => {
@@ -318,8 +321,9 @@ export function CoLearningPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist current conversation ID to localStorage
+  // Persist current conversation ID to localStorage and sync ref
   useEffect(() => {
+    currentConvIdRef.current = currentConversationId;
     if (currentConversationId) {
       localStorage.setItem("agent-conversation-id", currentConversationId);
     }
@@ -409,6 +413,18 @@ export function CoLearningPanel({
         setCurrentConversationId(id);
         setMessages(data.conversation.messages);
         setShowConversationList(false);
+
+        // Resume streaming if there's a background fetch for this conversation
+        const bgStream = activeStreamsRef.current.get(id);
+        if (bgStream) {
+          setStreamingMessageId(bgStream.messageId);
+          setStreamingEvents([...bgStream.events]);
+          setIsLoading(true);
+        } else {
+          setStreamingMessageId(null);
+          setStreamingEvents([]);
+          setIsLoading(false);
+        }
       }
     } catch (err) {
       console.error("Failed to load conversation:", err);
@@ -467,8 +483,7 @@ export function CoLearningPanel({
   };
 
   const startNewConversation = () => {
-    // Invalidate current session — background fetch continues but stops updating UI
-    activeSessionRef.current++;
+    // Clear UI — background fetch continues, keyed by conversation ID
     setCurrentConversationId(null);
     setMessages([]);
     setContexts((prev) => prev.filter((c) => c.type === "source"));
@@ -482,10 +497,6 @@ export function CoLearningPanel({
   const sendMessage = async () => {
     const messageText = input.trim();
     if (!messageText && contexts.length === 0) return;
-
-    // Capture session so background fetch stops updating UI if user switches away
-    const sessionId = activeSessionRef.current;
-    const isActive = () => activeSessionRef.current === sessionId;
 
     const currentContexts = [...contexts];
     const currentHistory = messages.slice(-10).map((m) => ({
@@ -516,11 +527,20 @@ export function CoLearningPanel({
     let convId = currentConversationId;
     try {
       convId = await saveConversation(newMessages, currentConversationId);
-      if (convId && convId !== currentConversationId && isActive()) {
+      if (convId && convId !== currentConversationId) {
         setCurrentConversationId(convId);
       }
     } catch (e) {
       console.error("Failed to save conversation early:", e);
+    }
+
+    // Check if user is still viewing this conversation
+    const isActive = () => convId !== null && currentConvIdRef.current === convId;
+
+    // Register background stream so loadConversation can resume it
+    const allEvents: StreamEvent[] = [];
+    if (convId) {
+      activeStreamsRef.current.set(convId, { messageId: assistantMessageId, events: allEvents });
     }
 
     try {
@@ -549,7 +569,6 @@ export function CoLearningPanel({
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      const allEvents: StreamEvent[] = [];
 
       if (reader) {
         while (true) {
@@ -614,6 +633,9 @@ export function CoLearningPanel({
         setStreamingMessageId(null);
       }
     } finally {
+      if (convId) {
+        activeStreamsRef.current.delete(convId);
+      }
       if (isActive()) {
         setIsLoading(false);
       }
