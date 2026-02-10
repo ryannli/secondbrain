@@ -686,9 +686,7 @@ export async function generateBriefing(
     }
 
     const news: BriefingNewsItem[] = (parsed.news ?? []).map((item: Record<string, unknown>) => ({
-      headline: (item.headline as string) ?? "",
-      detail: (item.detail as string) ?? "",
-      connection: item.connection as string | undefined,
+      text: (item.text as string) ?? "",
       refs: Array.isArray(item.refs) ? item.refs.filter((r: unknown) => typeof r === "number") : [],
     }));
 
@@ -734,10 +732,9 @@ export async function generateInsights(
     if (!Array.isArray(items)) return [];
 
     return items
-      .filter((item: { emoji?: string; text?: string }) => item.emoji && item.text)
+      .filter((item: { text?: string }) => item.text)
       .slice(0, 4)
-      .map((item: { emoji: string; text: string }) => ({
-        emoji: item.emoji,
+      .map((item: { text: string }) => ({
         text: item.text,
       }));
   } catch (err) {

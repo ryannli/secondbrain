@@ -1573,6 +1573,16 @@ export async function markFeedItemsSeen(urls: string[]): Promise<void> {
 }
 
 /**
+ * Remove feed item URLs from seen list
+ */
+export async function unmarkFeedItemsSeen(urls: string[]): Promise<void> {
+  const history = await loadFeedHistory();
+  const removeSet = new Set(urls);
+  history.seen = history.seen.filter((e) => !removeSet.has(e.url));
+  await saveFeedHistory(history);
+}
+
+/**
  * Prune feed history entries older than 7 days (mutates in place)
  */
 function pruneFeedHistory(history: FeedHistory): void {

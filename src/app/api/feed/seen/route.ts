@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { markFeedItemsSeen } from "@/lib/storage";
+import { markFeedItemsSeen, unmarkFeedItemsSeen } from "@/lib/storage";
 
 /**
  * POST /api/feed/seen
- * Mark feed item URLs as seen (for dedup)
+ * Mark or unmark feed item URLs as seen (for dedup)
+ * Body: { urls: string[], unseen?: boolean }
  */
 export async function POST(request: NextRequest) {
   try {
-    const { urls } = await request.json();
+    const { urls, unseen } = await request.json();
 
     if (!Array.isArray(urls) || urls.length === 0) {
       return NextResponse.json({ success: true }); // no-op
     }
 
-    await markFeedItemsSeen(urls);
+    if (unseen) {
+      await unmarkFeedItemsSeen(urls);
+    } else {
+      await markFeedItemsSeen(urls);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

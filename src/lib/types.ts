@@ -172,15 +172,12 @@ export interface CaptureResponse {
 
 // Insight types
 export interface InsightItem {
-  emoji: string;  // e.g. "🔍", "📈"
-  text: string;   // The insight text
+  text: string;   // Markdown text with **bold** highlights
 }
 
 // Briefing types (structured)
 export interface BriefingNewsItem {
-  headline: string;      // Bold, 1-line key fact
-  detail: string;        // 1-2 sentences of context
-  connection?: string;   // Link to user's existing knowledge (optional)
+  text: string;          // 1-2 sentences with **bold** for key facts and connections
   refs: number[];        // Feed item numbers (#N)
 }
 

@@ -30,18 +30,23 @@ export function useFeed() {
   // Filter out dismissed items
   const visibleItems = feed.items.filter((item) => !dismissedSet.has(item.id));
 
-  // Fire-and-forget: mark recommended item URLs as seen
-  const markSeen = useCallback((items: FeedItem[]) => {
-    const urls = items
-      .filter((item) => item.scoring.action === "recommend")
-      .map((item) => item.url);
-    if (urls.length > 0) {
-      fetch("/api/feed/seen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      }).catch(() => {}); // fire-and-forget
-    }
+  // Mark specific URLs as seen/unseen (called when user toggles briefing items)
+  const markUrlsSeen = useCallback((urls: string[]) => {
+    if (urls.length === 0) return;
+    fetch("/api/feed/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    }).catch(() => {});
+  }, []);
+
+  const markUrlsUnseen = useCallback((urls: string[]) => {
+    if (urls.length === 0) return;
+    fetch("/api/feed/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls, unseen: true }),
+    }).catch(() => {});
   }, []);
 
   const loadFeed = useCallback(async () => {
@@ -64,7 +69,6 @@ export function useFeed() {
           signals: data.feed.signals,
           insights: data.feed.insights,
         });
-        markSeen(feedItems);
       } else if (data.message) {
         // Feed disabled or no API key
         setFeed((prev) => ({ ...prev, message: data.message }));
@@ -76,7 +80,7 @@ export function useFeed() {
     } finally {
       setLoading(false);
     }
-  }, [markSeen]);
+  }, []);
 
   const refreshFeed = useCallback(async () => {
     setLoading(true);
@@ -98,7 +102,6 @@ export function useFeed() {
           signals: data.feed.signals,
           insights: data.feed.insights,
         });
-        markSeen(feedItems);
       } else {
         setError(data.error || "Failed to refresh feed");
       }
@@ -107,7 +110,7 @@ export function useFeed() {
     } finally {
       setLoading(false);
     }
-  }, [markSeen]);
+  }, []);
 
   const dismissItem = useCallback((id: string) => {
     setDismissedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -127,5 +130,7 @@ export function useFeed() {
     loadFeed,
     refreshFeed,
     dismissItem,
+    markUrlsSeen,
+    markUrlsUnseen,
   };
 }

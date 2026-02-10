@@ -421,15 +421,15 @@ Identify 2-4 patterns, discoveries, or observations from the user's reading beha
 1. Be specific — reference actual topics, not vague categories
 2. Each insight should be actionable or thought-provoking
 3. Keep each insight to 1-2 sentences
-4. Choose an emoji that fits the insight type (🔍 discovery, 📈 trend, 💡 observation, ⭐ strength, 🎯 focus area, etc.)
+4. Use **bold** sparingly — at most 2-3 key terms per insight, only the most important words
 
 **Output format:**
-Return a JSON array of objects with "emoji" and "text" fields.
+Return a JSON array of objects with a "text" field.
 
 Example:
 [
-  {"emoji": "🔍", "text": "You've been starring highlights about prompt engineering across 3 different sources — might be worth a dedicated deep-dive"},
-  {"emoji": "📈", "text": "Your ratings trend higher for hands-on tutorials (avg 4.2) vs theoretical pieces (avg 2.8)"}
+  {"text": "You've starred highlights about **prompt engineering** across **3 different sources** — might be worth a dedicated deep-dive"},
+  {"text": "Your ratings trend higher for **hands-on tutorials** (avg **4.2**) vs **opinion pieces** (avg **2.8**)"}
 ]
 
 Respond with ONLY the JSON array.`;
@@ -455,29 +455,26 @@ ${interactionSection}
 ${feedContext}
 
 ## Your Task
-Tell the user NEW information they don't already know. Each news item should be standalone valuable - they should learn something just by reading it.
+Tell the user NEW information they don't already know. The briefing itself should be valuable - they should learn something just by reading it.
 
 **RULES:**
 1. **Tell them NEWS** - What JUST happened? What's the new development?
 2. **Don't repeat their library** - They already know what's in their library. Tell them what's NEW.
 3. **Be specific with facts** - "Anthropic raised $10B at $60B valuation" not "there's funding news"
-4. **Each headline should be a single punchy fact** - One line, scannable
-5. **Detail adds context** - 1-2 sentences max, why it matters or what it means
-6. **Connection**: If a news item relates to something in the user's library or their interactions (starred highlights, learned concepts), include a short "connection" string describing the link. Otherwise omit it.
+4. **Make the briefing standalone valuable** - Even if they don't click any links, they should learn something
+5. **Use bold for key facts** - Use **bold** around key names, numbers, and terms so they pop out when scanning
+6. **Connections to user's knowledge** - If a news item connects to something in the user's library or interactions, weave it into the sentence naturally and bold it, e.g. "...which builds on your **'wrong shape software'** concept" or "...relevant to your notes on **prompt engineering**"
 
 ## Output Format
-Return a JSON object with this structure:
+Return a JSON object:
 {
   "news": [
     {
-      "headline": "Company X raised $500M at $5B valuation",
-      "detail": "3x increase from last round. Led by Sequoia with participation from a16z.",
-      "connection": "Your note: 'Startup Funding Trends'",
+      "text": "**Company X** raised **$500M** at **$5B valuation**, 3x increase from last round. Led by Sequoia with a16z participating.",
       "refs": [1]
     },
     {
-      "headline": "New framework benchmarks show 40% speedup over React",
-      "detail": "Independent benchmarks on real-world apps, not micro-benchmarks.",
+      "text": "**New framework** benchmarks show **40% speedup** over React on real-world apps — relevant to your notes on **frontend performance**.",
       "refs": [3, 5]
     }
   ],
@@ -488,11 +485,9 @@ Return a JSON object with this structure:
 }
 
 **FIELD RULES:**
-- "headline": One-line key fact. No markdown formatting.
-- "detail": 1-2 sentences of context. No markdown formatting.
-- "connection": Only include if this news connects to the user's library or interactions. Short phrase like "Your note: 'Title'" or "Relates to your starred highlight about X". Omit if no connection.
-- "refs": Array of feed item numbers (1-based) this news item draws from.
-- "goDeeper": Only 2-3 items that have MORE detail worth clicking for. "reason" should explain what extra detail the article has.
+- "text": 1-2 sentences that tell the full story. Use **bold** for key facts. If there's a connection to the user's knowledge, mention it inline with bold.
+- "refs": Feed item numbers (1-based) this draws from.
+- "goDeeper": Only 2-3 items worth clicking. "reason" = what extra detail the article has.
 
 Respond with ONLY valid JSON, no markdown code blocks.`;
 }

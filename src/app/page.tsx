@@ -550,6 +550,8 @@ function HomeContent() {
                     addContext(text, title);
                     setIsCoLearningOpen(true);
                   }}
+                  onMarkSeen={feed.markUrlsSeen}
+                  onMarkUnseen={feed.markUrlsUnseen}
                   palette={palette}
                   theme={theme}
                 />

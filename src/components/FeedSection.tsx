@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter } from "lucide-react";
+import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Check } from "lucide-react";
 import { FeedItem, FeedSignals, InsightItem, StructuredBriefing as StructuredBriefingType } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -20,6 +20,8 @@ interface FeedSectionProps {
   onDismiss: (id: string) => void;
   onRefresh: () => void;
   onAddContext?: (text: string, title: string) => void;
+  onMarkSeen?: (urls: string[]) => void;
+  onMarkUnseen?: (urls: string[]) => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }
@@ -39,6 +41,8 @@ export function FeedSection({
   onDismiss,
   onRefresh,
   onAddContext,
+  onMarkSeen,
+  onMarkUnseen,
   palette,
   theme,
 }: FeedSectionProps) {
@@ -138,7 +142,7 @@ export function FeedSection({
           className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 border"
           style={{ borderColor: theme.border }}
         >
-          <StructuredBriefing briefing={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} />
+          <StructuredBriefing briefing={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} onMarkSeen={onMarkSeen} onMarkUnseen={onMarkUnseen} />
         </div>
       )}
 
@@ -308,19 +312,20 @@ function InsightsSection({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const plainText = insights.map(i => i.text.replace(/\*\*([^*]+)\*\*/g, "$1")).join("\n");
+
   return (
     <div
       className="rounded-xl mb-6 border overflow-hidden"
-      style={{ borderColor: theme.border, backgroundColor: `${palette[500]}05` }}
+      style={{ borderColor: theme.border }}
     >
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-black/[0.02] transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm">💡</span>
-          <span className="text-sm font-medium" style={{ color: theme.text }}>
-            Insights from your reading
+          <span className="text-sm font-semibold" style={{ color: palette[600] }}>
+            Insights
           </span>
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
@@ -330,16 +335,13 @@ function InsightsSection({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {onAddContext && expanded && (
+          {onAddContext && (
             <span
               onClick={(e) => {
                 e.stopPropagation();
-                onAddContext(
-                  insights.map(i => `${i.emoji} ${i.text}`).join("\n"),
-                  "Reading Insights"
-                );
+                onAddContext(plainText, "Reading Insights");
               }}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
               style={{ color: palette[500] }}
             >
               <Plus className="w-3 h-3" />
@@ -354,16 +356,15 @@ function InsightsSection({
         </div>
       </button>
       {expanded && (
-        <div className="px-4 pb-4 space-y-2">
+        <div className="px-4 pb-4 space-y-1.5">
           {insights.map((insight, i) => (
             <div
               key={i}
-              className="flex items-start gap-3 px-3 py-2.5 rounded-lg"
-              style={{ backgroundColor: theme.bgMuted }}
+              className="flex items-start gap-3 py-2 pl-3 border-l-2"
+              style={{ borderColor: palette[300] }}
             >
-              <span className="text-base shrink-0 mt-0.5">{insight.emoji}</span>
               <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
-                {insight.text}
+                <TextWithBold text={insight.text} palette={palette} />
               </p>
             </div>
           ))}
@@ -374,7 +375,7 @@ function InsightsSection({
 }
 
 /**
- * Renders structured briefing as interactive cards
+ * Renders structured briefing as single-column cards with check toggle
  */
 function StructuredBriefing({
   briefing,
@@ -382,13 +383,19 @@ function StructuredBriefing({
   palette,
   theme,
   onAddContext,
+  onMarkSeen,
+  onMarkUnseen,
 }: {
   briefing: StructuredBriefingType;
   items: FeedItem[];
   palette: Record<number, string>;
   theme: Record<string, string>;
   onAddContext?: (text: string, title: string) => void;
+  onMarkSeen?: (urls: string[]) => void;
+  onMarkUnseen?: (urls: string[]) => void;
 }) {
+  const [readItems, setReadItems] = useState<Set<number>>(new Set());
+
   const scrollToRef = (num: number) => {
     const el = document.getElementById(`feed-item-${num}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -396,7 +403,26 @@ function StructuredBriefing({
     setTimeout(() => el?.classList.remove("ring-2", "ring-offset-2"), 1500);
   };
 
-  const plainText = briefing.news.map(n => `${n.headline}: ${n.detail}`).join("\n");
+  const toggleRead = (index: number) => {
+    const newsItem = briefing.news[index];
+    const wasRead = readItems.has(index);
+    setReadItems(prev => {
+      const next = new Set(prev);
+      if (wasRead) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+    const urls = newsItem.refs
+      .map(ref => items[ref - 1]?.url)
+      .filter(Boolean) as string[];
+    if (wasRead) {
+      onMarkUnseen?.(urls);
+    } else {
+      onMarkSeen?.(urls);
+    }
+  };
+
+  const plainText = briefing.news.map(n => n.text.replace(/\*\*([^*]+)\*\*/g, "$1")).join("\n");
 
   return (
     <div className="space-y-4 group/briefing">
@@ -408,7 +434,7 @@ function StructuredBriefing({
         {onAddContext && (
           <button
             onClick={() => onAddContext(plainText, "What's New Briefing")}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs opacity-0 group-hover/briefing:opacity-60 hover:!opacity-100 transition-opacity"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs opacity-50 hover:opacity-100 transition-opacity"
             style={{ color: palette[500] }}
             title="Add to Agent context"
           >
@@ -418,51 +444,52 @@ function StructuredBriefing({
         )}
       </div>
 
-      {/* News cards grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {briefing.news.map((newsItem, i) => (
-          <div
-            key={i}
-            className="p-3 rounded-lg border transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/50"
-            style={{ borderColor: theme.border }}
-          >
-            {/* Ref badges */}
-            <div className="flex items-center gap-1 mb-1.5">
-              {newsItem.refs.map((ref) => (
-                <button
-                  key={ref}
-                  onClick={() => scrollToRef(ref)}
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full hover:underline"
-                  style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
-                  title={items[ref - 1]?.title}
-                >
-                  #{ref}
-                </button>
-              ))}
-            </div>
+      {/* News items — single column */}
+      <div className="space-y-2">
+        {briefing.news.map((newsItem, i) => {
+          const isRead = readItems.has(i);
+          return (
+            <div
+              key={i}
+              className="group/card flex items-start gap-2.5 p-3 rounded-lg cursor-pointer transition-all hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+              style={{ opacity: isRead ? 0.35 : 1 }}
+              onClick={(e) => {
+                // Don't toggle if clicking a ref badge
+                if ((e.target as HTMLElement).closest("[data-ref-badge]")) return;
+                toggleRead(i);
+              }}
+            >
+              {/* Text content */}
+              <p className="flex-1 text-sm leading-relaxed" style={{ color: theme.text }}>
+                {newsItem.refs.map((ref) => (
+                  <button
+                    key={ref}
+                    data-ref-badge
+                    onClick={(e) => { e.stopPropagation(); scrollToRef(ref); }}
+                    className="inline-flex font-bold mr-1.5 px-1.5 py-0.5 rounded-full text-[10px] hover:underline align-middle"
+                    style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                    title={items[ref - 1]?.title}
+                  >
+                    #{ref}
+                  </button>
+                ))}
+                <TextWithBold text={newsItem.text || ""} palette={palette} />
+              </p>
 
-            {/* Headline */}
-            <p className="text-sm font-semibold leading-snug mb-1" style={{ color: theme.text }}>
-              {newsItem.headline}
-            </p>
-
-            {/* Detail */}
-            <p className="text-xs leading-relaxed" style={{ color: theme.textMuted }}>
-              {newsItem.detail}
-            </p>
-
-            {/* Connection badge */}
-            {newsItem.connection && (
+              {/* Check circle — right side */}
               <div
-                className="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded-md"
-                style={{ backgroundColor: `${palette[500]}10`, color: palette[600] }}
-              >
-                <span>🔗</span>
-                <span>{newsItem.connection}</span>
-              </div>
-            )}
-          </div>
-        ))}
+                  className="shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                  style={{
+                    borderColor: isRead ? palette[500] : theme.border,
+                    backgroundColor: isRead ? palette[500] : "transparent",
+                    color: isRead ? "white" : theme.textMuted,
+                  }}
+                >
+                  {isRead && <Check className="w-3 h-3" />}
+                </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Go deeper */}
@@ -489,6 +516,35 @@ function StructuredBriefing({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Renders text with **bold** markers highlighted
+ */
+function TextWithBold({
+  text,
+  palette,
+}: {
+  text: string;
+  palette: Record<number, string>;
+}) {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+        if (boldMatch) {
+          return (
+            <span key={i} className="font-semibold" style={{ color: palette[700] }}>
+              {boldMatch[1]}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
   );
 }
 
