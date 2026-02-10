@@ -155,13 +155,13 @@ async function generateFeed() {
   for (const s of sources) {
     for (const h of s.highlights) {
       if (!h.reactionAt || new Date(h.reactionAt).getTime() <= thirtyDaysAgo) continue;
-      const entry = { text: h.text, sourceTitle: s.title };
+      const entry = { text: h.text, sourceTitle: s.title, at: h.reactionAt };
       if (h.reaction === "star") interactionSignals.starredHighlights.push(entry);
       else if (h.reaction === "dismiss") interactionSignals.dismissedHighlights.push(entry);
     }
     for (const c of s.concepts) {
       if (!c.statusAt || new Date(c.statusAt).getTime() <= thirtyDaysAgo) continue;
-      const entry = { term: c.term, sourceTitle: s.title };
+      const entry = { term: c.term, sourceTitle: s.title, at: c.statusAt };
       if (c.status === "learned") interactionSignals.learnedConcepts.push(entry);
       else if (c.status === "knew") interactionSignals.knewConcepts.push(entry);
     }
@@ -185,6 +185,7 @@ async function generateFeed() {
   // 5. Generate briefing
   const sourcesForBriefing = sources.map((s) => ({
     title: s.title,
+    summary: s.summary,
     concepts: s.concepts.map((c) => c.term),
   }));
   const briefing = await generateBriefing(feedItems, sourcesForBriefing, interactionContext, interests);

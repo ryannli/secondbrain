@@ -490,15 +490,25 @@ export async function extractUserInterests(
  * Interaction signals extracted from user's library
  */
 export interface InteractionSignals {
-  starredHighlights: { text: string; sourceTitle: string }[];
-  dismissedHighlights: { text: string; sourceTitle: string }[];
-  learnedConcepts: { term: string; sourceTitle: string }[];
-  knewConcepts: { term: string; sourceTitle: string }[];
+  starredHighlights: { text: string; sourceTitle: string; at?: string }[];
+  dismissedHighlights: { text: string; sourceTitle: string; at?: string }[];
+  learnedConcepts: { term: string; sourceTitle: string; at?: string }[];
+  knewConcepts: { term: string; sourceTitle: string; at?: string }[];
 }
 
 /**
  * Build interaction context string from user's attention signals
  */
+function formatTimeAgo(isoDate?: string): string {
+  if (!isoDate) return "";
+  const days = Math.round((Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24));
+  if (days === 0) return " [today]";
+  if (days === 1) return " [yesterday]";
+  if (days < 7) return ` [${days}d ago]`;
+  if (days < 30) return ` [${Math.round(days / 7)}w ago]`;
+  return ` [${Math.round(days / 30)}mo ago]`;
+}
+
 export function buildInteractionContext(signals: InteractionSignals): string {
   const { starredHighlights, dismissedHighlights, learnedConcepts, knewConcepts } = signals;
   const hasAny = starredHighlights.length + dismissedHighlights.length + learnedConcepts.length + knewConcepts.length > 0;
@@ -509,33 +519,34 @@ export function buildInteractionContext(signals: InteractionSignals): string {
   if (starredHighlights.length > 0) {
     parts.push("## User's Starred Highlights (what they find important)");
     for (const h of starredHighlights.slice(0, 10)) {
-      parts.push(`- "${h.text}" (from: ${h.sourceTitle})`);
+      parts.push(`- "${h.text}" (from: ${h.sourceTitle})${formatTimeAgo(h.at)}`);
     }
   }
 
   if (learnedConcepts.length > 0) {
     parts.push("## User's Learned Concepts (topics they actively study)");
     for (const c of learnedConcepts.slice(0, 10)) {
-      parts.push(`- ${c.term} (from: ${c.sourceTitle})`);
+      parts.push(`- ${c.term} (from: ${c.sourceTitle})${formatTimeAgo(c.at)}`);
     }
   }
 
   if (dismissedHighlights.length > 0) {
     parts.push("## User's Dismissed Highlights (what they are NOT interested in)");
     for (const h of dismissedHighlights.slice(0, 10)) {
-      parts.push(`- "${h.text}" (from: ${h.sourceTitle})`);
+      parts.push(`- "${h.text}" (from: ${h.sourceTitle})${formatTimeAgo(h.at)}`);
     }
   }
 
   if (knewConcepts.length > 0) {
     parts.push("## User's Already-Known Concepts (skip basics on these)");
     for (const c of knewConcepts.slice(0, 10)) {
-      parts.push(`- ${c.term} (from: ${c.sourceTitle})`);
+      parts.push(`- ${c.term} (from: ${c.sourceTitle})${formatTimeAgo(c.at)}`);
     }
   }
 
   parts.push("");
   parts.push("NOTE: These signals are noisy — users may star/dismiss casually. Use as soft hints, not hard rules.");
+  parts.push("Timestamps like [2d ago] indicate when the user made each interaction.");
 
   return parts.join("\n");
 }
@@ -707,14 +718,18 @@ export async function generateBriefing(
  */
 export async function generateInsights(
   interactionSignals: InteractionSignals,
-  userSources: { title: string; concepts: string[] }[],
+  userSources: { title: string; summary?: string; concepts: string[] }[],
   interests: string[] = []
 ): Promise<InsightItem[]> {
   const interactionContext = buildInteractionContext(interactionSignals);
   if (!interactionContext) return [];
 
   const libraryContext = userSources.length > 0
-    ? userSources.slice(0, 15).map(s => `- "${s.title}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
+    ? userSources.slice(0, 15).map(s => {
+        const concepts = s.concepts.slice(0, 3).join(", ");
+        const summary = s.summary ? ` — ${s.summary}` : "";
+        return `- "${s.title}" (${concepts})${summary}`;
+      }).join("\n")
     : "Empty library";
 
   const prompt = promptGenerateInsights(interactionContext, libraryContext, interests);

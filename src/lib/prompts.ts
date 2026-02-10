@@ -416,6 +416,8 @@ Identify 2-4 patterns, discoveries, or observations from the user's reading beha
 - Reading patterns: "Your ratings trend higher for technical deep-dives vs opinion pieces"
 - Strength areas: "You already knew concepts around X across multiple sources — strong foundation"
 - Contrasts: "You starred opposing viewpoints on X — worth exploring this debate"
+- Temporal trends: "In the past week you've focused heavily on X — a shift from earlier interests in Y"
+- Recency clusters: "3 of your last 4 interactions were about X — this topic is clearly on your mind right now"
 
 **Rules:**
 1. Be specific — reference actual topics, not vague categories

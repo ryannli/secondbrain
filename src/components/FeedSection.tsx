@@ -325,7 +325,7 @@ function InsightsSection({
       >
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold" style={{ color: palette[600] }}>
-            Insights
+            Insights about you
           </span>
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
@@ -356,14 +356,17 @@ function InsightsSection({
         </div>
       </button>
       {expanded && (
-        <div className="px-4 pb-4 space-y-1.5">
+        <div className="px-4 pb-4">
           {insights.map((insight, i) => (
             <div
               key={i}
-              className="flex items-start gap-3 py-2 pl-3 border-l-2"
-              style={{ borderColor: palette[300] }}
+              className="animate-[fadeSlideUp_0.3s_ease-out_both]"
+              style={{ animationDelay: `${i * 80}ms` }}
             >
-              <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
+              {i > 0 && (
+                <div className="h-px mx-2 my-1" style={{ backgroundColor: theme.border }} />
+              )}
+              <p className="text-sm leading-relaxed py-2.5 px-2" style={{ color: theme.text }}>
                 <TextWithBold text={insight.text} palette={palette} />
               </p>
             </div>
@@ -530,17 +533,22 @@ function TextWithBold({
   palette: Record<number, string>;
 }) {
   if (!text) return null;
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  // Split on **bold** and *italic* markers (bold first to avoid conflicts)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return (
     <>
       {parts.map((part, i) => {
         const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
         if (boldMatch) {
           return (
-            <span key={i} className="font-semibold" style={{ color: palette[700] }}>
+            <mark key={i} className="font-medium bg-amber-100/70 dark:bg-amber-400/15 text-inherit rounded-sm px-0.5 py-[1px]" style={{ textDecorationColor: "transparent" }}>
               {boldMatch[1]}
-            </span>
+            </mark>
           );
+        }
+        const italicMatch = part.match(/^\*([^*]+)\*$/);
+        if (italicMatch) {
+          return <span key={i} className="underline decoration-1 underline-offset-2">{italicMatch[1]}</span>;
         }
         return <span key={i}>{part}</span>;
       })}

@@ -467,6 +467,23 @@ export function CoLearningPanel({
   };
 
   const startNewConversation = () => {
+    // Save partial streaming response before aborting
+    if (streamingMessageId && streamingEvents.length > 0 && currentConversationId) {
+      const parsed = buildParsedMessage(streamingEvents);
+      const partialContent = segmentsToText(parsed.segments);
+      if (partialContent) {
+        const partialMessage: AgentMessage = {
+          id: streamingMessageId,
+          role: "assistant",
+          content: partialContent,
+          timestamp: new Date().toISOString(),
+          streamEvents: streamingEvents,
+        };
+        const msgsToSave = [...messages, partialMessage];
+        saveConversation(msgsToSave, currentConversationId);
+      }
+    }
+
     abortControllerRef.current?.abort();
     setCurrentConversationId(null);
     setMessages([]);
