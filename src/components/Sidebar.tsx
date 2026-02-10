@@ -66,7 +66,7 @@ export interface SidebarProps {
   onNavigateToDashboard: () => void;
   onNavigateToForYou: () => void;
   onNavigateToHistory: () => void;
-  // Sections (Library, Workspace, etc.)
+  // Sections (Library, Studio, etc.)
   sections: SectionConfig[];
   // Context menu for entries (shared)
   onEntryContextMenu: (e: React.MouseEvent, entryId: string, entryUrl?: string, entryType?: "source" | "document") => void;

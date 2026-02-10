@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter } from "lucide-react";
-import { FeedItem, FeedSignals } from "@/lib/types";
+import { FeedItem, FeedSignals, InsightItem, StructuredBriefing as StructuredBriefingType } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface FeedSectionProps {
@@ -11,8 +11,9 @@ interface FeedSectionProps {
   generatedAt: string | null;
   fromCache: boolean;
   message?: string;
-  briefing?: string;
+  briefing?: StructuredBriefingType;
   signals?: FeedSignals;
+  insights?: InsightItem[];
   loading: boolean;
   error: string | null;
   onCapture: (url: string) => void;
@@ -31,6 +32,7 @@ export function FeedSection({
   message,
   briefing,
   signals,
+  insights,
   loading,
   error,
   onCapture,
@@ -131,13 +133,18 @@ export function FeedSection({
       )}
 
       {/* Briefing */}
-      {briefing && !loading && (
+      {briefing && briefing.news && briefing.news.length > 0 && !loading && (
         <div
           className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 border"
           style={{ borderColor: theme.border }}
         >
-          <StructuredBriefing text={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} />
+          <StructuredBriefing briefing={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} />
         </div>
+      )}
+
+      {/* Insights */}
+      {insights && insights.length > 0 && !loading && (
+        <InsightsSection insights={insights} palette={palette} theme={theme} onAddContext={onAddContext} />
       )}
 
       {/* Message (empty state or disabled) */}
@@ -286,98 +293,80 @@ function SignalsBar({
 }
 
 /**
- * Renders structured briefing with section headers and clickable references
+ * Collapsible section showing AI-generated insights from reading behavior
  */
-function StructuredBriefing({
-  text,
-  items,
+function InsightsSection({
+  insights,
   palette,
   theme,
   onAddContext,
 }: {
-  text: string;
-  items: FeedItem[];
+  insights: InsightItem[];
   palette: Record<number, string>;
   theme: Record<string, string>;
   onAddContext?: (text: string, title: string) => void;
 }) {
-  // Parse sections from text
-  const sections: { title: string; content: string[] }[] = [];
-  let currentSection: { title: string; content: string[] } | null = null;
-
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // Check if this is a section header (starts with **)
-    const headerMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-    if (headerMatch) {
-      if (currentSection) sections.push(currentSection);
-      currentSection = { title: headerMatch[1], content: [] };
-    } else if (currentSection) {
-      currentSection.content.push(trimmed);
-    }
-  }
-  if (currentSection) sections.push(currentSection);
-
-  // Find specific sections
-  const whatsNew = sections.find(s => s.title.toLowerCase().includes("what"));
-  const goDeeper = sections.find(s => s.title.toLowerCase().includes("deeper") || s.title.toLowerCase().includes("start"));
-
-  // Helper to strip markdown formatting for plain text context
-  const stripMarkdown = (lines: string[]) =>
-    lines.map(l => l.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/#\d+/g, "")).join("\n");
-
-  // Section header with optional "Add Context" button
-  const SectionHeader = ({ title, content, color }: { title: string; content: string[]; color: string }) => (
-    <div className="flex items-center justify-between mb-2">
-      <h4 className="text-sm font-semibold" style={{ color }}>
-        {title}
-      </h4>
-      {onAddContext && (
-        <button
-          onClick={() => onAddContext(stripMarkdown(content), title)}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs opacity-0 group-hover/section:opacity-60 hover:!opacity-100 transition-opacity"
-          style={{ color: palette[500] }}
-          title="Add to Agent context"
-        >
-          <Plus className="w-3 h-3" />
-          <span>Context</span>
-        </button>
-      )}
-    </div>
-  );
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="space-y-4 group/briefing">
-      {/* What's new */}
-      {whatsNew && (
-        <div
-          className="group/section p-4 rounded-lg"
-          style={{ backgroundColor: `${palette[500]}08` }}
-        >
-          <SectionHeader title={whatsNew.title} content={whatsNew.content} color={palette[600]} />
-          <div className="space-y-1.5">
-            {whatsNew.content.map((line, i) => (
-              <p key={i} className="text-sm leading-relaxed" style={{ color: theme.textMuted }}>
-                <TextWithRefs text={line} items={items} palette={palette} theme={theme} />
-              </p>
-            ))}
-          </div>
+    <div
+      className="rounded-xl mb-6 border overflow-hidden"
+      style={{ borderColor: theme.border, backgroundColor: `${palette[500]}05` }}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-black/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">💡</span>
+          <span className="text-sm font-medium" style={{ color: theme.text }}>
+            Insights from your reading
+          </span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full"
+            style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+          >
+            {insights.length}
+          </span>
         </div>
-      )}
-
-      {/* Bottom: Go deeper */}
-      {goDeeper && (
-        <div className="group/section pt-3 border-t" style={{ borderColor: theme.border }}>
-          <SectionHeader title={goDeeper.title} content={goDeeper.content} color={theme.text} />
-          <div className="space-y-1">
-            {goDeeper.content.map((line, i) => (
-              <p key={i} className="text-sm" style={{ color: theme.textMuted }}>
-                <TextWithRefs text={line} items={items} palette={palette} theme={theme} />
+        <div className="flex items-center gap-2">
+          {onAddContext && expanded && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddContext(
+                  insights.map(i => `${i.emoji} ${i.text}`).join("\n"),
+                  "Reading Insights"
+                );
+              }}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
+              style={{ color: palette[500] }}
+            >
+              <Plus className="w-3 h-3" />
+              Context
+            </span>
+          )}
+          {expanded ? (
+            <ChevronUp className="w-4 h-4" style={{ color: theme.textMuted }} />
+          ) : (
+            <ChevronDown className="w-4 h-4" style={{ color: theme.textMuted }} />
+          )}
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-2">
+          {insights.map((insight, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-3 px-3 py-2.5 rounded-lg"
+              style={{ backgroundColor: theme.bgMuted }}
+            >
+              <span className="text-base shrink-0 mt-0.5">{insight.emoji}</span>
+              <p className="text-sm leading-relaxed" style={{ color: theme.text }}>
+                {insight.text}
               </p>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -385,63 +374,121 @@ function StructuredBriefing({
 }
 
 /**
- * Renders text with clickable #N references and bold formatting
+ * Renders structured briefing as interactive cards
  */
-function TextWithRefs({
-  text,
+function StructuredBriefing({
+  briefing,
   items,
   palette,
   theme,
+  onAddContext,
 }: {
-  text: string;
+  briefing: StructuredBriefingType;
   items: FeedItem[];
   palette: Record<number, string>;
   theme: Record<string, string>;
+  onAddContext?: (text: string, title: string) => void;
 }) {
-  // Parse bold markers and #N references
-  const parts = text.split(/(\*\*[^*]+\*\*|#\d+)/g);
+  const scrollToRef = (num: number) => {
+    const el = document.getElementById(`feed-item-${num}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.classList.add("ring-2", "ring-offset-2");
+    setTimeout(() => el?.classList.remove("ring-2", "ring-offset-2"), 1500);
+  };
+
+  const plainText = briefing.news.map(n => `${n.headline}: ${n.detail}`).join("\n");
 
   return (
-    <>
-      {parts.map((part, i) => {
-        // Handle bold text - make it stand out more
-        const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
-        if (boldMatch) {
-          return (
-            <span key={i} className="font-semibold" style={{ color: palette[700] }}>
-              {boldMatch[1]}
-            </span>
-          );
-        }
+    <div className="space-y-4 group/briefing">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold" style={{ color: palette[600] }}>
+          What&apos;s new
+        </h4>
+        {onAddContext && (
+          <button
+            onClick={() => onAddContext(plainText, "What's New Briefing")}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs opacity-0 group-hover/briefing:opacity-60 hover:!opacity-100 transition-opacity"
+            style={{ color: palette[500] }}
+            title="Add to Agent context"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Context</span>
+          </button>
+        )}
+      </div>
 
-        // Handle #N references
-        const refMatch = part.match(/^#(\d+)$/);
-        if (refMatch) {
-          const num = parseInt(refMatch[1], 10);
-          const item = items[num - 1];
-          if (item) {
-            return (
-              <button
-                key={i}
-                onClick={() => {
-                  const el = document.getElementById(`feed-item-${num}`);
-                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  el?.classList.add("ring-2", "ring-offset-2");
-                  setTimeout(() => el?.classList.remove("ring-2", "ring-offset-2"), 1500);
-                }}
-                className="font-medium hover:underline px-1 py-0.5 rounded bg-slate-200/50 dark:bg-zinc-600/50"
-                style={{ color: palette[600] }}
-                title={item.title}
+      {/* News cards grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {briefing.news.map((newsItem, i) => (
+          <div
+            key={i}
+            className="p-3 rounded-lg border transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/50"
+            style={{ borderColor: theme.border }}
+          >
+            {/* Ref badges */}
+            <div className="flex items-center gap-1 mb-1.5">
+              {newsItem.refs.map((ref) => (
+                <button
+                  key={ref}
+                  onClick={() => scrollToRef(ref)}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full hover:underline"
+                  style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                  title={items[ref - 1]?.title}
+                >
+                  #{ref}
+                </button>
+              ))}
+            </div>
+
+            {/* Headline */}
+            <p className="text-sm font-semibold leading-snug mb-1" style={{ color: theme.text }}>
+              {newsItem.headline}
+            </p>
+
+            {/* Detail */}
+            <p className="text-xs leading-relaxed" style={{ color: theme.textMuted }}>
+              {newsItem.detail}
+            </p>
+
+            {/* Connection badge */}
+            {newsItem.connection && (
+              <div
+                className="mt-2 text-xs flex items-center gap-1 px-2 py-1 rounded-md"
+                style={{ backgroundColor: `${palette[500]}10`, color: palette[600] }}
               >
-                #{num}
-              </button>
-            );
-          }
-        }
+                <span>🔗</span>
+                <span>{newsItem.connection}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
-        return <span key={i} style={{ color: theme.textMuted }}>{part}</span>;
-      })}
-    </>
+      {/* Go deeper */}
+      {briefing.goDeeper.length > 0 && (
+        <div className="pt-3 border-t" style={{ borderColor: theme.border }}>
+          <h4 className="text-sm font-semibold mb-2" style={{ color: theme.text }}>
+            Go deeper
+          </h4>
+          <div className="space-y-1">
+            {briefing.goDeeper.map((item, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <button
+                  onClick={() => scrollToRef(item.ref)}
+                  className="font-bold shrink-0 px-1.5 py-0.5 rounded-full text-xs hover:underline"
+                  style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                  title={items[item.ref - 1]?.title}
+                >
+                  #{item.ref}
+                </button>
+                <span style={{ color: theme.textMuted }}>{item.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -147,14 +147,14 @@ export interface SourceSummary {
   action?: ActionType;
 }
 
-// Tree structure for folder view (used by both Library and Workspace)
+// Tree structure for folder view (used by both Library and Studio)
 export interface TreeNode {
   type: "folder" | "source" | "document";
   name: string;
-  path: string; // relative path within library/ or workspace/
+  path: string; // relative path within library/ or studio/
   children?: TreeNode[];
   source?: SourceSummary;
-  document?: WorkspaceDocument;
+  document?: StudioDocument;
 }
 
 // API types
@@ -168,6 +168,30 @@ export interface CaptureResponse {
   success: boolean;
   source?: Source;
   error?: string;
+}
+
+// Insight types
+export interface InsightItem {
+  emoji: string;  // e.g. "🔍", "📈"
+  text: string;   // The insight text
+}
+
+// Briefing types (structured)
+export interface BriefingNewsItem {
+  headline: string;      // Bold, 1-line key fact
+  detail: string;        // 1-2 sentences of context
+  connection?: string;   // Link to user's existing knowledge (optional)
+  refs: number[];        // Feed item numbers (#N)
+}
+
+export interface BriefingGoDeeper {
+  ref: number;           // Feed item number
+  reason: string;        // Why it's worth clicking
+}
+
+export interface StructuredBriefing {
+  news: BriefingNewsItem[];
+  goDeeper: BriefingGoDeeper[];
 }
 
 // Feed types
@@ -201,18 +225,19 @@ export interface FeedCache {
   generatedAt: string;           // ISO timestamp
   interests: string[];           // Extracted interest terms
   items: FeedItem[];
-  briefing?: string;             // AI-generated briefing for the user
+  briefing?: StructuredBriefing;  // AI-generated structured briefing
   signals?: FeedSignals;         // What the AI considered when filtering
+  insights?: InsightItem[];      // AI-generated insights from user's reading behavior
 }
 
-// Workspace types
-export interface WorkspaceDocument {
+// Studio types
+export interface StudioDocument {
   id: string;                    // doc-abc123
   title: string;
   createdAt: string;             // ISO timestamp
   output: "content.pdf" | "content.md";
   sources?: string[];            // Related Library source IDs
-  folder?: string;               // Folder path within workspace/
+  folder?: string;               // Folder path within studio/
 }
 
 // History timeline event

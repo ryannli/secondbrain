@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { moveEntry, getLibraryPath, getWorkspacePath } from "@/lib/storage";
+import { moveEntry, getLibraryPath, getStudioPath } from "@/lib/storage";
 
-type Section = "library" | "workspace";
+type Section = "library" | "studio";
 
 function getBasePathAndMarker(section: Section): { basePath: string; markerFile: string } {
-  if (section === "workspace") {
-    return { basePath: getWorkspacePath(), markerFile: "meta.json" };
+  if (section === "studio") {
+    return { basePath: getStudioPath(), markerFile: "meta.json" };
   }
   // Library also uses meta.json now (with fallback to original.json for compatibility)
   return { basePath: getLibraryPath(), markerFile: "meta.json" };

@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { TreeNode, SourceSummary, WorkspaceDocument } from "@/lib/types";
+import { TreeNode, SourceSummary, StudioDocument } from "@/lib/types";
 import { buildTree } from "@/lib/tree";
 
-type CollectionType = "library" | "workspace";
+type CollectionType = "library" | "studio";
 
 export interface EntrySummary {
   id: string;
   name: string;
   folder?: string;
   createdAt: string;
-  data?: SourceSummary | WorkspaceDocument;
+  data?: SourceSummary | StudioDocument;
 }
 
 interface UseEntryCollectionProps {
@@ -27,9 +27,9 @@ const COLLECTION_CONFIG = {
     moveEndpoint: "/api/entries",
     entryType: "source" as const,
   },
-  workspace: {
-    entriesEndpoint: "/api/workspace",
-    foldersEndpoint: "/api/workspace/folders",
+  studio: {
+    entriesEndpoint: "/api/studio",
+    foldersEndpoint: "/api/studio/folders",
     moveEndpoint: "/api/entries",
     entryType: "document" as const,
   },
@@ -143,7 +143,7 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
       folder: e.folder,
       createdAt: e.createdAt,
       source: type === "library" ? (e.data as SourceSummary | undefined) : undefined,
-      document: type === "workspace" ? (e.data as WorkspaceDocument | undefined) : undefined,
+      document: type === "studio" ? (e.data as StudioDocument | undefined) : undefined,
     }));
 
     return buildTree(
@@ -357,8 +357,8 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     sourceSummaries: type === "library"
       ? entries.map((e) => e.data).filter(Boolean) as SourceSummary[]
       : [],
-    documents: type === "workspace"
-      ? entries.map((e) => e.data).filter(Boolean) as WorkspaceDocument[]
+    documents: type === "studio"
+      ? entries.map((e) => e.data).filter(Boolean) as StudioDocument[]
       : [],
   };
 }

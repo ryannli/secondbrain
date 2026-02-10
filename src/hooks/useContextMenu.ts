@@ -38,7 +38,7 @@ export function useContextMenu() {
     e: React.MouseEvent,
     folderPath: string,
     folderName: string,
-    section: "library" | "workspace" = "library"
+    section: "library" | "studio" = "library"
   ) => {
     e.preventDefault();
     e.stopPropagation();

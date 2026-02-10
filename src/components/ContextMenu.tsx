@@ -13,7 +13,7 @@ export interface ContextMenuState {
   entryType?: "source" | "document";  // Which collection the entry belongs to
   folderPath?: string;
   folderName?: string;
-  folderSection?: "library" | "workspace";  // Which section the folder belongs to
+  folderSection?: "library" | "studio";  // Which section the folder belongs to
 }
 
 export interface ContextMenuProps {

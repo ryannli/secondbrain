@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { FeedItem, FeedSignals } from "@/lib/types";
+import { FeedItem, FeedSignals, InsightItem, StructuredBriefing } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface FeedState {
@@ -10,8 +10,9 @@ interface FeedState {
   generatedAt: string | null;
   fromCache: boolean;
   message?: string;
-  briefing?: string;
+  briefing?: StructuredBriefing;
   signals?: FeedSignals;
+  insights?: InsightItem[];
 }
 
 export function useFeed() {
@@ -61,6 +62,7 @@ export function useFeed() {
           message: data.feed.message,
           briefing: data.feed.briefing,
           signals: data.feed.signals,
+          insights: data.feed.insights,
         });
         markSeen(feedItems);
       } else if (data.message) {
@@ -94,6 +96,7 @@ export function useFeed() {
           message: data.feed.message,
           briefing: data.feed.briefing,
           signals: data.feed.signals,
+          insights: data.feed.insights,
         });
         markSeen(feedItems);
       } else {
@@ -118,6 +121,7 @@ export function useFeed() {
     message: feed.message,
     briefing: feed.briefing,
     signals: feed.signals,
+    insights: feed.insights,
     loading,
     error,
     loadFeed,

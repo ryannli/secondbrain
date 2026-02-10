@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { Analysis, Highlight, Connection, Concept, FeedItem } from "./types";
+import { Analysis, Highlight, Connection, Concept, FeedItem, InsightItem, StructuredBriefing, BriefingNewsItem, BriefingGoDeeper } from "./types";
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
@@ -7,6 +7,7 @@ import { getLibraryPath } from "./storage";
 import {
   promptGenerateTitle,
   promptGenerateBriefing,
+  promptGenerateInsights,
   promptExtractInterests,
   promptExtractContent,
   promptFormatText,
@@ -653,11 +654,11 @@ export async function generateBriefing(
   userSources: { title: string; concepts: string[] }[],
   interactionContext: string = "",
   interests: string[] = []
-): Promise<string> {
+): Promise<StructuredBriefing | null> {
   // Only use recommended items for briefing
   const recommendedItems = feedItems.filter(item => item.scoring.action === "recommend");
   if (recommendedItems.length === 0) {
-    return "";
+    return null;
   }
 
   // Use top 20 recommended items (sorted by score)
@@ -676,10 +677,71 @@ export async function generateBriefing(
   const prompt = promptGenerateBriefing(libraryContext, feedContext, interactionContext, interests);
 
   try {
-    const briefing = await callClaude(prompt);
-    return briefing.trim();
+    const responseText = await callClaude(prompt);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = parseJsonResponse(responseText, "generateBriefing") as any;
+    if (!parsed) {
+      console.error("[generateBriefing] Failed to parse JSON:", responseText.slice(0, 500));
+      return null;
+    }
+
+    const news: BriefingNewsItem[] = (parsed.news ?? []).map((item: Record<string, unknown>) => ({
+      headline: (item.headline as string) ?? "",
+      detail: (item.detail as string) ?? "",
+      connection: item.connection as string | undefined,
+      refs: Array.isArray(item.refs) ? item.refs.filter((r: unknown) => typeof r === "number") : [],
+    }));
+
+    const goDeeper: BriefingGoDeeper[] = (parsed.goDeeper ?? []).map((item: Record<string, unknown>) => ({
+      ref: (item.ref as number) ?? 0,
+      reason: (item.reason as string) ?? "",
+    }));
+
+    return { news, goDeeper };
   } catch (err) {
     console.error("[generateBriefing] Failed:", err);
-    return "";
+    return null;
+  }
+}
+
+/**
+ * Generate insights from user's reading behavior and interaction history
+ */
+export async function generateInsights(
+  interactionSignals: InteractionSignals,
+  userSources: { title: string; concepts: string[] }[],
+  interests: string[] = []
+): Promise<InsightItem[]> {
+  const interactionContext = buildInteractionContext(interactionSignals);
+  if (!interactionContext) return [];
+
+  const libraryContext = userSources.length > 0
+    ? userSources.slice(0, 15).map(s => `- "${s.title}" (${s.concepts.slice(0, 3).join(", ")})`).join("\n")
+    : "Empty library";
+
+  const prompt = promptGenerateInsights(interactionContext, libraryContext, interests);
+
+  try {
+    const responseText = await callClaude(prompt);
+
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error("[generateInsights] No JSON array found");
+      return [];
+    }
+
+    const items = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .filter((item: { emoji?: string; text?: string }) => item.emoji && item.text)
+      .slice(0, 4)
+      .map((item: { emoji: string; text: string }) => ({
+        emoji: item.emoji,
+        text: item.text,
+      }));
+  } catch (err) {
+    console.error("[generateInsights] Failed:", err);
+    return [];
   }
 }

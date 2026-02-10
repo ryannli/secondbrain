@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Build the prompt - detailed instructions are in user_data/CLAUDE.md
     let prompt = `You are an Agent in a knowledge management app called "Second Brain".
 
-Your workspace:
+Your environment:
 - \`./library/\` - The content library (read and write)
 - \`./config.json\` - User settings (read only)
 - \`./CLAUDE.md\` - Your detailed instructions (read this for schemas and rules)

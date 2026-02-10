@@ -97,9 +97,9 @@ function HomeContent() {
     saveFeedInterests,
   } = useSettings();
 
-  // Entry collections (unified hooks for Library and Workspace)
+  // Entry collections (unified hooks for Library and Studio)
   const library = useEntryCollection({ type: "library", setError });
-  const workspace = useEntryCollection({ type: "workspace", setError });
+  const studio = useEntryCollection({ type: "studio", setError });
 
   // Feed
   const feed = useFeed();
@@ -164,7 +164,7 @@ function HomeContent() {
   // Navigate to document
   const navigateToDocument = async (docId: string) => {
     try {
-      const res = await fetch(`/api/workspace/${docId}`);
+      const res = await fetch(`/api/studio/${docId}`);
       const data = await res.json();
       if (data.success && data.document) {
         entry.setDocument(data.document);
@@ -228,7 +228,7 @@ function HomeContent() {
   // Load document from URL param
   useEffect(() => {
     if (docId) {
-      fetch(`/api/workspace/${docId}`)
+      fetch(`/api/studio/${docId}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.document) {
@@ -265,7 +265,7 @@ function HomeContent() {
 
   useEffect(() => {
     if (entry.document?.meta.folder) {
-      expandFolderPath(entry.document.meta.folder, workspace.setExpandedFolders);
+      expandFolderPath(entry.document.meta.folder, studio.setExpandedFolders);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.document?.meta.folder]);
@@ -308,16 +308,16 @@ function HomeContent() {
     closeContextMenu();
 
     if (entryType === "document") {
-      // Delete workspace document
+      // Delete studio document
       try {
-        const res = await fetch(`/api/workspace/${entryId}`, { method: "DELETE" });
+        const res = await fetch(`/api/studio/${entryId}`, { method: "DELETE" });
         const data = await res.json();
         if (data.success) {
           if (entry.document?.meta.id === entryId) {
             entry.setDocument(null);
             router.push("/");
           }
-          workspace.refresh();
+          studio.refresh();
         }
       } catch (err) {
         console.error("Failed to delete document:", err);
@@ -331,10 +331,10 @@ function HomeContent() {
   const onDeleteFolder = async () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath) {
       const folderPath = contextMenu.folderPath;
-      const isWorkspace = contextMenu.folderSection === "workspace";
+      const isStudio = contextMenu.folderSection === "studio";
       closeContextMenu();
-      if (isWorkspace) {
-        await workspace.deleteFolder(folderPath);
+      if (isStudio) {
+        await studio.deleteFolder(folderPath);
       } else {
         await library.deleteFolder(folderPath);
       }
@@ -343,9 +343,9 @@ function HomeContent() {
 
   const onStartRenameFolder = () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath && contextMenu.folderName) {
-      const isWorkspace = contextMenu.folderSection === "workspace";
-      if (isWorkspace) {
-        workspace.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
+      const isStudio = contextMenu.folderSection === "studio";
+      if (isStudio) {
+        studio.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
       } else {
         library.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
       }
@@ -353,9 +353,9 @@ function HomeContent() {
     }
   };
 
-  // Workspace folder context menu handler
-  const handleWorkspaceFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
-    handleFolderContextMenu(e, folderPath, folderName, "workspace");
+  // Studio folder context menu handler
+  const handleStudioFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    handleFolderContextMenu(e, folderPath, folderName, "studio");
   };
 
   return (
@@ -412,20 +412,20 @@ function HomeContent() {
               folderManagement: library.folderManagement,
             },
             {
-              label: "Workspace",
-              rootLabel: "workspace",
-              isOpen: workspace.isOpen,
-              onToggle: workspace.toggle,
-              isEmpty: workspace.isEmpty,
+              label: "Studio",
+              rootLabel: "studio",
+              isOpen: studio.isOpen,
+              onToggle: studio.toggle,
+              isEmpty: studio.isEmpty,
               emptyMessage: "No documents yet",
-              treeNodes: workspace.treeNodes,
-              expandedFolders: workspace.expandedFolders,
-              onToggleFolder: workspace.toggleFolder,
+              treeNodes: studio.treeNodes,
+              expandedFolders: studio.expandedFolders,
+              onToggleFolder: studio.toggleFolder,
               selectedDocumentId: entry.document?.meta.id,
               onSelectDocument: navigateToDocument,
-              onFolderContextMenu: handleWorkspaceFolderContextMenu,
-              dragDrop: workspace.dragDrop,
-              folderManagement: workspace.folderManagement,
+              onFolderContextMenu: handleStudioFolderContextMenu,
+              dragDrop: studio.dragDrop,
+              folderManagement: studio.folderManagement,
             },
           ]}
         />
@@ -449,7 +449,7 @@ function HomeContent() {
                   type: entry.document.meta.output.endsWith(".pdf") ? "document" : "text",
                 }}
                 onSave={async (title, content) => {
-                  const res = await fetch(`/api/workspace/${entry.document!.meta.id}`, {
+                  const res = await fetch(`/api/studio/${entry.document!.meta.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ title, content }),
@@ -457,7 +457,7 @@ function HomeContent() {
                   const data = await res.json();
                   if (data.success && data.document) {
                     entry.setDocument(data.document);
-                    workspace.refresh();
+                    studio.refresh();
                   }
                 }}
                 onClose={() => { entry.setDocument(null); router.push("/"); }}
@@ -540,6 +540,7 @@ function HomeContent() {
                   message={feed.message}
                   briefing={feed.briefing}
                   signals={feed.signals}
+                  insights={feed.insights}
                   loading={feed.loading}
                   error={feed.error}
                   onCapture={handleCaptureUrl}
@@ -589,14 +590,14 @@ function HomeContent() {
           sourcePath={entry.source ? `./library/${entry.source.meta.folder ? entry.source.meta.folder + "/" : ""}${entry.source.meta.id}` : undefined}
           sourceId={entry.source?.meta.id}
           sourceTitle={entry.source?.meta.title}
-          documentPath={entry.document ? `./workspace/${entry.document.meta.folder ? entry.document.meta.folder + "/" : ""}${entry.document.meta.id}` : undefined}
+          documentPath={entry.document ? `./studio/${entry.document.meta.folder ? entry.document.meta.folder + "/" : ""}${entry.document.meta.id}` : undefined}
           documentId={entry.document?.meta.id}
           documentTitle={entry.document?.meta.title}
           onAgentComplete={async () => {
             // Reload whatever entry is currently selected
             await entry.refresh();
             library.refresh();
-            workspace.refresh();
+            studio.refresh();
           }}
         />
       </div>

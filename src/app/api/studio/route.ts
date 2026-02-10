@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { listWorkspaceDocuments, listWorkspaceFolders } from "@/lib/storage";
+import { listStudioDocuments, listStudioFolders } from "@/lib/storage";
 
 export async function GET(): Promise<NextResponse> {
   try {
     const [documents, folders] = await Promise.all([
-      listWorkspaceDocuments(),
-      listWorkspaceFolders(),
+      listStudioDocuments(),
+      listStudioFolders(),
     ]);
     return NextResponse.json({ success: true, documents, folders });
   } catch (error) {
-    console.error("Error listing workspace:", error);
+    console.error("Error listing studio:", error);
     return NextResponse.json(
       {
         success: false,

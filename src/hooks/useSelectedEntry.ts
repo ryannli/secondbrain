@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Source, WorkspaceDocument } from "@/lib/types";
+import { Source, StudioDocument } from "@/lib/types";
 
-export type DocumentEntry = { meta: WorkspaceDocument; content: string };
+export type DocumentEntry = { meta: StudioDocument; content: string };
 
 /**
  * Unified state management for the currently selected entry (source or document).
@@ -55,7 +55,7 @@ export function useSelectedEntry() {
       }
     } else if (currentDoc) {
       try {
-        const res = await fetch(`/api/workspace/${currentDoc.meta.id}`);
+        const res = await fetch(`/api/studio/${currentDoc.meta.id}`);
         const data = await res.json();
         if (data.success && data.document) {
           setDocumentState(data.document);

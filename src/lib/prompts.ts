@@ -390,6 +390,51 @@ Example:
 {"items": [{"index": 1, "action": "recommend", "score": 85, "whyRead": "200+ comments"}, {"index": 2, "action": "skip", "score": 30, "whySkip": "Outdated news"}]}`;
 }
 
+export function promptGenerateInsights(
+  interactionContext: string,
+  libraryContext: string,
+  interests: string[] = []
+): string {
+  const interestsText = interests.length > 0
+    ? `## User's Configured Interests\n${interests.map(i => `- ${i}`).join("\n")}\n`
+    : "";
+
+  return `You are analyzing a knowledge worker's reading behavior to surface interesting patterns and discoveries.
+
+${interestsText}
+## User's Library
+${libraryContext}
+
+${interactionContext}
+
+## Your Task
+Identify 2-4 patterns, discoveries, or observations from the user's reading behavior. These should be genuinely useful reflections, not generic platitudes.
+
+**Types of insights to look for:**
+- Emerging themes: "You've starred 4 highlights about X across different sources — this seems to be a growing interest"
+- Knowledge gaps: "You marked Y as 'learned' in 3 sources — might be worth a deep-dive"
+- Reading patterns: "Your ratings trend higher for technical deep-dives vs opinion pieces"
+- Strength areas: "You already knew concepts around X across multiple sources — strong foundation"
+- Contrasts: "You starred opposing viewpoints on X — worth exploring this debate"
+
+**Rules:**
+1. Be specific — reference actual topics, not vague categories
+2. Each insight should be actionable or thought-provoking
+3. Keep each insight to 1-2 sentences
+4. Choose an emoji that fits the insight type (🔍 discovery, 📈 trend, 💡 observation, ⭐ strength, 🎯 focus area, etc.)
+
+**Output format:**
+Return a JSON array of objects with "emoji" and "text" fields.
+
+Example:
+[
+  {"emoji": "🔍", "text": "You've been starring highlights about prompt engineering across 3 different sources — might be worth a dedicated deep-dive"},
+  {"emoji": "📈", "text": "Your ratings trend higher for hands-on tutorials (avg 4.2) vs theoretical pieces (avg 2.8)"}
+]
+
+Respond with ONLY the JSON array.`;
+}
+
 export function promptGenerateBriefing(libraryContext: string, feedContext: string, interactionContext: string = "", interests: string[] = []): string {
   const interactionSection = interactionContext
     ? `\n${interactionContext}\n`
@@ -410,35 +455,44 @@ ${interactionSection}
 ${feedContext}
 
 ## Your Task
-Tell the user NEW information they don't already know. The briefing itself should be valuable - they should learn something just by reading it.
+Tell the user NEW information they don't already know. Each news item should be standalone valuable - they should learn something just by reading it.
 
 **RULES:**
 1. **Tell them NEWS** - What JUST happened? What's the new development?
 2. **Don't repeat their library** - They already know what's in their library. Tell them what's NEW.
 3. **Be specific with facts** - "Anthropic raised $10B at $60B valuation" not "there's funding news"
-4. **Make the briefing standalone valuable** - Even if they don't click any links, they should learn something
-5. **Use bold for key facts** - Bold **company names**, **numbers**, **percentages**, and **key terms** to make scanning easier
+4. **Each headline should be a single punchy fact** - One line, scannable
+5. **Detail adds context** - 1-2 sentences max, why it matters or what it means
+6. **Connection**: If a news item relates to something in the user's library or their interactions (starred highlights, learned concepts), include a short "connection" string describing the link. Otherwise omit it.
 
-**FORMAT:**
-**What's new**
-- [Specific fact/news - include numbers, names, dates]
-- [Another news item]
-(Use #N to reference the source number so user can click to jump)
+## Output Format
+Return a JSON object with this structure:
+{
+  "news": [
+    {
+      "headline": "Company X raised $500M at $5B valuation",
+      "detail": "3x increase from last round. Led by Sequoia with participation from a16z.",
+      "connection": "Your note: 'Startup Funding Trends'",
+      "refs": [1]
+    },
+    {
+      "headline": "New framework benchmarks show 40% speedup over React",
+      "detail": "Independent benchmarks on real-world apps, not micro-benchmarks.",
+      "refs": [3, 5]
+    }
+  ],
+  "goDeeper": [
+    { "ref": 1, "reason": "Full breakdown of investor list and terms" },
+    { "ref": 5, "reason": "Detailed benchmark data with methodology" }
+  ]
+}
 
-**Go deeper**
-- #N — [What extra detail this article has]
-- #N — [Why worth clicking]
-(Only 2-3 items with MORE detail than the summary above)
+**FIELD RULES:**
+- "headline": One-line key fact. No markdown formatting.
+- "detail": 1-2 sentences of context. No markdown formatting.
+- "connection": Only include if this news connects to the user's library or interactions. Short phrase like "Your note: 'Title'" or "Relates to your starred highlight about X". Omit if no connection.
+- "refs": Array of feed item numbers (1-based) this news item draws from.
+- "goDeeper": Only 2-3 items that have MORE detail worth clicking for. "reason" should explain what extra detail the article has.
 
-**EXAMPLE:**
-**What's new**
-- **Company X** raised **$500M** at **$5B valuation**, 3x increase from last round (#1)
-- **Major product** launching **new feature** that changes how users do [task] (#3)
-- **Industry report** shows **40% adoption rate** for [technology] (#7)
-
-**Go deeper**
-- #1 — Full breakdown of the investor list and terms
-- #5 — Detailed benchmark data with methodology
-
-Respond with ONLY the formatted briefing.`;
+Respond with ONLY valid JSON, no markdown code blocks.`;
 }

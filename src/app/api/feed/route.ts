@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
-import { extractUserInterests, filterFeedItems, generateBriefing, buildInteractionContext } from "@/lib/claude";
+import { extractUserInterests, filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
-import { FeedCache, FeedSignals } from "@/lib/types";
+import { FeedCache, FeedSignals, InsightItem } from "@/lib/types";
 
 /**
  * Check if cache is still fresh
@@ -42,6 +42,7 @@ export async function GET() {
           fromCache: true,
           briefing: cache.briefing,
           signals: cache.signals,
+          insights: cache.insights,
         },
       });
     }
@@ -187,7 +188,14 @@ async function generateFeed() {
     concepts: s.concepts.map((c) => c.term),
   }));
   const briefing = await generateBriefing(feedItems, sourcesForBriefing, interactionContext, interests);
-  console.log(`[generateFeed] Generated briefing: ${briefing.slice(0, 100)}...`);
+  console.log(`[generateFeed] Generated briefing: ${briefing ? briefing.news.length + " news items" : "none"}`);
+
+  // 5.5 Generate insights from reading behavior (only if enough interactions)
+  let insights: InsightItem[] = [];
+  if (totalInteractions >= 3) {
+    insights = await generateInsights(interactionSignals, sourcesForBriefing, interests);
+    console.log(`[generateFeed] Generated ${insights.length} insights`);
+  }
 
   // 6. Save cache
   const generatedAt = new Date().toISOString();
@@ -201,8 +209,9 @@ async function generateFeed() {
     generatedAt,
     interests,
     items: feedItems,
-    briefing,
+    briefing: briefing ?? undefined,
     signals,
+    insights: insights.length > 0 ? insights : undefined,
   };
   await saveFeedCache(cache);
 
@@ -211,7 +220,8 @@ async function generateFeed() {
     interests,
     generatedAt,
     fromCache: false,
-    briefing,
+    briefing: briefing ?? undefined,
     signals,
+    insights: insights.length > 0 ? insights : undefined,
   };
 }

@@ -1,4 +1,4 @@
-import { TreeNode, SourceSummary, WorkspaceDocument } from "./types";
+import { TreeNode, SourceSummary, StudioDocument } from "./types";
 
 interface TreeItem {
   id: string;
@@ -9,13 +9,13 @@ interface TreeItem {
 
 /**
  * Build a tree structure from items and folders
- * Works for both Library sources and Workspace documents
+ * Works for both Library sources and Studio documents
  */
 export function buildTree<T extends TreeItem>(
   items: T[],
   folders: string[],
   itemType: "source" | "document",
-  getItemData: (item: T) => { source?: SourceSummary; document?: WorkspaceDocument }
+  getItemData: (item: T) => { source?: SourceSummary; document?: StudioDocument }
 ): TreeNode[] {
   const tree: TreeNode[] = [];
   const folderNodes = new Map<string, TreeNode>();

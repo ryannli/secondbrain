@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, WorkspaceDocument, HistoryEvent } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
 import { AnalysisSchema, OriginalDataSchema } from "./schemas";
 
 /**
@@ -33,10 +33,10 @@ export function getLibraryPath(): string {
 }
 
 /**
- * Get workspace path (inside root)
+ * Get studio path (inside root)
  */
-export function getWorkspacePath(): string {
-  return path.join(getRootPath(), "workspace");
+export function getStudioPath(): string {
+  return path.join(getRootPath(), "studio");
 }
 
 /**
@@ -1667,22 +1667,22 @@ export async function deleteConversation(id: string): Promise<boolean> {
 }
 
 // ============================================================================
-// Workspace Storage Functions
+// Studio Storage Functions
 // ============================================================================
 
 /**
- * Ensure workspace directory exists
+ * Ensure studio directory exists
  */
-export async function ensureWorkspaceExists(workspacePath = getWorkspacePath()): Promise<void> {
-  await fs.mkdir(workspacePath, { recursive: true });
+export async function ensureStudioExists(studioPath = getStudioPath()): Promise<void> {
+  await fs.mkdir(studioPath, { recursive: true });
 }
 
 /**
- * List all documents in workspace
+ * List all documents in studio
  */
-export async function listWorkspaceDocuments(workspacePath = getWorkspacePath()): Promise<WorkspaceDocument[]> {
-  await ensureWorkspaceExists(workspacePath);
-  const documents: WorkspaceDocument[] = [];
+export async function listStudioDocuments(studioPath = getStudioPath()): Promise<StudioDocument[]> {
+  await ensureStudioExists(studioPath);
+  const documents: StudioDocument[] = [];
 
   async function scanDir(dir: string, relativePath: string = "") {
     let entries;
@@ -1701,7 +1701,7 @@ export async function listWorkspaceDocuments(workspacePath = getWorkspacePath())
       try {
         const metaPath = path.join(fullPath, "meta.json");
         const metaContent = await fs.readFile(metaPath, "utf-8");
-        const meta = JSON.parse(metaContent) as WorkspaceDocument;
+        const meta = JSON.parse(metaContent) as StudioDocument;
         meta.folder = relativePath || undefined;
         documents.push(meta);
       } catch {
@@ -1712,15 +1712,15 @@ export async function listWorkspaceDocuments(workspacePath = getWorkspacePath())
     }
   }
 
-  await scanDir(workspacePath);
+  await scanDir(studioPath);
   return documents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 /**
- * List all folders in workspace
+ * List all folders in studio
  */
-export async function listWorkspaceFolders(workspacePath = getWorkspacePath()): Promise<string[]> {
-  await ensureWorkspaceExists(workspacePath);
+export async function listStudioFolders(studioPath = getStudioPath()): Promise<string[]> {
+  await ensureStudioExists(studioPath);
   const folders: string[] = [];
 
   async function scanDir(dir: string, relativePath: string = "") {
@@ -1749,20 +1749,20 @@ export async function listWorkspaceFolders(workspacePath = getWorkspacePath()): 
     }
   }
 
-  await scanDir(workspacePath);
+  await scanDir(studioPath);
   return folders.sort();
 }
 
 /**
  * Load a document by ID
  */
-export async function loadWorkspaceDocument(id: string): Promise<{ meta: WorkspaceDocument; content: string } | null> {
-  const docPath = await findEntryPath(id, getWorkspacePath(), "meta.json");
+export async function loadStudioDocument(id: string): Promise<{ meta: StudioDocument; content: string } | null> {
+  const docPath = await findEntryPath(id, getStudioPath(), "meta.json");
   if (!docPath) return null;
 
   try {
     const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
-    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+    const meta = JSON.parse(metaContent) as StudioDocument;
     
     const outputPath = path.join(docPath, meta.output);
     let content = "";
@@ -1786,12 +1786,12 @@ export async function loadWorkspaceDocument(id: string): Promise<{ meta: Workspa
  * Get the output file path for a document
  */
 export async function getDocumentOutputPath(id: string): Promise<string | null> {
-  const docPath = await findEntryPath(id, getWorkspacePath(), "meta.json");
+  const docPath = await findEntryPath(id, getStudioPath(), "meta.json");
   if (!docPath) return null;
 
   try {
     const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
-    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+    const meta = JSON.parse(metaContent) as StudioDocument;
     return path.join(docPath, meta.output);
   } catch {
     return null;
@@ -1799,22 +1799,22 @@ export async function getDocumentOutputPath(id: string): Promise<string | null> 
 }
 
 /**
- * Update workspace document content (title and/or body)
+ * Update studio document content (title and/or body)
  */
-export async function updateWorkspaceDocument(
+export async function updateStudioDocument(
   id: string,
   updates: { title?: string; content?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const workspacePath = getWorkspacePath();
-    const docPath = await findEntryPath(id, workspacePath, "meta.json");
+    const studioPath = getStudioPath();
+    const docPath = await findEntryPath(id, studioPath, "meta.json");
     if (!docPath) {
       return { success: false, error: "Document not found" };
     }
 
     const metaPath = path.join(docPath, "meta.json");
     const metaContent = await fs.readFile(metaPath, "utf-8");
-    const meta = JSON.parse(metaContent) as WorkspaceDocument;
+    const meta = JSON.parse(metaContent) as StudioDocument;
 
     // Update title in meta.json if provided
     if (updates.title !== undefined && updates.title !== meta.title) {

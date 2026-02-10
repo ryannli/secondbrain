@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 
-function getWorkspacePath(): string {
+function getStudioPath(): string {
   const rootPath = process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
-  return path.join(rootPath, "workspace");
+  return path.join(rootPath, "studio");
 }
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const workspacePath = getWorkspacePath();
+    const studioPath = getStudioPath();
 
-    // Ensure workspace exists
+    // Ensure studio exists
     try {
-      await fs.access(workspacePath);
+      await fs.access(studioPath);
     } catch {
-      await fs.mkdir(workspacePath, { recursive: true });
+      await fs.mkdir(studioPath, { recursive: true });
       return NextResponse.json({ success: true, folders: [] });
     }
 
@@ -41,10 +41,10 @@ export async function GET(): Promise<NextResponse> {
       }
     }
 
-    await scanDir(workspacePath, "");
+    await scanDir(studioPath, "");
     return NextResponse.json({ success: true, folders });
   } catch (error) {
-    console.error("Error listing workspace folders:", error);
+    console.error("Error listing studio folders:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -72,14 +72,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const workspacePath = getWorkspacePath();
+    const studioPath = getStudioPath();
     const folderPath = parentPath ? `${parentPath}/${name}` : name;
-    const fullPath = path.join(workspacePath, folderPath);
+    const fullPath = path.join(studioPath, folderPath);
 
     // Security check
     const resolvedPath = path.resolve(fullPath);
-    const resolvedWorkspace = path.resolve(workspacePath);
-    if (!resolvedPath.startsWith(resolvedWorkspace)) {
+    const resolvedStudio = path.resolve(studioPath);
+    if (!resolvedPath.startsWith(resolvedStudio)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, path: folderPath });
   } catch (error) {
-    console.error("Error creating workspace folder:", error);
+    console.error("Error creating studio folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -110,13 +110,13 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const workspacePath = getWorkspacePath();
-    const fullPath = path.join(workspacePath, folderPath);
+    const studioPath = getStudioPath();
+    const fullPath = path.join(studioPath, folderPath);
 
     // Security check
     const resolvedPath = path.resolve(fullPath);
-    const resolvedWorkspace = path.resolve(workspacePath);
-    if (!resolvedPath.startsWith(resolvedWorkspace)) {
+    const resolvedStudio = path.resolve(studioPath);
+    if (!resolvedPath.startsWith(resolvedStudio)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -127,7 +127,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting workspace folder:", error);
+    console.error("Error deleting studio folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -162,19 +162,19 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const workspacePath = getWorkspacePath();
-    const fullOldPath = path.join(workspacePath, folderPath);
+    const studioPath = getStudioPath();
+    const fullOldPath = path.join(studioPath, folderPath);
 
     // Compute new path
     const parentDir = path.dirname(folderPath);
     const newPath = parentDir === "." ? newName : `${parentDir}/${newName}`;
-    const fullNewPath = path.join(workspacePath, newPath);
+    const fullNewPath = path.join(studioPath, newPath);
 
     // Security check
     const resolvedOld = path.resolve(fullOldPath);
     const resolvedNew = path.resolve(fullNewPath);
-    const resolvedWorkspace = path.resolve(workspacePath);
-    if (!resolvedOld.startsWith(resolvedWorkspace) || !resolvedNew.startsWith(resolvedWorkspace)) {
+    const resolvedStudio = path.resolve(studioPath);
+    if (!resolvedOld.startsWith(resolvedStudio) || !resolvedNew.startsWith(resolvedStudio)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -185,7 +185,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, newPath });
   } catch (error) {
-    console.error("Error renaming workspace folder:", error);
+    console.error("Error renaming studio folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
