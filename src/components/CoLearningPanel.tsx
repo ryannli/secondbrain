@@ -303,7 +303,7 @@ export function CoLearningPanel({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationListRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeSessionRef = useRef(0);
 
   // Load conversation list and restore last session on mount
   useEffect(() => {
@@ -467,24 +467,8 @@ export function CoLearningPanel({
   };
 
   const startNewConversation = () => {
-    // Save partial streaming response before aborting
-    if (streamingMessageId && streamingEvents.length > 0 && currentConversationId) {
-      const parsed = buildParsedMessage(streamingEvents);
-      const partialContent = segmentsToText(parsed.segments);
-      if (partialContent) {
-        const partialMessage: AgentMessage = {
-          id: streamingMessageId,
-          role: "assistant",
-          content: partialContent,
-          timestamp: new Date().toISOString(),
-          streamEvents: streamingEvents,
-        };
-        const msgsToSave = [...messages, partialMessage];
-        saveConversation(msgsToSave, currentConversationId);
-      }
-    }
-
-    abortControllerRef.current?.abort();
+    // Invalidate current session — background fetch continues but stops updating UI
+    activeSessionRef.current++;
     setCurrentConversationId(null);
     setMessages([]);
     setContexts((prev) => prev.filter((c) => c.type === "source"));
@@ -498,6 +482,10 @@ export function CoLearningPanel({
   const sendMessage = async () => {
     const messageText = input.trim();
     if (!messageText && contexts.length === 0) return;
+
+    // Capture session so background fetch stops updating UI if user switches away
+    const sessionId = activeSessionRef.current;
+    const isActive = () => activeSessionRef.current === sessionId;
 
     const currentContexts = [...contexts];
     const currentHistory = messages.slice(-10).map((m) => ({
@@ -528,15 +516,12 @@ export function CoLearningPanel({
     let convId = currentConversationId;
     try {
       convId = await saveConversation(newMessages, currentConversationId);
-      if (convId && convId !== currentConversationId) {
+      if (convId && convId !== currentConversationId && isActive()) {
         setCurrentConversationId(convId);
       }
     } catch (e) {
       console.error("Failed to save conversation early:", e);
     }
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
 
     try {
       const res = await fetch("/api/chat", {
@@ -553,7 +538,6 @@ export function CoLearningPanel({
           sourcePath,
           documentPath,
         }),
-        signal: abortController.signal,
       });
 
       if (!res.ok) {
@@ -581,7 +565,9 @@ export function CoLearningPanel({
             try {
               const event = JSON.parse(line) as StreamEvent;
               allEvents.push(event);
-              setStreamingEvents([...allEvents]);
+              if (isActive()) {
+                setStreamingEvents([...allEvents]);
+              }
             } catch {
               // Ignore malformed JSON
             }
@@ -602,31 +588,35 @@ export function CoLearningPanel({
       };
 
       const finalMessages = [...newMessages, assistantMessage];
-      setMessages(finalMessages);
-      setStreamingEvents([]);
-      setStreamingMessageId(null);
+      if (isActive()) {
+        setMessages(finalMessages);
+        setStreamingEvents([]);
+        setStreamingMessageId(null);
+      }
 
-      // Save final conversation
+      // Always save final conversation (even if user switched away)
       await saveConversation(finalMessages, convId);
-      onAgentComplete?.();
+      loadConversations();
+      if (isActive()) {
+        onAgentComplete?.();
+      }
 
     } catch (err) {
-      // Don't show error for user-initiated abort (e.g. new chat)
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
+      if (isActive()) {
+        const errorMessage: AgentMessage = {
+          id: `msg-${Date.now()}-error`,
+          role: "assistant",
+          content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages([...newMessages, errorMessage]);
+        setStreamingEvents([]);
+        setStreamingMessageId(null);
       }
-      const errorMessage: AgentMessage = {
-        id: `msg-${Date.now()}-error`,
-        role: "assistant",
-        content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages([...newMessages, errorMessage]);
-      setStreamingEvents([]);
-      setStreamingMessageId(null);
     } finally {
-      abortControllerRef.current = null;
-      setIsLoading(false);
+      if (isActive()) {
+        setIsLoading(false);
+      }
     }
   };
 
