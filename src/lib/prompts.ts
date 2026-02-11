@@ -411,27 +411,30 @@ ${interactionContext}
 Identify 2-4 patterns, discoveries, or observations from the user's reading behavior. These should be genuinely useful reflections, not generic platitudes.
 
 **Types of insights to look for:**
-- Emerging themes: "You've starred 4 highlights about X across different sources — this seems to be a growing interest"
+- Emerging themes: "You've engaged with X across different sources — this seems to be a growing interest"
 - Knowledge gaps: "You marked Y as 'learned' in 3 sources — might be worth a deep-dive"
 - Reading patterns: "Your ratings trend higher for technical deep-dives vs opinion pieces"
 - Strength areas: "You already knew concepts around X across multiple sources — strong foundation"
-- Contrasts: "You starred opposing viewpoints on X — worth exploring this debate"
+- Contrasts: "You engaged with opposing viewpoints on X — worth exploring this debate"
 - Temporal trends: "In the past week you've focused heavily on X — a shift from earlier interests in Y"
 - Recency clusters: "3 of your last 4 interactions were about X — this topic is clearly on your mind right now"
+- Blind spots: "You've read a lot about X but haven't touched Y, which is a critical counterpart — worth looking into"
+- Actionable nudges: "Given your interest trajectory, you might want to pay attention to X before it becomes mainstream"
 
 **Rules:**
 1. Be specific — reference actual topics, not vague categories
 2. Each insight should be actionable or thought-provoking
 3. Keep each insight to 1-2 sentences
-4. Use **bold** sparingly — at most 2-3 key terms per insight, only the most important words
+4. Focus on **patterns** the user might not notice themselves — don't just restate what they recently read or learned
+5. Use **bold** for the pattern or observation itself, NOT for topic names or concepts the user already knows
 
 **Output format:**
 Return a JSON array of objects with a "text" field.
 
 Example:
 [
-  {"text": "You've starred highlights about **prompt engineering** across **3 different sources** — might be worth a dedicated deep-dive"},
-  {"text": "Your ratings trend higher for **hands-on tutorials** (avg **4.2**) vs **opinion pieces** (avg **2.8**)"}
+  {"text": "Your ratings trend **higher for hands-on tutorials** (avg 4.2) vs opinion pieces (avg 2.8) — you seem to value actionable content"},
+  {"text": "You keep encountering agent orchestration across unrelated sources — this concept is **converging from multiple directions** in your reading"}
 ]
 
 Respond with ONLY the JSON array.`;

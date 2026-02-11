@@ -550,8 +550,12 @@ function HomeContent() {
                     addContext(text, title);
                     setIsCoLearningOpen(true);
                   }}
-                  onMarkSeen={feed.markUrlsSeen}
-                  onMarkUnseen={feed.markUrlsUnseen}
+                  onMarkBriefingRead={feed.markBriefingRead}
+                  onMarkBriefingUnread={feed.markBriefingUnread}
+                  onStarBriefing={feed.starBriefingItem}
+                  onUnstarBriefing={feed.unstarBriefingItem}
+                  starredBriefingTexts={feed.starredBriefingTexts}
+                  readBriefingTexts={feed.readBriefingTexts}
                   palette={palette}
                   theme={theme}
                 />

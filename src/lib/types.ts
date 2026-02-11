@@ -240,7 +240,7 @@ export interface StudioDocument {
 // History timeline event
 export interface HistoryEvent {
   id: string;                  // e.g. "abc123-rating"
-  type: "rating" | "star" | "dismiss" | "knew" | "learned" | "read";
+  type: "rating" | "star" | "dismiss" | "knew" | "learned" | "read" | "briefing_star";
   timestamp: string;           // ISO
   sourceId: string;
   sourceTitle: string;
@@ -248,6 +248,7 @@ export interface HistoryEvent {
   highlightText?: string;      // for star/dismiss
   conceptTerm?: string;        // for knew/learned
   conceptDefinition?: string;
+  briefingText?: string;       // for briefing_star events
 }
 
 // Agent conversation types

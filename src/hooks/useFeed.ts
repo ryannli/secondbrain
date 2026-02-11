@@ -26,26 +26,58 @@ export function useFeed() {
   const [error, setError] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useLocalStorage<string[]>("feed-dismissed", []);
   const dismissedSet = useMemo(() => new Set(dismissedIds), [dismissedIds]);
+  const [starredTexts, setStarredTexts] = useState<Set<string>>(new Set());
+  const [readBriefingTexts, setReadBriefingTexts] = useState<Set<string>>(new Set());
 
   // Filter out dismissed items
   const visibleItems = feed.items.filter((item) => !dismissedSet.has(item.id));
 
   // Mark specific URLs as seen/unseen (called when user toggles briefing items)
-  const markUrlsSeen = useCallback((urls: string[]) => {
-    if (urls.length === 0) return;
-    fetch("/api/feed/seen", {
+  const markBriefingRead = useCallback((text: string, urls: string[]) => {
+    setReadBriefingTexts(prev => new Set(prev).add(text));
+    if (urls.length > 0) {
+      fetch("/api/feed/seen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+      }).catch(() => {});
+    }
+  }, []);
+
+  const markBriefingUnread = useCallback((text: string, urls: string[]) => {
+    setReadBriefingTexts(prev => {
+      const next = new Set(prev);
+      next.delete(text);
+      return next;
+    });
+    if (urls.length > 0) {
+      fetch("/api/feed/seen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, unseen: true }),
+      }).catch(() => {});
+    }
+  }, []);
+
+  const starBriefingItem = useCallback((text: string, meta?: { feedDate?: string; refs?: { url: string; title: string }[] }) => {
+    setStarredTexts(prev => new Set(prev).add(text));
+    fetch("/api/feed/star", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls }),
+      body: JSON.stringify({ text, ...meta }),
     }).catch(() => {});
   }, []);
 
-  const markUrlsUnseen = useCallback((urls: string[]) => {
-    if (urls.length === 0) return;
-    fetch("/api/feed/seen", {
+  const unstarBriefingItem = useCallback((text: string) => {
+    setStarredTexts(prev => {
+      const next = new Set(prev);
+      next.delete(text);
+      return next;
+    });
+    fetch("/api/feed/star", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls, unseen: true }),
+      body: JSON.stringify({ text, unstar: true }),
     }).catch(() => {});
   }, []);
 
@@ -69,6 +101,9 @@ export function useFeed() {
           signals: data.feed.signals,
           insights: data.feed.insights,
         });
+        if (data.feed.starredBriefingTexts) {
+          setStarredTexts(new Set(data.feed.starredBriefingTexts));
+        }
       } else if (data.message) {
         // Feed disabled or no API key
         setFeed((prev) => ({ ...prev, message: data.message }));
@@ -102,6 +137,9 @@ export function useFeed() {
           signals: data.feed.signals,
           insights: data.feed.insights,
         });
+        if (data.feed.starredBriefingTexts) {
+          setStarredTexts(new Set(data.feed.starredBriefingTexts));
+        }
       } else {
         setError(data.error || "Failed to refresh feed");
       }
@@ -125,12 +163,16 @@ export function useFeed() {
     briefing: feed.briefing,
     signals: feed.signals,
     insights: feed.insights,
+    starredBriefingTexts: starredTexts,
+    readBriefingTexts,
     loading,
     error,
     loadFeed,
     refreshFeed,
     dismissItem,
-    markUrlsSeen,
-    markUrlsUnseen,
+    markBriefingRead,
+    markBriefingUnread,
+    starBriefingItem,
+    unstarBriefingItem,
   };
 }

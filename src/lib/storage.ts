@@ -1593,6 +1593,64 @@ function pruneFeedHistory(history: FeedHistory): void {
 }
 
 // =============================================================================
+// Starred Briefing Items
+// =============================================================================
+
+export interface StarredBriefingRef {
+  url: string;
+  title: string;
+}
+
+export interface StarredBriefingItem {
+  text: string;                  // Raw briefing text (with markdown)
+  starredAt: string;             // ISO timestamp
+  feedDate?: string;             // When the feed was generated
+  refs?: StarredBriefingRef[];   // Referenced feed items
+}
+
+interface StarredBriefings {
+  items: StarredBriefingItem[];
+}
+
+export async function loadStarredBriefings(): Promise<StarredBriefings> {
+  try {
+    const filePath = path.join(getFeedPath(), "starred.json");
+    const content = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return { items: [] };
+  }
+}
+
+async function saveStarredBriefings(data: StarredBriefings): Promise<void> {
+  const feedDir = getFeedPath();
+  await fs.mkdir(feedDir, { recursive: true });
+  await fs.writeFile(path.join(feedDir, "starred.json"), JSON.stringify(data, null, 2));
+}
+
+export async function starBriefingItem(
+  text: string,
+  meta?: { feedDate?: string; refs?: StarredBriefingRef[] }
+): Promise<void> {
+  const data = await loadStarredBriefings();
+  // Avoid duplicates
+  if (data.items.some(i => i.text === text)) return;
+  data.items.push({
+    text,
+    starredAt: new Date().toISOString(),
+    feedDate: meta?.feedDate,
+    refs: meta?.refs,
+  });
+  await saveStarredBriefings(data);
+}
+
+export async function unstarBriefingItem(text: string): Promise<void> {
+  const data = await loadStarredBriefings();
+  data.items = data.items.filter(i => i.text !== text);
+  await saveStarredBriefings(data);
+}
+
+// =============================================================================
 // Agent Conversation Functions
 // =============================================================================
 
@@ -1961,6 +2019,20 @@ export async function listInteractionHistory(
   }
 
   await scanDir(libraryPath);
+
+  // Include starred briefing items
+  const starred = await loadStarredBriefings();
+  for (const item of starred.items) {
+    events.push({
+      id: `briefing-${item.starredAt}`,
+      type: "briefing_star",
+      timestamp: item.starredAt,
+      sourceId: "",
+      sourceTitle: "Feed Briefing",
+      briefingText: item.text,
+    });
+  }
+
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   return events;
 }

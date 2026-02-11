@@ -62,6 +62,12 @@ function getEventConfig(
         color: palette[400] ?? palette[500],
         text: "Read",
       };
+    case "briefing_star":
+      return {
+        icon: <Star className="w-3.5 h-3.5 fill-current" />,
+        color: "#f59e0b",
+        text: "Starred from briefing",
+      };
   }
 }
 
@@ -197,18 +203,32 @@ export function HistorySection({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <button
-                          onClick={() => onNavigateToSource(event.sourceId)}
-                          className="text-sm font-medium hover:underline truncate max-w-[280px]"
-                          style={{ color: palette[600] }}
-                          title={event.sourceTitle}
-                        >
-                          {event.sourceTitle}
-                        </button>
+                        {event.sourceId ? (
+                          <button
+                            onClick={() => onNavigateToSource(event.sourceId)}
+                            className="text-sm font-medium hover:underline truncate max-w-[280px]"
+                            style={{ color: palette[600] }}
+                            title={event.sourceTitle}
+                          >
+                            {event.sourceTitle}
+                          </button>
+                        ) : (
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded"
+                            style={{ backgroundColor: `${config.color}15`, color: config.color }}
+                          >
+                            {event.sourceTitle}
+                          </span>
+                        )}
                         <span className="text-xs" style={{ color: theme.textMuted }}>
                           {config.text}
                         </span>
                       </div>
+                      {event.briefingText && (
+                        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: theme.textMuted }}>
+                          {event.briefingText.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1")}
+                        </p>
+                      )}
                     </div>
 
                     {/* Time */}

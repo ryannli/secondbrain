@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Check } from "lucide-react";
+import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Check, Star } from "lucide-react";
 import { FeedItem, FeedSignals, InsightItem, StructuredBriefing as StructuredBriefingType } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -20,8 +20,12 @@ interface FeedSectionProps {
   onDismiss: (id: string) => void;
   onRefresh: () => void;
   onAddContext?: (text: string, title: string) => void;
-  onMarkSeen?: (urls: string[]) => void;
-  onMarkUnseen?: (urls: string[]) => void;
+  onMarkBriefingRead?: (text: string, urls: string[]) => void;
+  onMarkBriefingUnread?: (text: string, urls: string[]) => void;
+  onStarBriefing?: (text: string, meta?: { feedDate?: string; refs?: { url: string; title: string }[] }) => void;
+  onUnstarBriefing?: (text: string) => void;
+  starredBriefingTexts?: Set<string>;
+  readBriefingTexts?: Set<string>;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }
@@ -41,8 +45,12 @@ export function FeedSection({
   onDismiss,
   onRefresh,
   onAddContext,
-  onMarkSeen,
-  onMarkUnseen,
+  onMarkBriefingRead,
+  onMarkBriefingUnread,
+  onStarBriefing,
+  onUnstarBriefing,
+  starredBriefingTexts,
+  readBriefingTexts,
   palette,
   theme,
 }: FeedSectionProps) {
@@ -142,7 +150,7 @@ export function FeedSection({
           className="p-4 rounded-xl mb-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 border"
           style={{ borderColor: theme.border }}
         >
-          <StructuredBriefing briefing={briefing} items={items} palette={palette} theme={theme} onAddContext={onAddContext} onMarkSeen={onMarkSeen} onMarkUnseen={onMarkUnseen} />
+          <StructuredBriefing briefing={briefing} items={items} generatedAt={generatedAt} palette={palette} theme={theme} onAddContext={onAddContext} onMarkBriefingRead={onMarkBriefingRead} onMarkBriefingUnread={onMarkBriefingUnread} onStarBriefing={onStarBriefing} onUnstarBriefing={onUnstarBriefing} starredBriefingTexts={starredBriefingTexts} readBriefingTexts={readBriefingTexts} />
         </div>
       )}
 
@@ -310,7 +318,7 @@ function InsightsSection({
   theme: Record<string, string>;
   onAddContext?: (text: string, title: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const plainText = insights.map(i => i.text.replace(/\*\*([^*]+)\*\*/g, "$1")).join("\n");
 
@@ -367,7 +375,7 @@ function InsightsSection({
                 <div className="h-px mx-2 my-1" style={{ backgroundColor: theme.border }} />
               )}
               <p className="text-sm leading-relaxed py-2.5 px-2" style={{ color: theme.text }}>
-                <TextWithBold text={insight.text} palette={palette} />
+                <TextWithBold text={insight.text} palette={palette} highlight />
               </p>
             </div>
           ))}
@@ -383,22 +391,30 @@ function InsightsSection({
 function StructuredBriefing({
   briefing,
   items,
+  generatedAt,
   palette,
   theme,
   onAddContext,
-  onMarkSeen,
-  onMarkUnseen,
+  onMarkBriefingRead,
+  onMarkBriefingUnread,
+  onStarBriefing,
+  onUnstarBriefing,
+  starredBriefingTexts,
+  readBriefingTexts,
 }: {
   briefing: StructuredBriefingType;
   items: FeedItem[];
+  generatedAt: string | null;
   palette: Record<number, string>;
   theme: Record<string, string>;
   onAddContext?: (text: string, title: string) => void;
-  onMarkSeen?: (urls: string[]) => void;
-  onMarkUnseen?: (urls: string[]) => void;
+  onMarkBriefingRead?: (text: string, urls: string[]) => void;
+  onMarkBriefingUnread?: (text: string, urls: string[]) => void;
+  onStarBriefing?: (text: string, meta?: { feedDate?: string; refs?: { url: string; title: string }[] }) => void;
+  onUnstarBriefing?: (text: string) => void;
+  starredBriefingTexts?: Set<string>;
+  readBriefingTexts?: Set<string>;
 }) {
-  const [readItems, setReadItems] = useState<Set<number>>(new Set());
-
   const scrollToRef = (num: number) => {
     const el = document.getElementById(`feed-item-${num}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -408,20 +424,29 @@ function StructuredBriefing({
 
   const toggleRead = (index: number) => {
     const newsItem = briefing.news[index];
-    const wasRead = readItems.has(index);
-    setReadItems(prev => {
-      const next = new Set(prev);
-      if (wasRead) next.delete(index);
-      else next.add(index);
-      return next;
-    });
+    const text = newsItem.text || "";
     const urls = newsItem.refs
       .map(ref => items[ref - 1]?.url)
       .filter(Boolean) as string[];
-    if (wasRead) {
-      onMarkUnseen?.(urls);
+    if (readBriefingTexts?.has(text)) {
+      onMarkBriefingUnread?.(text, urls);
     } else {
-      onMarkSeen?.(urls);
+      onMarkBriefingRead?.(text, urls);
+    }
+  };
+
+  const toggleStar = (index: number) => {
+    const newsItem = briefing.news[index];
+    const text = newsItem.text || "";
+    const isStarred = starredBriefingTexts?.has(text);
+    if (isStarred) {
+      onUnstarBriefing?.(text);
+    } else {
+      const refs = newsItem.refs
+        .map(ref => items[ref - 1])
+        .filter(Boolean)
+        .map(item => ({ url: item.url, title: item.title }));
+      onStarBriefing?.(text, { feedDate: generatedAt ?? undefined, refs });
     }
   };
 
@@ -450,7 +475,9 @@ function StructuredBriefing({
       {/* News items — single column */}
       <div className="space-y-2">
         {briefing.news.map((newsItem, i) => {
-          const isRead = readItems.has(i);
+          const text = newsItem.text || "";
+          const isRead = readBriefingTexts?.has(text) ?? false;
+          const isStarred = starredBriefingTexts?.has(text) ?? false;
           return (
             <div
               key={i}
@@ -459,9 +486,28 @@ function StructuredBriefing({
               onClick={(e) => {
                 // Don't toggle if clicking a ref badge
                 if ((e.target as HTMLElement).closest("[data-ref-badge]")) return;
+                // Don't toggle if user is selecting text
+                const selection = window.getSelection();
+                if (selection && selection.toString().length > 0) return;
                 toggleRead(i);
               }}
             >
+              {/* Star — left side */}
+              <button
+                data-ref-badge
+                onClick={(e) => { e.stopPropagation(); toggleStar(i); }}
+                className="shrink-0 mt-1 transition-colors"
+                title={isStarred ? "Unstar" : "Star"}
+              >
+                <Star
+                  className="w-4 h-4"
+                  style={{
+                    color: isStarred ? "#f59e0b" : theme.border,
+                    fill: isStarred ? "#f59e0b" : "none",
+                  }}
+                />
+              </button>
+
               {/* Text content */}
               <p className="flex-1 text-sm leading-relaxed" style={{ color: theme.text }}>
                 {newsItem.refs.map((ref) => (
@@ -479,17 +525,17 @@ function StructuredBriefing({
                 <TextWithBold text={newsItem.text || ""} palette={palette} />
               </p>
 
-              {/* Check circle — right side */}
+              {/* Check — right side */}
               <div
-                  className="shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
-                  style={{
-                    borderColor: isRead ? palette[500] : theme.border,
-                    backgroundColor: isRead ? palette[500] : "transparent",
-                    color: isRead ? "white" : theme.textMuted,
-                  }}
-                >
-                  {isRead && <Check className="w-3 h-3" />}
-                </div>
+                className="shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                style={{
+                  borderColor: isRead ? palette[500] : theme.border,
+                  backgroundColor: isRead ? palette[500] : "transparent",
+                  color: isRead ? "white" : theme.textMuted,
+                }}
+              >
+                {isRead && <Check className="w-3 h-3" />}
+              </div>
             </div>
           );
         })}
@@ -528,9 +574,11 @@ function StructuredBriefing({
 function TextWithBold({
   text,
   palette,
+  highlight = false,
 }: {
   text: string;
   palette: Record<number, string>;
+  highlight?: boolean;
 }) {
   if (!text) return null;
   // Split on **bold** and *italic* markers (bold first to avoid conflicts)
@@ -540,10 +588,14 @@ function TextWithBold({
       {parts.map((part, i) => {
         const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
         if (boldMatch) {
-          return (
+          return highlight ? (
             <mark key={i} className="font-medium bg-amber-100/70 dark:bg-amber-400/15 text-inherit rounded-sm px-0.5 py-[1px]" style={{ textDecorationColor: "transparent" }}>
               {boldMatch[1]}
             </mark>
+          ) : (
+            <span key={i} className="font-semibold" style={{ color: palette[700] }}>
+              {boldMatch[1]}
+            </span>
           );
         }
         const italicMatch = part.match(/^\*([^*]+)\*$/);

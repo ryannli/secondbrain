@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory } from "@/lib/storage";
+import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
 import { extractUserInterests, filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
@@ -30,6 +30,10 @@ export async function GET() {
       });
     }
 
+    // Load starred briefing texts (always needed regardless of cache)
+    const starredBriefings = await loadStarredBriefings();
+    const starredBriefingTexts = starredBriefings.items.map(i => i.text);
+
     // Check cache
     const cache = await loadFeedCache();
     if (cache && isCacheFresh(cache)) {
@@ -43,6 +47,7 @@ export async function GET() {
           briefing: cache.briefing,
           signals: cache.signals,
           insights: cache.insights,
+          starredBriefingTexts,
         },
       });
     }
@@ -52,7 +57,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      feed: feedResult,
+      feed: { ...feedResult, starredBriefingTexts },
     });
   } catch (error) {
     console.error("[GET /api/feed] Error:", error);
@@ -78,10 +83,11 @@ export async function POST(request: NextRequest) {
     }
 
     const feedResult = await generateFeed();
+    const starredBriefingsPost = await loadStarredBriefings();
 
     return NextResponse.json({
       success: true,
-      feed: feedResult,
+      feed: { ...feedResult, starredBriefingTexts: starredBriefingsPost.items.map(i => i.text) },
     });
   } catch (error) {
     console.error("[POST /api/feed] Error:", error);
@@ -165,6 +171,16 @@ async function generateFeed() {
       if (c.status === "learned") interactionSignals.learnedConcepts.push(entry);
       else if (c.status === "knew") interactionSignals.knewConcepts.push(entry);
     }
+  }
+
+  // 3.7 Include starred briefing items as interaction signals
+  const starredBriefings = await loadStarredBriefings();
+  for (const item of starredBriefings.items) {
+    interactionSignals.starredHighlights.push({
+      text: item.text,
+      sourceTitle: "Feed Briefing",
+      at: item.starredAt,
+    });
   }
 
   const totalInteractions = interactionSignals.starredHighlights.length + interactionSignals.dismissedHighlights.length
