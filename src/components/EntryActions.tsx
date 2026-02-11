@@ -136,47 +136,33 @@ function NarrowActions({
   const iconColor = "#9ca3af";
 
   return (
-    <>
-      {onToggleSaved && (
-        <GhostButton
-          onClick={() => onToggleSaved(!saved)}
-          title={saved ? "Remove from saved" : "Save"}
-          color={saved ? palette[500] : iconColor}
-        >
-          <Bookmark className="w-4 h-4" style={{ fill: saved ? palette[500] : "none" }} />
-        </GhostButton>
+    <div className="relative">
+      <GhostButton onClick={() => setDropdownOpen(!dropdownOpen)} color={iconColor}>
+        <MoreHorizontal className="w-4 h-4" />
+      </GhostButton>
+
+      {dropdownOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
+          <DropdownMenu
+            saved={saved}
+            sourceUrl={sourceUrl}
+            viewOriginal={viewOriginal}
+            isReanalyzing={isReanalyzing}
+            hasOriginalFile={hasOriginalFile}
+            onToggleSaved={onToggleSaved ? (s: boolean) => { onToggleSaved(s); setDropdownOpen(false); } : undefined}
+            onEdit={() => { onEdit(); setDropdownOpen(false); }}
+            onReanalyze={onReanalyze ? () => { onReanalyze(); setDropdownOpen(false); } : undefined}
+            onToggleViewOriginal={() => { onToggleViewOriginal(); setDropdownOpen(false); }}
+            onMarkUnread={onMarkUnread ? () => { onMarkUnread(); setDropdownOpen(false); } : undefined}
+            onCloseEntry={onClose ? () => { onClose(); setDropdownOpen(false); } : undefined}
+            onClose={() => setDropdownOpen(false)}
+            palette={palette}
+            theme={theme}
+          />
+        </>
       )}
-
-      <div className="relative">
-        <GhostButton onClick={() => setDropdownOpen(!dropdownOpen)} color={iconColor}>
-          <MoreHorizontal className="w-4 h-4" />
-        </GhostButton>
-
-        {dropdownOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
-            <DropdownMenu
-              sourceUrl={sourceUrl}
-              viewOriginal={viewOriginal}
-              isReanalyzing={isReanalyzing}
-              hasOriginalFile={hasOriginalFile}
-              onEdit={() => { onEdit(); setDropdownOpen(false); }}
-              onReanalyze={onReanalyze ? () => { onReanalyze(); setDropdownOpen(false); } : undefined}
-              onToggleViewOriginal={() => { onToggleViewOriginal(); setDropdownOpen(false); }}
-              onMarkUnread={onMarkUnread ? () => { onMarkUnread(); setDropdownOpen(false); } : undefined}
-              onClose={() => setDropdownOpen(false)}
-              theme={theme}
-            />
-          </>
-        )}
-      </div>
-
-      {onClose && (
-        <GhostButton onClick={onClose} title="Close" color={iconColor}>
-          <X className="w-4 h-4" />
-        </GhostButton>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -274,26 +260,34 @@ function WideActions({
 
 // Dropdown menu for narrow screens
 function DropdownMenu({
+  saved,
   sourceUrl,
   viewOriginal,
   isReanalyzing,
   hasOriginalFile,
+  onToggleSaved,
   onEdit,
   onReanalyze,
   onToggleViewOriginal,
   onMarkUnread,
+  onCloseEntry,
   onClose,
+  palette,
   theme,
 }: {
+  saved?: boolean;
   sourceUrl?: string;
   viewOriginal: boolean;
   isReanalyzing: boolean;
   hasOriginalFile: boolean;
+  onToggleSaved?: (saved: boolean) => void;
   onEdit: () => void;
   onReanalyze?: () => void;
   onToggleViewOriginal: () => void;
   onMarkUnread?: () => void;
+  onCloseEntry?: () => void;
   onClose: () => void;
+  palette?: Record<number, string>;
   theme: Record<string, string>;
 }) {
   const iconColor = "#9ca3af";
@@ -303,11 +297,23 @@ function DropdownMenu({
       className="absolute right-0 top-full mt-1 w-44 py-1 bg-white dark:bg-zinc-800 border rounded-lg shadow-lg z-20"
       style={{ borderColor: theme.border }}
     >
+      {onToggleSaved && (
+        <DropdownItem
+          onClick={() => onToggleSaved(!saved)}
+          icon={<Bookmark className="w-4 h-4" style={{ fill: saved ? palette?.[500] : "none" }} />}
+          iconColor={saved ? (palette?.[500] || iconColor) : iconColor}
+        >
+          {saved ? "Remove from saved" : "Save"}
+        </DropdownItem>
+      )}
+
       {onMarkUnread && (
         <DropdownItem onClick={onMarkUnread} icon={<Inbox className="w-4 h-4" />} iconColor={iconColor}>
           Back to Inbox
         </DropdownItem>
       )}
+
+      <div className="my-1 border-t" style={{ borderColor: theme.border }} />
 
       <DropdownItem onClick={onEdit} icon={<Pencil className="w-4 h-4" />} iconColor={iconColor}>
         Edit
@@ -345,6 +351,15 @@ function DropdownMenu({
         >
           {viewOriginal ? "View extracted" : "View original"}
         </DropdownItem>
+      )}
+
+      {onCloseEntry && (
+        <>
+          <div className="my-1 border-t" style={{ borderColor: theme.border }} />
+          <DropdownItem onClick={onCloseEntry} icon={<X className="w-4 h-4" />} iconColor={iconColor}>
+            Close
+          </DropdownItem>
+        </>
       )}
     </div>
   );
