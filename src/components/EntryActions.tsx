@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Pencil,
   RefreshCw,
@@ -10,6 +10,7 @@ import {
   X,
   Bookmark,
   MoreHorizontal,
+  Inbox,
 } from "lucide-react";
 import { TooltipButton } from "./ui";
 
@@ -25,6 +26,7 @@ interface EntryActionsProps {
   onEdit: () => void;
   onReanalyze?: () => void;
   onToggleViewOriginal: () => void;
+  onMarkUnread?: () => void;
   onClose?: () => void;
   // Theming
   palette: Record<number, string>;
@@ -41,18 +43,24 @@ export function EntryActions({
   onEdit,
   onReanalyze,
   onToggleViewOriginal,
+  onMarkUnread,
   onClose,
   palette,
   theme,
 }: EntryActionsProps) {
   const [isNarrow, setIsNarrow] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Measure the parent content area width to decide layout
   useEffect(() => {
-    const checkWidth = () => setIsNarrow(window.innerWidth < 1024);
-    checkWidth();
-    window.addEventListener("resize", checkWidth);
-    return () => window.removeEventListener("resize", checkWidth);
+    const el = containerRef.current?.closest("[data-entry-header]");
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setIsNarrow(entry.contentRect.width < 500);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // Close dropdown when clicking outside
@@ -65,28 +73,25 @@ export function EntryActions({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [dropdownOpen]);
 
-  if (isNarrow) {
-    return (
-      <NarrowActions
-        saved={saved}
-        sourceUrl={sourceUrl}
-        viewOriginal={viewOriginal}
-        isReanalyzing={isReanalyzing}
-        hasOriginalFile={hasOriginalFile}
-        dropdownOpen={dropdownOpen}
-        setDropdownOpen={setDropdownOpen}
-        onToggleSaved={onToggleSaved}
-        onEdit={onEdit}
-        onReanalyze={onReanalyze}
-        onToggleViewOriginal={onToggleViewOriginal}
-        onClose={onClose}
-        palette={palette}
-        theme={theme}
-      />
-    );
-  }
-
-  return (
+  const actions = isNarrow ? (
+    <NarrowActions
+      saved={saved}
+      sourceUrl={sourceUrl}
+      viewOriginal={viewOriginal}
+      isReanalyzing={isReanalyzing}
+      hasOriginalFile={hasOriginalFile}
+      dropdownOpen={dropdownOpen}
+      setDropdownOpen={setDropdownOpen}
+      onToggleSaved={onToggleSaved}
+      onEdit={onEdit}
+      onReanalyze={onReanalyze}
+      onToggleViewOriginal={onToggleViewOriginal}
+      onMarkUnread={onMarkUnread}
+      onClose={onClose}
+      palette={palette}
+      theme={theme}
+    />
+  ) : (
     <WideActions
       saved={saved}
       sourceUrl={sourceUrl}
@@ -97,11 +102,14 @@ export function EntryActions({
       onEdit={onEdit}
       onReanalyze={onReanalyze}
       onToggleViewOriginal={onToggleViewOriginal}
+      onMarkUnread={onMarkUnread}
       onClose={onClose}
       palette={palette}
       theme={theme}
     />
   );
+
+  return <div ref={containerRef} className="flex items-center gap-1">{actions}</div>;
 }
 
 // Narrow screen: bookmark + dropdown + close
@@ -117,6 +125,7 @@ function NarrowActions({
   onEdit,
   onReanalyze,
   onToggleViewOriginal,
+  onMarkUnread,
   onClose,
   palette,
   theme,
@@ -154,6 +163,7 @@ function NarrowActions({
               onEdit={() => { onEdit(); setDropdownOpen(false); }}
               onReanalyze={onReanalyze ? () => { onReanalyze(); setDropdownOpen(false); } : undefined}
               onToggleViewOriginal={() => { onToggleViewOriginal(); setDropdownOpen(false); }}
+              onMarkUnread={onMarkUnread ? () => { onMarkUnread(); setDropdownOpen(false); } : undefined}
               onClose={() => setDropdownOpen(false)}
               theme={theme}
             />
@@ -181,6 +191,7 @@ function WideActions({
   onEdit,
   onReanalyze,
   onToggleViewOriginal,
+  onMarkUnread,
   onClose,
   palette,
   theme,
@@ -199,6 +210,16 @@ function WideActions({
           style={{ color: saved ? palette[500] : iconColor }}
         >
           <Bookmark className="w-4 h-4" style={{ fill: saved ? palette[500] : "none" }} />
+        </TooltipButton>
+      )}
+
+      {onMarkUnread && (
+        <TooltipButton
+          onClick={onMarkUnread}
+          tooltip={{ title: "Back to Inbox", description: "Mark as unread and return to Inbox." }}
+          style={{ color: iconColor }}
+        >
+          <Inbox className="w-4 h-4" />
         </TooltipButton>
       )}
 
@@ -260,6 +281,7 @@ function DropdownMenu({
   onEdit,
   onReanalyze,
   onToggleViewOriginal,
+  onMarkUnread,
   onClose,
   theme,
 }: {
@@ -270,6 +292,7 @@ function DropdownMenu({
   onEdit: () => void;
   onReanalyze?: () => void;
   onToggleViewOriginal: () => void;
+  onMarkUnread?: () => void;
   onClose: () => void;
   theme: Record<string, string>;
 }) {
@@ -280,6 +303,12 @@ function DropdownMenu({
       className="absolute right-0 top-full mt-1 w-44 py-1 bg-white dark:bg-zinc-800 border rounded-lg shadow-lg z-20"
       style={{ borderColor: theme.border }}
     >
+      {onMarkUnread && (
+        <DropdownItem onClick={onMarkUnread} icon={<Inbox className="w-4 h-4" />} iconColor={iconColor}>
+          Back to Inbox
+        </DropdownItem>
+      )}
+
       <DropdownItem onClick={onEdit} icon={<Pencil className="w-4 h-4" />} iconColor={iconColor}>
         Edit
       </DropdownItem>

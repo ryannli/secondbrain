@@ -69,6 +69,7 @@ export interface EntryViewProps {
   // Bookmark/save toggle
   onToggleSaved?: (saved: boolean) => void;
   // Source-specific handlers (optional)
+  onMarkUnread?: () => void;
   onReanalyze?: () => void;
   onReaction?: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
   onRating?: (rating: number | undefined) => void;
@@ -89,6 +90,7 @@ export function EntryView({
   onSave,
   onClose,
   onToggleSaved,
+  onMarkUnread,
   onReanalyze,
   onReaction,
   onRating,
@@ -185,7 +187,7 @@ export function EntryView({
       <div className="flex-1 min-w-0 h-[calc(100vh-140px)] sticky top-0 pr-2">
         <div className="bg-white dark:bg-zinc-900 border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
           {/* Header */}
-          <div className="flex items-start justify-between mb-2 pr-6">
+          <div className="flex items-start justify-between mb-2 pr-6" data-entry-header>
             {isEditing ? (
               <input
                 type="text"
@@ -230,6 +232,7 @@ export function EntryView({
                   onEdit={() => setIsEditing(true)}
                   onReanalyze={onReanalyze}
                   onToggleViewOriginal={() => setViewOriginal(!viewOriginal)}
+                  onMarkUnread={onMarkUnread}
                   onClose={onClose}
                   palette={palette}
                   theme={theme}

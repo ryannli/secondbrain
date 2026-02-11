@@ -16,6 +16,9 @@ interface FeedSectionProps {
   insights?: InsightItem[];
   loading: boolean;
   error: string | null;
+  availableDates?: string[];
+  selectedDate?: string | null;
+  onSelectDate?: (date: string | null) => void;
   onCapture: (url: string) => void;
   onDismiss: (id: string) => void;
   onRefresh: () => void;
@@ -41,6 +44,9 @@ export function FeedSection({
   insights,
   loading,
   error,
+  availableDates,
+  selectedDate,
+  onSelectDate,
   onCapture,
   onDismiss,
   onRefresh,
@@ -82,19 +88,32 @@ export function FeedSection({
               {fromCache ? "Cached" : "Updated"} {formatRelativeTime(generatedAt)}
             </span>
           )}
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="p-2 rounded-lg hover:bg-black/5 transition-colors disabled:opacity-50"
-            title="Refresh feed"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              style={{ color: theme.textMuted }}
-            />
-          </button>
+          {!selectedDate && (
+            <button
+              onClick={onRefresh}
+              disabled={loading}
+              className="p-2 rounded-lg hover:bg-black/5 transition-colors disabled:opacity-50"
+              title="Refresh feed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                style={{ color: theme.textMuted }}
+              />
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Date selector pills */}
+      {availableDates && availableDates.length > 1 && (
+        <DateSelector
+          dates={availableDates}
+          selectedDate={selectedDate ?? null}
+          onSelectDate={onSelectDate}
+          palette={palette}
+          theme={theme}
+        />
+      )}
 
       {/* Filter status bar */}
       {items.length > 0 && !loading && (
@@ -299,6 +318,64 @@ function SignalsBar({
             <span>{dot.label}</span>
           </span>
         </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Horizontal date pills for browsing past feeds
+ */
+function DateSelector({
+  dates,
+  selectedDate,
+  onSelectDate,
+  palette,
+  theme,
+}: {
+  dates: string[];
+  selectedDate: string | null;
+  onSelectDate?: (date: string | null) => void;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  const formatDateLabel = (date: string) => {
+    if (date === today) return "Today";
+    if (date === yesterday) return "Yesterday";
+    const d = new Date(date + "T00:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  // The first date (newest) is "today/latest" — selecting it means go back to current
+  const isActive = (date: string) => {
+    if (!selectedDate && date === dates[0]) return true;
+    return date === selectedDate;
+  };
+
+  return (
+    <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+      {dates.map((date) => (
+        <button
+          key={date}
+          onClick={() => {
+            if (date === dates[0]) {
+              onSelectDate?.(null); // back to latest
+            } else {
+              onSelectDate?.(date);
+            }
+          }}
+          className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+          style={
+            isActive(date)
+              ? { backgroundColor: palette[500], color: "white" }
+              : { backgroundColor: "transparent", color: theme.textMuted, border: `1px solid ${theme.border}` }
+          }
+        >
+          {formatDateLabel(date)}
+        </button>
       ))}
     </div>
   );

@@ -506,6 +506,18 @@ function HomeContent() {
                     library.refresh();
                   }
                 }}
+                onMarkUnread={async () => {
+                  const res = await fetch(`/api/sources/${entry.source!.meta.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ readStatus: "unread" }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    entry.setSource(null);
+                    library.refresh();
+                  }
+                }}
                 onClose={() => entry.setSource(null)}
                 onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
@@ -543,6 +555,9 @@ function HomeContent() {
                   insights={feed.insights}
                   loading={feed.loading}
                   error={feed.error}
+                  availableDates={feed.availableDates}
+                  selectedDate={feed.selectedDate}
+                  onSelectDate={feed.loadFeedForDate}
                   onCapture={handleCaptureUrl}
                   onDismiss={feed.dismissItem}
                   onRefresh={feed.refreshFeed}
