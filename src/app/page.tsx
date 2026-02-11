@@ -40,6 +40,7 @@ function HomeContent() {
   const sourceId = searchParams.get("source");
   const docId = searchParams.get("doc");
   const viewParam = searchParams.get("view");
+  const profileParam = searchParams.get("profile");
 
   // Core state
   const entry = useSelectedEntry();
@@ -48,6 +49,7 @@ function HomeContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useLocalStorage("sidebar-open", true);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const { addContext } = useCoLearning();
+  const [profileDoc, setProfileDoc] = useState<{ name: string; content: string } | null>(null);
 
   const sidebarResize = useResizable({
     initialWidth: 256,
@@ -241,6 +243,33 @@ function HomeContent() {
     }
   }, [docId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load profile doc from URL param
+  useEffect(() => {
+    if (profileParam && (profileParam === "User" || profileParam === "Memory")) {
+      fetch(`/api/profile/${profileParam}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setProfileDoc({ name: data.name === "USER" ? "User" : "Memory", content: data.content });
+          }
+        })
+        .catch((err) => console.error("Failed to load profile:", err));
+    } else {
+      setProfileDoc(null);
+    }
+  }, [profileParam]);
+
+  // Navigate to profile doc
+  const navigateToProfile = (name: string | null) => {
+    if (name) {
+      entry.setSource(null);
+      entry.setDocument(null);
+      router.push(`/?profile=${name}`);
+    } else {
+      router.push("/");
+    }
+  };
+
   // Auto-expand folder when viewing an entry (like VS Code "Reveal in Explorer")
   // Only run when the folder path changes, not on every render
   const expandFolderPath = useCallback((folderPath: string, setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>) => {
@@ -388,9 +417,11 @@ function HomeContent() {
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           selectedSource={entry.source}
           currentView={currentView}
-          onNavigateToDashboard={() => { navigateToDashboard(); navigateToView("dashboard"); }}
-          onNavigateToForYou={() => { navigateToDashboard(); navigateToView("foryou"); }}
-          onNavigateToHistory={() => { navigateToDashboard(); navigateToView("history"); }}
+          onNavigateToDashboard={() => { setProfileDoc(null); navigateToDashboard(); navigateToView("dashboard"); }}
+          onNavigateToForYou={() => { setProfileDoc(null); navigateToDashboard(); navigateToView("foryou"); }}
+          onNavigateToHistory={() => { setProfileDoc(null); navigateToDashboard(); navigateToView("history"); }}
+          selectedProfile={profileParam}
+          onSelectProfile={navigateToProfile}
           onEntryContextMenu={handleEntryContextMenu}
           palette={palette}
           width={sidebarResize.width}
@@ -440,7 +471,30 @@ function HomeContent() {
 
         <main className="flex-1 flex flex-col min-w-0" ref={mainContentRef}>
           <div className="flex-1 p-6 overflow-y-auto">
-            {entry.document ? (
+            {profileDoc ? (
+              <EntryView
+                entry={{
+                  id: `profile-${profileDoc.name}`,
+                  title: profileDoc.name,
+                  content: profileDoc.content,
+                  type: "text",
+                }}
+                onSave={async (_title, content) => {
+                  const res = await fetch(`/api/profile/${profileDoc.name}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setProfileDoc({ name: profileDoc.name, content: data.content });
+                  }
+                }}
+                onClose={() => { setProfileDoc(null); router.push("/"); }}
+                palette={palette}
+                theme={theme}
+              />
+            ) : entry.document ? (
               <EntryView
                 entry={{
                   id: entry.document.meta.id,

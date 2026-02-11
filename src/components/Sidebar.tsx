@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   Rss,
   Clock,
+  FileText,
+  Brain,
 } from "lucide-react";
 import { Source, TreeNode } from "@/lib/types";
 import { theme } from "@/lib/theme";
@@ -68,6 +70,9 @@ export interface SidebarProps {
   onNavigateToHistory: () => void;
   // Sections (Library, Studio, etc.)
   sections: SectionConfig[];
+  // Profile documents
+  selectedProfile: string | null;
+  onSelectProfile: (name: string | null) => void;
   // Context menu for entries (shared)
   onEntryContextMenu: (e: React.MouseEvent, entryId: string, entryUrl?: string, entryType?: "source" | "document") => void;
   // Styling
@@ -84,6 +89,8 @@ export function Sidebar({
   onNavigateToDashboard,
   onNavigateToForYou,
   onNavigateToHistory,
+  selectedProfile,
+  onSelectProfile,
   sections,
   onEntryContextMenu,
   palette,
@@ -120,16 +127,16 @@ export function Sidebar({
             onClick={onNavigateToDashboard}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
             style={{
-              backgroundColor: !selectedSource && currentView === "dashboard" ? `${palette[500]}15` : undefined,
+              backgroundColor: !selectedSource && !selectedProfile && currentView === "dashboard" ? `${palette[500]}15` : undefined,
             }}
           >
             <LayoutDashboard
               className="w-4 h-4"
-              style={{ color: !selectedSource && currentView === "dashboard" ? palette[500] : theme.textMuted }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "dashboard" ? palette[500] : theme.textMuted }}
             />
             <span
               className="text-sm font-medium"
-              style={{ color: !selectedSource && currentView === "dashboard" ? palette[600] : theme.text }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "dashboard" ? palette[600] : theme.text }}
             >
               Dashboard
             </span>
@@ -140,16 +147,16 @@ export function Sidebar({
             onClick={onNavigateToForYou}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
             style={{
-              backgroundColor: !selectedSource && currentView === "foryou" ? `${palette[500]}15` : undefined,
+              backgroundColor: !selectedSource && !selectedProfile && currentView === "foryou" ? `${palette[500]}15` : undefined,
             }}
           >
             <Rss
               className="w-4 h-4"
-              style={{ color: !selectedSource && currentView === "foryou" ? palette[500] : theme.textMuted }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "foryou" ? palette[500] : theme.textMuted }}
             />
             <span
               className="text-sm font-medium"
-              style={{ color: !selectedSource && currentView === "foryou" ? palette[600] : theme.text }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "foryou" ? palette[600] : theme.text }}
             >
               For You
             </span>
@@ -160,22 +167,67 @@ export function Sidebar({
             onClick={onNavigateToHistory}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
             style={{
-              backgroundColor: !selectedSource && currentView === "history" ? `${palette[500]}15` : undefined,
+              backgroundColor: !selectedSource && !selectedProfile && currentView === "history" ? `${palette[500]}15` : undefined,
             }}
           >
             <Clock
               className="w-4 h-4"
-              style={{ color: !selectedSource && currentView === "history" ? palette[500] : theme.textMuted }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "history" ? palette[500] : theme.textMuted }}
             />
             <span
               className="text-sm font-medium"
-              style={{ color: !selectedSource && currentView === "history" ? palette[600] : theme.text }}
+              style={{ color: !selectedSource && !selectedProfile && currentView === "history" ? palette[600] : theme.text }}
             >
               History
             </span>
           </button>
 
-          <div className="flex-1 overflow-auto mt-2">
+          {/* Divider */}
+          <div className="mx-3 my-2 border-t" style={{ borderColor: theme.border }} />
+
+          {/* Profile Documents */}
+          <button
+            onClick={() => onSelectProfile("User")}
+            className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            style={{
+              backgroundColor: selectedProfile === "User" ? `${palette[500]}15` : undefined,
+            }}
+          >
+            <FileText
+              className="w-4 h-4"
+              style={{ color: selectedProfile === "User" ? palette[500] : theme.textMuted }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: selectedProfile === "User" ? palette[600] : theme.text }}
+            >
+              User
+            </span>
+          </button>
+
+          <button
+            onClick={() => onSelectProfile("Memory")}
+            className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            style={{
+              backgroundColor: selectedProfile === "Memory" ? `${palette[500]}15` : undefined,
+            }}
+          >
+            <Brain
+              className="w-4 h-4"
+              style={{ color: selectedProfile === "Memory" ? palette[500] : theme.textMuted }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: selectedProfile === "Memory" ? palette[600] : theme.text }}
+            >
+              Memory
+            </span>
+          </button>
+
+          {/* Divider */}
+          <div className="mx-3 my-2 border-t" style={{ borderColor: theme.border }} />
+
+          <div className="flex-1 overflow-auto">
             {sections.map((section, index) => (
               <div key={section.label} className={index > 0 ? "mt-2" : ""}>
                 <SectionTree

@@ -1483,6 +1483,32 @@ export async function renameFolder(
 }
 
 // =============================================================================
+// Profile Document Functions (USER.md, MEMORY.md)
+// =============================================================================
+
+/**
+ * Load a profile document (USER.md or MEMORY.md) from root
+ */
+export async function loadProfileDoc(name: "USER" | "MEMORY"): Promise<string> {
+  try {
+    const filePath = path.join(getRootPath(), `${name}.md`);
+    return await fs.readFile(filePath, "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Save a profile document (USER.md or MEMORY.md) to root
+ */
+export async function saveProfileDoc(name: "USER" | "MEMORY", content: string): Promise<void> {
+  const rootPath = getRootPath();
+  await fs.mkdir(rootPath, { recursive: true });
+  const filePath = path.join(rootPath, `${name}.md`);
+  await fs.writeFile(filePath, content, "utf-8");
+}
+
+// =============================================================================
 // Feed Cache Functions
 // =============================================================================
 
