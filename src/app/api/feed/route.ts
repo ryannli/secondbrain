@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings } from "@/lib/storage";
+import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings, listFeedSnapshots, loadFeedSnapshot } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
 import { extractUserInterests, filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
@@ -19,7 +19,7 @@ function isCacheFresh(cache: FeedCache): boolean {
  * GET /api/feed
  * Returns cached feed or generates new one
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check for API key
     if (!process.env.BRAVE_SEARCH_API_KEY) {
@@ -27,6 +27,36 @@ export async function GET() {
         success: true,
         feed: null,
         message: "Feed disabled: BRAVE_SEARCH_API_KEY not configured",
+      });
+    }
+
+    // Load available snapshot dates
+    const availableDates = await listFeedSnapshots();
+
+    // Check if requesting a specific date's snapshot
+    const dateParam = request.nextUrl.searchParams.get("date");
+    if (dateParam) {
+      const snapshot = await loadFeedSnapshot(dateParam);
+      if (!snapshot) {
+        return NextResponse.json(
+          { success: false, error: `No feed snapshot for ${dateParam}` },
+          { status: 404 }
+        );
+      }
+      const starredBriefings = await loadStarredBriefings();
+      return NextResponse.json({
+        success: true,
+        feed: {
+          items: snapshot.items,
+          interests: snapshot.interests,
+          generatedAt: snapshot.generatedAt,
+          fromCache: true,
+          briefing: snapshot.briefing,
+          signals: snapshot.signals,
+          insights: snapshot.insights,
+          starredBriefingTexts: starredBriefings.items.map(i => i.text),
+        },
+        availableDates,
       });
     }
 
@@ -49,15 +79,20 @@ export async function GET() {
           insights: cache.insights,
           starredBriefingTexts,
         },
+        availableDates,
       });
     }
 
     // Generate new feed
     const feedResult = await generateFeed();
 
+    // Re-fetch available dates after generation (new snapshot may have been created)
+    const updatedDates = await listFeedSnapshots();
+
     return NextResponse.json({
       success: true,
       feed: { ...feedResult, starredBriefingTexts },
+      availableDates: updatedDates,
     });
   } catch (error) {
     console.error("[GET /api/feed] Error:", error);
@@ -72,7 +107,7 @@ export async function GET() {
  * POST /api/feed/refresh
  * Force regenerate feed (bypasses cache)
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Check for API key
     if (!process.env.BRAVE_SEARCH_API_KEY) {
@@ -84,10 +119,12 @@ export async function POST(request: NextRequest) {
 
     const feedResult = await generateFeed();
     const starredBriefingsPost = await loadStarredBriefings();
+    const availableDates = await listFeedSnapshots();
 
     return NextResponse.json({
       success: true,
       feed: { ...feedResult, starredBriefingTexts: starredBriefingsPost.items.map(i => i.text) },
+      availableDates,
     });
   } catch (error) {
     console.error("[POST /api/feed] Error:", error);

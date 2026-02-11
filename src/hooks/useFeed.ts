@@ -28,6 +28,8 @@ export function useFeed() {
   const dismissedSet = useMemo(() => new Set(dismissedIds), [dismissedIds]);
   const [starredTexts, setStarredTexts] = useState<Set<string>>(new Set());
   const [readBriefingTexts, setReadBriefingTexts] = useState<Set<string>>(new Set());
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Filter out dismissed items
   const visibleItems = feed.items.filter((item) => !dismissedSet.has(item.id));
@@ -104,6 +106,9 @@ export function useFeed() {
         if (data.feed.starredBriefingTexts) {
           setStarredTexts(new Set(data.feed.starredBriefingTexts));
         }
+        if (data.availableDates) {
+          setAvailableDates(data.availableDates);
+        }
       } else if (data.message) {
         // Feed disabled or no API key
         setFeed((prev) => ({ ...prev, message: data.message }));
@@ -120,6 +125,7 @@ export function useFeed() {
   const refreshFeed = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSelectedDate(null);
 
     try {
       const res = await fetch("/api/feed", { method: "POST" });
@@ -140,6 +146,9 @@ export function useFeed() {
         if (data.feed.starredBriefingTexts) {
           setStarredTexts(new Set(data.feed.starredBriefingTexts));
         }
+        if (data.availableDates) {
+          setAvailableDates(data.availableDates);
+        }
       } else {
         setError(data.error || "Failed to refresh feed");
       }
@@ -149,6 +158,49 @@ export function useFeed() {
       setLoading(false);
     }
   }, []);
+
+  const loadFeedForDate = useCallback(async (date: string | null) => {
+    if (!date) {
+      // Go back to current/latest feed
+      setSelectedDate(null);
+      await loadFeed();
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSelectedDate(date);
+
+    try {
+      const res = await fetch(`/api/feed?date=${date}`);
+      const data = await res.json();
+
+      if (data.success && data.feed) {
+        setFeed({
+          items: data.feed.items ?? [],
+          interests: data.feed.interests ?? [],
+          generatedAt: data.feed.generatedAt ?? null,
+          fromCache: true,
+          message: data.feed.message,
+          briefing: data.feed.briefing,
+          signals: data.feed.signals,
+          insights: data.feed.insights,
+        });
+        if (data.feed.starredBriefingTexts) {
+          setStarredTexts(new Set(data.feed.starredBriefingTexts));
+        }
+        if (data.availableDates) {
+          setAvailableDates(data.availableDates);
+        }
+      } else {
+        setError(data.error || "Failed to load feed for date");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load feed for date");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadFeed]);
 
   const dismissItem = useCallback((id: string) => {
     setDismissedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -165,10 +217,13 @@ export function useFeed() {
     insights: feed.insights,
     starredBriefingTexts: starredTexts,
     readBriefingTexts,
+    availableDates,
+    selectedDate,
     loading,
     error,
     loadFeed,
     refreshFeed,
+    loadFeedForDate,
     dismissItem,
     markBriefingRead,
     markBriefingUnread,

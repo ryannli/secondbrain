@@ -1508,13 +1508,98 @@ export async function loadFeedCache(): Promise<FeedCache | null> {
 }
 
 /**
- * Save feed cache to disk
+ * Save feed cache to disk (also saves a dated snapshot)
  */
 export async function saveFeedCache(cache: FeedCache): Promise<void> {
   const feedDir = getFeedPath();
   await fs.mkdir(feedDir, { recursive: true });
   const cachePath = path.join(feedDir, "cache.json");
   await fs.writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+  await saveFeedSnapshot(cache);
+}
+
+// =============================================================================
+// Feed Snapshot Functions (browse past 7 days)
+// =============================================================================
+
+/**
+ * Save a feed snapshot keyed by timestamp.
+ * Filename: YYYY-MM-DDTHH-MM.json (colons replaced for filesystem safety)
+ * Prunes snapshots older than 7 days.
+ */
+async function saveFeedSnapshot(cache: FeedCache): Promise<void> {
+  const snapshotsDir = path.join(getFeedPath(), "snapshots");
+  await fs.mkdir(snapshotsDir, { recursive: true });
+
+  // e.g. "2026-02-10T14:30:00.000Z" → "2026-02-10T14-30"
+  const key = snapshotKeyFromISO(cache.generatedAt);
+  const snapshotPath = path.join(snapshotsDir, `${key}.json`);
+  await fs.writeFile(snapshotPath, JSON.stringify(cache, null, 2), "utf-8");
+
+  // Prune old snapshots
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  try {
+    const files = await fs.readdir(snapshotsDir);
+    for (const file of files) {
+      const match = file.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2})\.json$/);
+      if (match) {
+        const iso = match[1].replace(/T(\d{2})-(\d{2})/, "T$1:$2");
+        if (new Date(iso).getTime() < cutoff) {
+          await fs.unlink(path.join(snapshotsDir, file));
+        }
+      }
+      // Also clean up old date-only format (YYYY-MM-DD.json)
+      const dateMatch = file.match(/^(\d{4}-\d{2}-\d{2})\.json$/);
+      if (dateMatch && new Date(dateMatch[1]).getTime() < cutoff) {
+        await fs.unlink(path.join(snapshotsDir, file));
+      }
+    }
+  } catch {
+    // Ignore pruning errors
+  }
+}
+
+/** Convert ISO timestamp to filesystem-safe snapshot key */
+function snapshotKeyFromISO(iso: string): string {
+  // "2026-02-10T14:30:05.000Z" → "2026-02-10T14-30"
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}-${min}`;
+}
+
+/**
+ * List available snapshot keys (newest first).
+ * Each key is like "2026-02-10T14-30".
+ */
+export async function listFeedSnapshots(): Promise<string[]> {
+  const snapshotsDir = path.join(getFeedPath(), "snapshots");
+  try {
+    const files = await fs.readdir(snapshotsDir);
+    const keys = files
+      .map((f) => f.match(/^(.+)\.json$/)?.[1])
+      .filter((k): k is string => !!k);
+    keys.sort((a, b) => b.localeCompare(a)); // newest first
+    return keys;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Load a specific snapshot by key
+ */
+export async function loadFeedSnapshot(key: string): Promise<FeedCache | null> {
+  try {
+    const snapshotPath = path.join(getFeedPath(), "snapshots", `${key}.json`);
+    const content = await fs.readFile(snapshotPath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
 }
 
 // =============================================================================

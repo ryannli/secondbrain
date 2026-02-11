@@ -324,7 +324,16 @@ function SignalsBar({
 }
 
 /**
- * Horizontal date pills for browsing past feeds
+ * Parse snapshot key "2026-02-10T14-30" into a Date (local time)
+ */
+function parseSnapshotKey(key: string): Date {
+  // "2026-02-10T14-30" → "2026-02-10T14:30"
+  const iso = key.replace(/T(\d{2})-(\d{2})/, "T$1:$2");
+  return new Date(iso);
+}
+
+/**
+ * Horizontal date pills for browsing past feeds, grouped by day
  */
 function DateSelector({
   dates,
@@ -342,40 +351,88 @@ function DateSelector({
   const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
-  const formatDateLabel = (date: string) => {
-    if (date === today) return "Today";
-    if (date === yesterday) return "Yesterday";
-    const d = new Date(date + "T00:00:00");
+  // Group keys by day
+  const grouped: { day: string; keys: string[] }[] = [];
+  for (const key of dates) {
+    const day = key.slice(0, 10);
+    const last = grouped[grouped.length - 1];
+    if (last && last.day === day) {
+      last.keys.push(key);
+    } else {
+      grouped.push({ day, keys: [key] });
+    }
+  }
+
+  const formatDayLabel = (day: string) => {
+    if (day === today) return "Today";
+    if (day === yesterday) return "Yesterday";
+    const d = new Date(day + "T00:00:00");
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // The first date (newest) is "today/latest" — selecting it means go back to current
-  const isActive = (date: string) => {
-    if (!selectedDate && date === dates[0]) return true;
-    return date === selectedDate;
+  const formatTimeLabel = (key: string) => {
+    const d = parseSnapshotKey(key);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   };
 
+  const isActive = (key: string) => {
+    if (!selectedDate && key === dates[0]) return true;
+    return key === selectedDate;
+  };
+
+  const pillStyle = (active: boolean) =>
+    active
+      ? { backgroundColor: palette[500], color: "white" }
+      : { backgroundColor: "transparent", color: theme.textMuted, border: `1px solid ${theme.border}` };
+
   return (
-    <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-      {dates.map((date) => (
-        <button
-          key={date}
-          onClick={() => {
-            if (date === dates[0]) {
-              onSelectDate?.(null); // back to latest
-            } else {
-              onSelectDate?.(date);
-            }
-          }}
-          className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
-          style={
-            isActive(date)
-              ? { backgroundColor: palette[500], color: "white" }
-              : { backgroundColor: "transparent", color: theme.textMuted, border: `1px solid ${theme.border}` }
-          }
-        >
-          {formatDateLabel(date)}
-        </button>
+    <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+      {grouped.map((group) => (
+        <React.Fragment key={group.day}>
+          {group.keys.length === 1 ? (
+            // Single snapshot for this day — show day label
+            <button
+              onClick={() => {
+                if (group.keys[0] === dates[0]) {
+                  onSelectDate?.(null);
+                } else {
+                  onSelectDate?.(group.keys[0]);
+                }
+              }}
+              className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+              style={pillStyle(isActive(group.keys[0]))}
+            >
+              {formatDayLabel(group.day)}
+            </button>
+          ) : (
+            // Multiple snapshots for this day — show day label + time pills
+            <>
+              <span className="text-[10px] font-medium pl-1" style={{ color: theme.textMuted }}>
+                {formatDayLabel(group.day)}
+              </span>
+              {group.keys.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (key === dates[0]) {
+                      onSelectDate?.(null);
+                    } else {
+                      onSelectDate?.(key);
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                  style={pillStyle(isActive(key))}
+                >
+                  {formatTimeLabel(key)}
+                </button>
+              ))}
+            </>
+          )}
+          {/* Separator between day groups */}
+          {group !== grouped[grouped.length - 1] && (
+            <div className="w-px h-4 mx-0.5" style={{ backgroundColor: theme.border }} />
+          )}
+        </React.Fragment>
       ))}
     </div>
   );
