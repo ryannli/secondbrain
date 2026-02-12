@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         );
       }
       const starredBriefings = await loadStarredBriefings();
+      const snapshotHistory = await loadFeedHistory();
       return NextResponse.json({
         success: true,
         feed: {
@@ -55,14 +56,17 @@ export async function GET(request: NextRequest) {
           signals: snapshot.signals,
           insights: snapshot.insights,
           starredBriefingTexts: starredBriefings.items.map(i => i.text),
+          readBriefingTexts: snapshotHistory.readTexts ?? [],
         },
         availableDates,
       });
     }
 
-    // Load starred briefing texts (always needed regardless of cache)
+    // Load starred briefing texts and read state (always needed regardless of cache)
     const starredBriefings = await loadStarredBriefings();
     const starredBriefingTexts = starredBriefings.items.map(i => i.text);
+    const history = await loadFeedHistory();
+    const readBriefingTexts = history.readTexts ?? [];
 
     // Check cache
     const cache = await loadFeedCache();
@@ -78,6 +82,7 @@ export async function GET(request: NextRequest) {
           signals: cache.signals,
           insights: cache.insights,
           starredBriefingTexts,
+          readBriefingTexts,
         },
         availableDates,
       });
@@ -91,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      feed: { ...feedResult, starredBriefingTexts },
+      feed: { ...feedResult, starredBriefingTexts, readBriefingTexts },
       availableDates: updatedDates,
     });
   } catch (error) {
@@ -119,11 +124,16 @@ export async function POST() {
 
     const feedResult = await generateFeed();
     const starredBriefingsPost = await loadStarredBriefings();
+    const historyPost = await loadFeedHistory();
     const availableDates = await listFeedSnapshots();
 
     return NextResponse.json({
       success: true,
-      feed: { ...feedResult, starredBriefingTexts: starredBriefingsPost.items.map(i => i.text) },
+      feed: {
+        ...feedResult,
+        starredBriefingTexts: starredBriefingsPost.items.map(i => i.text),
+        readBriefingTexts: historyPost.readTexts ?? [],
+      },
       availableDates,
     });
   } catch (error) {

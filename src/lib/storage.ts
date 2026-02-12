@@ -1639,6 +1639,7 @@ interface FeedHistoryEntry {
 
 interface FeedHistory {
   seen: FeedHistoryEntry[];
+  readTexts?: string[];
 }
 
 /**
@@ -1667,7 +1668,7 @@ async function saveFeedHistory(history: FeedHistory): Promise<void> {
 /**
  * Mark feed item URLs as seen
  */
-export async function markFeedItemsSeen(urls: string[]): Promise<void> {
+export async function markFeedItemsSeen(urls: string[], text?: string): Promise<void> {
   const history = await loadFeedHistory();
   const existingUrls = new Set(history.seen.map((e) => e.url));
   const now = new Date().toISOString();
@@ -1675,6 +1676,14 @@ export async function markFeedItemsSeen(urls: string[]): Promise<void> {
   for (const url of urls) {
     if (!existingUrls.has(url)) {
       history.seen.push({ url, seenAt: now });
+    }
+  }
+
+  // Track read briefing text
+  if (text) {
+    if (!history.readTexts) history.readTexts = [];
+    if (!history.readTexts.includes(text)) {
+      history.readTexts.push(text);
     }
   }
 
@@ -1686,10 +1695,16 @@ export async function markFeedItemsSeen(urls: string[]): Promise<void> {
 /**
  * Remove feed item URLs from seen list
  */
-export async function unmarkFeedItemsSeen(urls: string[]): Promise<void> {
+export async function unmarkFeedItemsSeen(urls: string[], text?: string): Promise<void> {
   const history = await loadFeedHistory();
   const removeSet = new Set(urls);
   history.seen = history.seen.filter((e) => !removeSet.has(e.url));
+
+  // Remove read briefing text
+  if (text && history.readTexts) {
+    history.readTexts = history.readTexts.filter(t => t !== text);
+  }
+
   await saveFeedHistory(history);
 }
 

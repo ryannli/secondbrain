@@ -37,13 +37,11 @@ export function useFeed() {
   // Mark specific URLs as seen/unseen (called when user toggles briefing items)
   const markBriefingRead = useCallback((text: string, urls: string[]) => {
     setReadBriefingTexts(prev => new Set(prev).add(text));
-    if (urls.length > 0) {
-      fetch("/api/feed/seen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      }).catch(() => {});
-    }
+    fetch("/api/feed/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls, text }),
+    }).catch(() => {});
   }, []);
 
   const markBriefingUnread = useCallback((text: string, urls: string[]) => {
@@ -52,13 +50,11 @@ export function useFeed() {
       next.delete(text);
       return next;
     });
-    if (urls.length > 0) {
-      fetch("/api/feed/seen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls, unseen: true }),
-      }).catch(() => {});
-    }
+    fetch("/api/feed/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls, unseen: true, text }),
+    }).catch(() => {});
   }, []);
 
   const starBriefingItem = useCallback((text: string, meta?: { feedDate?: string; refs?: { url: string; title: string }[] }) => {
@@ -106,6 +102,9 @@ export function useFeed() {
         if (data.feed.starredBriefingTexts) {
           setStarredTexts(new Set(data.feed.starredBriefingTexts));
         }
+        if (data.feed.readBriefingTexts) {
+          setReadBriefingTexts(new Set(data.feed.readBriefingTexts));
+        }
         if (data.availableDates) {
           setAvailableDates(data.availableDates);
         }
@@ -145,6 +144,9 @@ export function useFeed() {
         });
         if (data.feed.starredBriefingTexts) {
           setStarredTexts(new Set(data.feed.starredBriefingTexts));
+        }
+        if (data.feed.readBriefingTexts) {
+          setReadBriefingTexts(new Set(data.feed.readBriefingTexts));
         }
         if (data.availableDates) {
           setAvailableDates(data.availableDates);
@@ -188,6 +190,9 @@ export function useFeed() {
         });
         if (data.feed.starredBriefingTexts) {
           setStarredTexts(new Set(data.feed.starredBriefingTexts));
+        }
+        if (data.feed.readBriefingTexts) {
+          setReadBriefingTexts(new Set(data.feed.readBriefingTexts));
         }
         if (data.availableDates) {
           setAvailableDates(data.availableDates);

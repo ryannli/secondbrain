@@ -8,16 +8,16 @@ import { markFeedItemsSeen, unmarkFeedItemsSeen } from "@/lib/storage";
  */
 export async function POST(request: NextRequest) {
   try {
-    const { urls, unseen } = await request.json();
+    const { urls, unseen, text } = await request.json();
 
-    if (!Array.isArray(urls) || urls.length === 0) {
+    if ((!Array.isArray(urls) || urls.length === 0) && !text) {
       return NextResponse.json({ success: true }); // no-op
     }
 
     if (unseen) {
-      await unmarkFeedItemsSeen(urls);
+      await unmarkFeedItemsSeen(urls || [], text);
     } else {
-      await markFeedItemsSeen(urls);
+      await markFeedItemsSeen(urls || [], text);
     }
 
     return NextResponse.json({ success: true });
