@@ -22,7 +22,15 @@ import { EntryActions } from "./EntryActions";
 import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
 import { formatRelativeTime } from "@/lib/utils";
-import { formatReadingTime } from "@/hooks/useReadingTimer";
+/** Format seconds as M:SS or H:MM:SS */
+function formatTimer(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const ss = String(s).padStart(2, "0");
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${ss}`;
+  return `${m}:${ss}`;
+}
 
 // Unified entry interface - works for both Source and Document
 export interface EntryData {
@@ -260,12 +268,6 @@ export function EntryView({
               {entry.createdAt && (
                 <span>Added {formatRelativeTime(entry.createdAt)}</span>
               )}
-              {entry.totalReadTimeSeconds != null && entry.totalReadTimeSeconds > 0 && (
-                <>
-                  <span>·</span>
-                  <span>{formatReadingTime(entry.totalReadTimeSeconds)} read</span>
-                </>
-              )}
             </div>
           )}
 
@@ -368,8 +370,15 @@ export function EntryView({
                     <p className="text-sm mb-4" style={{ color: theme.textMuted }}>{analysis.triage.reason}</p>
                     <div className="grid grid-cols-3 gap-3 text-center text-sm">
                       <div>
-                        <div className="font-medium">{analysis.triage.readTimeMinutes}</div>
-                        <div style={{ color: theme.textLight }}>min</div>
+                        <div className="font-medium font-mono tabular-nums">
+                          {entry.totalReadTimeSeconds != null && entry.totalReadTimeSeconds > 0
+                            ? <>{formatTimer(entry.totalReadTimeSeconds)} <span className="font-normal opacity-50">/ {analysis.triage.readTimeMinutes}m</span></>
+                            : analysis.triage.readTimeMinutes
+                          }
+                        </div>
+                        <div style={{ color: theme.textLight }}>
+                          {entry.totalReadTimeSeconds != null && entry.totalReadTimeSeconds > 0 ? "read time" : "min"}
+                        </div>
                       </div>
                       <div>
                         <div className="font-medium">{analysis.triage.density}%</div>

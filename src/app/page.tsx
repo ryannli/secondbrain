@@ -25,7 +25,7 @@ import { useSelectedEntry } from "@/hooks/useSelectedEntry";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
-import { useReadingTimer, formatReadingTime } from "@/hooks/useReadingTimer";
+import { useReadingTimer } from "@/hooks/useReadingTimer";
 
 export default function Home() {
   return (
