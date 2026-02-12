@@ -11,7 +11,7 @@ import {
   Bookmark,
   Flame,
 } from "lucide-react";
-import { SourceSummary, ACTION_CONFIG, FeedItem } from "@/lib/types";
+import { SourceSummary, ACTION_CONFIG, FeedItem, ProcessingStage } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
 import { getSourceIcon } from "@/lib/sourceIcon";
 import { formatRelativeTime } from "@/lib/utils";
@@ -275,19 +275,20 @@ export function Dashboard({
   // Render a source card
   const renderSourceCard = (source: SourceSummary) => {
     const { Icon: SourceIcon, color: iconColor } = getSourceIcon(source.meta.sourceUrl, source.meta.type, palette[500]);
-    const isProcessing = source.meta.processingStatus === "processing";
+    const isExtracting = source.meta.processingStatus === "processing";
     const isFailed = source.meta.processingStatus === "failed";
+    const isInProgress = source.meta.processingStage != null && source.meta.processingStage !== "complete";
 
     return (
       <button
         key={source.meta.id}
-        onClick={() => !isProcessing && onSelect(source.meta.id)}
-        className={`p-4 border rounded-xl transition-all text-left relative ${isProcessing ? "opacity-70" : "hover:shadow-md"}`}
+        onClick={() => !isExtracting && onSelect(source.meta.id)}
+        className={`p-4 border rounded-xl transition-all text-left relative overflow-hidden ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
         style={{ borderColor: theme.border, backgroundColor: "white" }}
-        disabled={isProcessing}
+        disabled={isExtracting}
       >
         {/* Badge - absolute positioned */}
-        {isProcessing ? (
+        {isInProgress ? (
           <span
             className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
             style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
@@ -329,7 +330,7 @@ export function Dashboard({
 
         {/* Header: Icon + Title */}
         <div className="flex items-start gap-3 mb-2 pr-24">
-          {isProcessing ? (
+          {isExtracting ? (
             <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
           ) : (
             <SourceIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: iconColor }} />
@@ -346,11 +347,9 @@ export function Dashboard({
           </div>
         </div>
 
-        {/* Reason or Processing Status */}
-        {isProcessing ? (
-          <p className="text-xs ml-8" style={{ color: theme.textMuted }}>
-            Extracting content and analyzing...
-          </p>
+        {/* Progress bar or status text */}
+        {isInProgress ? (
+          <ProcessingProgressBar stage={source.meta.processingStage!} color={palette[500]} mutedColor={theme.textMuted} />
         ) : isFailed ? (
           <p className="text-xs ml-8" style={{ color: "#ef4444" }}>
             {source.meta.processingError || "Processing failed"}
@@ -527,4 +526,48 @@ function ProcessingTimer({ createdAt }: { createdAt: string }) {
   };
 
   return <span>{formatTime(elapsed)}</span>;
+}
+
+const STAGE_CONFIG: Record<ProcessingStage, { base: number; max: number; label: string }> = {
+  extracting: { base: 8, max: 28, label: "Extracting content..." },
+  analyzing: { base: 33, max: 60, label: "Analyzing..." },
+  connecting: { base: 66, max: 92, label: "Finding connections..." },
+  complete: { base: 100, max: 100, label: "" },
+};
+
+function ProcessingProgressBar({ stage, color, mutedColor }: { stage: ProcessingStage; color: string; mutedColor: string }) {
+  const [progress, setProgress] = useState(STAGE_CONFIG[stage].base);
+
+  useEffect(() => {
+    const config = STAGE_CONFIG[stage];
+    setProgress(config.base);
+
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= config.max) return prev;
+        const remaining = config.max - prev;
+        return prev + remaining * 0.06;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [stage]);
+
+  return (
+    <div className="ml-8 mt-1">
+      <p className="text-xs mb-1.5" style={{ color: mutedColor }}>
+        {STAGE_CONFIG[stage].label}
+      </p>
+      <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: `${color}15` }}>
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${progress}%`,
+            backgroundColor: color,
+            transition: "width 0.8s ease-out",
+          }}
+        />
+      </div>
+    </div>
+  );
 }

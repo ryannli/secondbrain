@@ -1056,6 +1056,20 @@ async function loadSourceFromPath(
       // File doesn't exist - analysis not ready yet (normal during processing)
     }
 
+    // Compute granular processing stage
+    let processingStage: import("@/lib/types").ProcessingStage | undefined;
+    if (status === "failed") {
+      processingStage = undefined;
+    } else if (status === "processing") {
+      processingStage = "extracting";
+    } else if (!analysis && !analysisError) {
+      processingStage = "analyzing";
+    } else if (analysis && analysis.connections === undefined && !analysis.connectionError) {
+      processingStage = "connecting";
+    } else {
+      processingStage = "complete";
+    }
+
     const meta: SourceMeta = {
       id: originalData.id,
       title,
@@ -1063,6 +1077,7 @@ async function loadSourceFromPath(
       sourceUrl: originalData.source_url,
       createdAt: originalData.created_at,
       processingStatus: status,
+      processingStage,
       processingError: error,
       analysisError,
       readStatus,

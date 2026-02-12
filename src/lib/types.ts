@@ -32,6 +32,15 @@ export interface OriginalData {
  */
 export type ProcessingStatus = "processing" | "ready" | "failed";
 
+/**
+ * Granular processing stage (derived from file existence):
+ * - extracting: no content.md yet
+ * - analyzing: content.md exists, no analysis.json yet
+ * - connecting: analysis.json exists, connections not yet computed
+ * - complete: fully processed
+ */
+export type ProcessingStage = "extracting" | "analyzing" | "connecting" | "complete";
+
 export interface SourceMeta {
   id: string;
   title: string; // Display title (from content.md or original_title as fallback)
@@ -41,6 +50,7 @@ export interface SourceMeta {
   folder?: string; // relative path within library/
   // Processing status (derived from file existence)
   processingStatus?: ProcessingStatus;
+  processingStage?: ProcessingStage; // More granular than processingStatus
   processingError?: string;
   analysisError?: string; // Error if analysis.json exists but is malformed
   // Reading tracking
