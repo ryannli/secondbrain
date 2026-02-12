@@ -25,6 +25,7 @@ import { useSelectedEntry } from "@/hooks/useSelectedEntry";
 import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
+import { useReadingTimer, formatReadingTime } from "@/hooks/useReadingTimer";
 
 export default function Home() {
   return (
@@ -50,6 +51,7 @@ function HomeContent() {
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const { addContext } = useCoLearning();
   const [profileDoc, setProfileDoc] = useState<{ name: string; content: string } | null>(null);
+  const readingTimer = useReadingTimer(entry.source?.meta.id ?? null);
 
   const sidebarResize = useResizable({
     initialWidth: 256,
@@ -531,6 +533,7 @@ function HomeContent() {
                   analysisError: entry.source.meta.analysisError,
                   analysis: entry.source.analysis,
                   saved: entry.source.meta.saved,
+                  totalReadTimeSeconds: (entry.source.meta.totalReadTimeSeconds ?? 0) + readingTimer.elapsedSeconds,
                 }}
                 onSave={async (title, content) => {
                   const res = await fetch(`/api/sources/${entry.source!.meta.id}`, {

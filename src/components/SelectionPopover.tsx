@@ -86,8 +86,8 @@ export function SelectionPopover({
 
   return (
     <div
-      className="fixed z-50 transform -translate-x-1/2 -translate-y-full"
-      style={{ left: position.x, top: position.y }}
+      className="fixed z-50"
+      style={{ left: position.x, top: position.y, transform: "translate(-50%, -100%)" }}
     >
       <button
         onClick={handleAddContext}
@@ -99,8 +99,10 @@ export function SelectionPopover({
       </button>
       {/* Arrow */}
       <div
-        className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0"
+        className="absolute top-full w-0 h-0"
         style={{
+          left: "50%",
+          transform: "translateX(-50%)",
           borderLeft: "5px solid transparent",
           borderRight: "5px solid transparent",
           borderTop: `5px solid ${palette[600]}`,

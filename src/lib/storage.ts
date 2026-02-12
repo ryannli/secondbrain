@@ -276,37 +276,75 @@ export async function updateReadStatus(
 
     // Read current content.md
     const contentMdPath = path.join(sourceDir, "content.md");
-    let currentTitle = "Untitled";
-    let currentContent = "";
+    let parsed: ContentMdFrontmatter;
 
     try {
       const contentMd = await fs.readFile(contentMdPath, "utf-8");
-      const parsed = parseContentMd(contentMd);
-      currentTitle = parsed.title;
-      currentContent = parsed.content;
+      parsed = parseContentMd(contentMd);
     } catch {
       // content.md doesn't exist yet
       return { success: false, error: "Content not ready" };
     }
 
-    // Build new frontmatter
+    // Build new frontmatter preserving existing fields
     const lastReadAt = status === "read" ? new Date().toISOString() : undefined;
-    const frontmatterLines = [`title: "${currentTitle.replace(/"/g, '\\"')}"`];
+    const frontmatterLines = [`title: "${parsed.title.replace(/"/g, '\\"')}"`];
     if (status === "read") {
       frontmatterLines.push(`readStatus: "read"`);
       frontmatterLines.push(`lastReadAt: "${lastReadAt}"`);
     }
     // For unread, we simply omit the readStatus field (backward compatible default)
+    if (parsed.totalReadTimeSeconds) {
+      frontmatterLines.push(`totalReadTimeSeconds: ${parsed.totalReadTimeSeconds}`);
+    }
 
-    const newContentMd = `---
-${frontmatterLines.join("\n")}
----
-
-${currentContent}
-`;
+    const newContentMd = `---\n${frontmatterLines.join("\n")}\n---\n\n${parsed.content}\n`;
     await fs.writeFile(contentMdPath, newContentMd, "utf-8");
 
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+/**
+ * Add reading time seconds to a source's totalReadTimeSeconds in content.md frontmatter
+ */
+export async function addReadingTime(
+  id: string,
+  seconds: number,
+  libraryPath = getLibraryPath()
+): Promise<{ success: boolean; totalSeconds?: number; error?: string }> {
+  try {
+    let sourceDir = path.join(libraryPath, id);
+    if (!await isEntryDirectory(sourceDir)) {
+      const foundPath = await findEntryPath(id, libraryPath);
+      if (!foundPath) return { success: false, error: "Source not found" };
+      sourceDir = foundPath;
+    }
+
+    const contentMdPath = path.join(sourceDir, "content.md");
+    let contentMd: string;
+    try {
+      contentMd = await fs.readFile(contentMdPath, "utf-8");
+    } catch {
+      return { success: false, error: "Content not ready" };
+    }
+
+    const parsed = parseContentMd(contentMd);
+    const existing = parsed.totalReadTimeSeconds ?? 0;
+    const total = existing + seconds;
+
+    // Rebuild frontmatter preserving all existing fields
+    const frontmatterLines = [`title: "${parsed.title.replace(/"/g, '\\"')}"`];
+    if (parsed.readStatus) frontmatterLines.push(`readStatus: "${parsed.readStatus}"`);
+    if (parsed.lastReadAt) frontmatterLines.push(`lastReadAt: "${parsed.lastReadAt}"`);
+    frontmatterLines.push(`totalReadTimeSeconds: ${total}`);
+
+    const newContentMd = `---\n${frontmatterLines.join("\n")}\n---\n\n${parsed.content}\n`;
+    await fs.writeFile(contentMdPath, newContentMd, "utf-8");
+
+    return { success: true, totalSeconds: total };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
@@ -768,6 +806,7 @@ interface ContentMdFrontmatter {
   content: string;
   readStatus?: "unread" | "read";
   lastReadAt?: string;
+  totalReadTimeSeconds?: number;
 }
 
 /**
@@ -786,8 +825,10 @@ function parseContentMd(fileContent: string): ContentMdFrontmatter {
   const title = extractYamlValue(frontmatter, "title") || "Untitled";
   const readStatus = extractYamlValue(frontmatter, "readStatus") as "unread" | "read" | undefined;
   const lastReadAt = extractYamlValue(frontmatter, "lastReadAt");
+  const totalReadTimeStr = extractYamlValue(frontmatter, "totalReadTimeSeconds");
+  const totalReadTimeSeconds = totalReadTimeStr ? parseInt(totalReadTimeStr, 10) : undefined;
 
-  return { title, content: body.trim(), readStatus, lastReadAt };
+  return { title, content: body.trim(), readStatus, lastReadAt, totalReadTimeSeconds };
 }
 
 function extractYamlValue(yaml: string, key: string): string | undefined {
@@ -992,6 +1033,7 @@ async function loadSourceFromPath(
     let content = "";
     let readStatus: "unread" | "read" | undefined;
     let lastReadAt: string | undefined;
+    let totalReadTimeSeconds: number | undefined;
     try {
       const contentMd = await fs.readFile(path.join(sourceDir, "content.md"), "utf-8");
       const parsed = parseContentMd(contentMd);
@@ -999,6 +1041,7 @@ async function loadSourceFromPath(
       content = parsed.content;
       readStatus = parsed.readStatus;
       lastReadAt = parsed.lastReadAt;
+      totalReadTimeSeconds = parsed.totalReadTimeSeconds;
     } catch {
       // Content not ready yet (processing state)
     }
@@ -1082,6 +1125,7 @@ async function loadSourceFromPath(
       analysisError,
       readStatus,
       lastReadAt,
+      totalReadTimeSeconds,
       saved: originalData.saved,
     };
 

@@ -22,6 +22,7 @@ import { EntryActions } from "./EntryActions";
 import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
 import { formatRelativeTime } from "@/lib/utils";
+import { formatReadingTime } from "@/hooks/useReadingTimer";
 
 // Unified entry interface - works for both Source and Document
 export interface EntryData {
@@ -34,6 +35,7 @@ export interface EntryData {
   processingStatus?: "processing" | "ready" | "failed";
   analysisError?: string;
   saved?: boolean;
+  totalReadTimeSeconds?: number; // Active reading time tracked by client
   // Analysis is optional - only for Sources
   analysis?: {
     triage: {
@@ -257,6 +259,12 @@ export function EntryView({
               {entry.sourceUrl && entry.createdAt && <span>·</span>}
               {entry.createdAt && (
                 <span>Added {formatRelativeTime(entry.createdAt)}</span>
+              )}
+              {entry.totalReadTimeSeconds != null && entry.totalReadTimeSeconds > 0 && (
+                <>
+                  <span>·</span>
+                  <span>{formatReadingTime(entry.totalReadTimeSeconds)} read</span>
+                </>
               )}
             </div>
           )}
