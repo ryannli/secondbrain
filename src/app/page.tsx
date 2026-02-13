@@ -154,7 +154,9 @@ function HomeContent() {
     handleReanalyze,
     handleReaction,
     handleRating,
-    reanalyzingId,
+    handleAddHighlight,
+    handleRemoveHighlight,
+    reanalyzingIds,
     navigateToSource,
     navigateToDashboard,
   } = useSourceActions({
@@ -579,8 +581,9 @@ function HomeContent() {
                 onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
                 onRating={(rating) => handleRating(entry.source!.meta.id, rating)}
+                onRemoveHighlight={(highlightId) => handleRemoveHighlight(entry.source!.meta.id, highlightId)}
                 onNavigateToSource={navigateToSource}
-                isReanalyzing={reanalyzingId === entry.source.meta.id}
+                isReanalyzing={reanalyzingIds.has(entry.source.meta.id)}
                 originalFileUrl={`/api/sources/${entry.source.meta.id}/original`}
                 palette={palette}
                 theme={theme}
@@ -686,6 +689,7 @@ function HomeContent() {
           containerRef={mainContentRef as React.RefObject<HTMLElement>}
           sourceTitle={entry.source.meta.title}
           palette={palette}
+          onHighlight={(text) => handleAddHighlight(entry.source!.meta.id, text)}
         />
       )}
 

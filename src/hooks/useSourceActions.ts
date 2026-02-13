@@ -22,7 +22,7 @@ export function useSourceActions({
   const router = useRouter();
   const [captureInput, setCaptureInput] = useState("");
   const [pendingCaptures, setPendingCaptures] = useState<string[]>([]);
-  const [reanalyzingId, setReanalyzingId] = useState<string | null>(null);
+  const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(new Set());
 
   // Track sources being polled for completion
   const pollingSourcesRef = useRef<Set<string>>(new Set());
@@ -202,12 +202,15 @@ export function useSourceActions({
   };
 
   const handleReanalyze = async (id: string) => {
-    setReanalyzingId(id);
+    setReanalyzingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/sources/${id}/reanalyze`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        setSelectedSource(data.source);
+        // Only update selected source if user is still viewing this one
+        if (selectedSourceIdRef.current === id) {
+          setSelectedSource(data.source);
+        }
         onUpsertSourceSummary({
           meta: data.source.meta,
           score: data.source.analysis?.triage?.score,
@@ -220,7 +223,7 @@ export function useSourceActions({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to re-analyze");
     } finally {
-      setReanalyzingId(null);
+      setReanalyzingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -261,6 +264,38 @@ export function useSourceActions({
     }
   };
 
+  const handleAddHighlight = async (sourceId: string, text: string) => {
+    try {
+      const res = await fetch(`/api/sources/${sourceId}/highlight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedSource(data.source);
+      }
+    } catch (err) {
+      console.error("Failed to add highlight:", err);
+    }
+  };
+
+  const handleRemoveHighlight = async (sourceId: string, highlightId: string) => {
+    try {
+      const res = await fetch(`/api/sources/${sourceId}/highlight`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ highlightId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedSource(data.source);
+      }
+    } catch (err) {
+      console.error("Failed to remove highlight:", err);
+    }
+  };
+
   const navigateToSource = (id: string) => {
     router.push(`/?source=${id}`);
   };
@@ -280,7 +315,9 @@ export function useSourceActions({
     handleReanalyze,
     handleReaction,
     handleRating,
-    reanalyzingId,
+    handleAddHighlight,
+    handleRemoveHighlight,
+    reanalyzingIds,
     navigateToSource,
     navigateToDashboard,
   };

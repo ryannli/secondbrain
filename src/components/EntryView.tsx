@@ -15,7 +15,7 @@ import {
   ChevronRight,
   Link as LinkIcon,
 } from "lucide-react";
-import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection } from "@/lib/types";
+import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection, UserHighlight } from "@/lib/types";
 import { SourceError } from "./SourceError";
 import { MarkdownContent } from "./MarkdownContent";
 import { EntryActions } from "./EntryActions";
@@ -68,6 +68,7 @@ export interface EntryData {
     connectionError?: string;
     userRating?: number;
     userRatingAt?: string;
+    userHighlights?: UserHighlight[];
   };
 }
 
@@ -83,6 +84,7 @@ export interface EntryViewProps {
   onReanalyze?: () => void;
   onReaction?: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
   onRating?: (rating: number | undefined) => void;
+  onRemoveHighlight?: (highlightId: string) => void;
   onNavigateToSource?: (sourceId: string) => void;
   isReanalyzing?: boolean;
   // Original file viewing (for Sources)
@@ -104,6 +106,7 @@ export function EntryView({
   onReanalyze,
   onReaction,
   onRating,
+  onRemoveHighlight,
   onNavigateToSource,
   isReanalyzing = false,
   originalFileUrl,
@@ -194,7 +197,7 @@ export function EntryView({
   return (
     <div ref={containerRef} className="flex items-stretch">
       {/* Content Area */}
-      <div className="flex-1 min-w-0 h-[calc(100vh-140px)] sticky top-0 pr-2">
+      <div className="flex-1 min-w-0 h-[calc(100vh-100px)] sticky top-0 pr-2">
         <div className="bg-white dark:bg-zinc-900 border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-2 pr-6" data-entry-header>
@@ -336,6 +339,8 @@ export function EntryView({
                 content={entry.content}
                 palette={palette}
                 className="h-full overflow-y-auto pr-6"
+                highlights={entry.analysis?.userHighlights}
+                onRemoveHighlight={onRemoveHighlight}
               />
             )}
           </div>

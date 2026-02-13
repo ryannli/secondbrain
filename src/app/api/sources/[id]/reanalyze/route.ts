@@ -48,13 +48,13 @@ export async function POST(
     if (shouldUseStoredHtml) {
       // Use stored HTML to reprocess - don't pass providedTitle so it extracts fresh
       console.log("Re-processing from stored HTML...");
-      const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl);
+      const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl, undefined, id);
       newContent = extracted.content;
       newTitle = extracted.title;
     } else if (source.meta.sourceUrl) {
       // URL without usable stored HTML: re-fetch
       console.log(`Re-fetching content from: ${source.meta.sourceUrl}`);
-      const extracted = await extractFromUrl(source.meta.sourceUrl);
+      const extracted = await extractFromUrl(source.meta.sourceUrl, undefined, id);
       newOriginalContent = extracted.originalContent;
       newContent = extracted.content;
       newTitle = extracted.title;
@@ -66,7 +66,7 @@ export async function POST(
     } else {
       // Plain text: re-format (title stays the same for plain text)
       console.log("Re-formatting text content...");
-      newContent = await formatTextContent(source.originalContent);
+      newContent = await formatTextContent(source.originalContent, id);
     }
 
     // Re-analyze the content with new title
@@ -74,7 +74,8 @@ export async function POST(
     const analysis = await analyzeContent(
       newTitle,
       newContent,
-      source.meta.sourceUrl
+      source.meta.sourceUrl,
+      id
     );
 
     // Find connections with existing sources

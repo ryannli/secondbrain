@@ -1,5 +1,17 @@
-// Second Brain API endpoint
-const API_URL = "http://localhost:3000/api/capture";
+// Second Brain - auto-detect which port the server is running on
+const PORTS = [3000, 41932];
+
+async function getApiUrl() {
+  for (const port of PORTS) {
+    try {
+      const res = await fetch(`http://localhost:${port}/api/config`, {
+        signal: AbortSignal.timeout(500),
+      });
+      if (res.ok) return `http://localhost:${port}/api/capture`;
+    } catch {}
+  }
+  return null;
+}
 
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -12,8 +24,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function captureFromContent(html, title, url) {
+  const apiUrl = await getApiUrl();
+  if (!apiUrl) {
+    return { success: false, error: "Second Brain is not running" };
+  }
+
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ html, title, url }),
@@ -33,8 +50,19 @@ chrome.action.onClicked.addListener(async (tab) => {
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: showNotification,
-      args: ["Captured! Processing in background...", "success"],
+      args: ["Capturing...", "success"],
     });
+
+    // Detect server
+    const apiUrl = await getApiUrl();
+    if (!apiUrl) {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: showNotification,
+        args: ["Second Brain is not running", "error"],
+      });
+      return;
+    }
 
     // Get page content
     const results = await chrome.scripting.executeScript({
@@ -45,13 +73,19 @@ chrome.action.onClicked.addListener(async (tab) => {
     const { html, title } = results[0].result;
 
     // Send to API
-    fetch(API_URL, {
+    fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ html, title, url: tab.url }),
     }).then(async (response) => {
       const data = await response.json();
-      if (!data.success) {
+      if (data.success) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: showNotification,
+          args: ["Captured! Processing in background...", "success"],
+        });
+      } else {
         chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: showNotification,

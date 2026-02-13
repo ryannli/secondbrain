@@ -1,25 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Plus } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Plus, Highlighter } from "lucide-react";
 import { useCoLearning } from "./CoLearningPanel";
 
 interface SelectionPopoverProps {
   containerRef: React.RefObject<HTMLElement>;
   sourceTitle?: string;
   palette: Record<number, string>;
+  onHighlight?: (text: string) => void;
 }
 
 export function SelectionPopover({
   containerRef,
   sourceTitle,
   palette,
+  onHighlight,
 }: SelectionPopoverProps) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [selectedText, setSelectedText] = useState("");
   const { addContext } = useCoLearning();
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  const handleSelection = useCallback(() => {
+  const handleSelection = useCallback((e?: Event) => {
+    // Ignore events that originate from the popover itself —
+    // otherwise mouseup on a button clears the selection state
+    // before the button's click handler can read it.
+    if (e?.target && popoverRef.current?.contains(e.target as Node)) {
+      return;
+    }
+
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) {
       setPosition(null);
@@ -29,7 +39,6 @@ export function SelectionPopover({
 
     const text = selection.toString().trim();
     if (text.length < 5) {
-      // Ignore very short selections
       setPosition(null);
       setSelectedText("");
       return;
@@ -80,7 +89,15 @@ export function SelectionPopover({
   const handleAddContext = () => {
     if (selectedText) {
       addContext(selectedText, sourceTitle);
-      // Clear selection
+      window.getSelection()?.removeAllRanges();
+      setPosition(null);
+      setSelectedText("");
+    }
+  };
+
+  const handleHighlight = () => {
+    if (selectedText && onHighlight) {
+      onHighlight(selectedText);
       window.getSelection()?.removeAllRanges();
       setPosition(null);
       setSelectedText("");
@@ -91,17 +108,33 @@ export function SelectionPopover({
 
   return (
     <div
+      ref={popoverRef}
       className="fixed z-50"
       style={{ left: position.x, top: position.y, transform: "translate(-50%, -100%)" }}
+      // Prevent mousedown from clearing the text selection —
+      // without this, the browser clears the selection before click fires.
+      onMouseDown={(e) => e.preventDefault()}
     >
-      <button
-        onClick={handleAddContext}
-        className="flex items-center gap-1 px-2 py-1 rounded shadow-md text-white text-xs whitespace-nowrap"
-        style={{ backgroundColor: palette[600] }}
-      >
-        <Plus className="w-3 h-3" />
-        Add to context
-      </button>
+      <div className="flex items-center gap-0.5 rounded shadow-md overflow-hidden">
+        {onHighlight && (
+          <button
+            onClick={handleHighlight}
+            className="flex items-center gap-1 px-2 py-1 text-white text-xs whitespace-nowrap hover:brightness-110 transition-all"
+            style={{ backgroundColor: "#d97706" }}
+            title="Highlight"
+          >
+            <Highlighter className="w-3 h-3" />
+          </button>
+        )}
+        <button
+          onClick={handleAddContext}
+          className="flex items-center gap-1 px-2 py-1 text-white text-xs whitespace-nowrap hover:brightness-110 transition-all"
+          style={{ backgroundColor: palette[600] }}
+        >
+          <Plus className="w-3 h-3" />
+          Add to context
+        </button>
+      </div>
       {/* Arrow */}
       <div
         className="absolute top-full w-0 h-0"

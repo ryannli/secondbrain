@@ -196,6 +196,9 @@ Status is **inferred from file existence**, not stored:
   - Architecture decisions and their rationale
   - Patterns that work well in this codebase
 
+### Track Compromises
+- **Update todo.md**: When making a pragmatic/compromise decision (e.g. "good enough for now" solutions, shortcuts, known limitations), add it to `todo.md` so we know what to revisit before launch or when scaling to more users.
+
 ---
 
 ## Lessons Learned

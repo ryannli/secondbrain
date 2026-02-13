@@ -131,6 +131,12 @@ export interface ResolvedConnection extends Connection {
   relatedSourceTitles: string[]; // Resolved at load time, not stored
 }
 
+export interface UserHighlight {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Analysis {
   triage: TriageCard;
   digest: DigestAnalysis;
@@ -140,6 +146,7 @@ export interface Analysis {
   analyzedAt: string;
   userRating?: number;          // 0.5 to 5, in 0.5 increments
   userRatingAt?: string;        // ISO timestamp
+  userHighlights?: UserHighlight[];
 }
 
 export interface Source {

@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# tauri
+/src-tauri/target/
+
 # user data
 /user_data/
 

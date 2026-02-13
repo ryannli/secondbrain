@@ -27,22 +27,22 @@ export async function processSourceInBackground(
     // Step 1: Extract content
     if (html) {
       console.log(`[${id}] Extracting content from HTML (${html.length} chars)...`);
-      const extracted = await extractFromHtml(html, url);
+      const extracted = await extractFromHtml(html, url, undefined, id);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else if (url) {
       console.log(`[${id}] Fetching and extracting content from: ${url}`);
-      const extracted = await extractFromUrl(url, userAgent);
+      const extracted = await extractFromUrl(url, userAgent, id);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else {
       console.log(`[${id}] Formatting text content...`);
-      content = await formatTextContent(text!);
+      content = await formatTextContent(text!, id);
       if (title) {
         extractedTitle = title;
       } else {
         console.log(`[${id}] Generating title for text content...`);
-        extractedTitle = await generateTitle(text!);
+        extractedTitle = await generateTitle(text!, id);
         console.log(`[${id}] Generated title: ${extractedTitle}`);
       }
     }
@@ -53,7 +53,7 @@ export async function processSourceInBackground(
 
     // Step 2: Analyze with Claude
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
-    const analysis = await analyzeContent(extractedTitle, content, url);
+    const analysis = await analyzeContent(extractedTitle, content, url, id);
 
     // Progressive save: analysis is now visible to user
     console.log(`[${id}] Saving analysis (progressive step 2)...`);
@@ -113,7 +113,7 @@ export async function processFileInBackground(
 
     // Step 2: Analyze with Claude
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
-    const analysis = await analyzeContent(extractedTitle, content);
+    const analysis = await analyzeContent(extractedTitle, content, undefined, id);
 
     // Progressive save: analysis is now visible to user
     console.log(`[${id}] Saving analysis (progressive step 2)...`);

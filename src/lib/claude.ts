@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { promises as fs } from "fs";
 import { Analysis, Highlight, Connection, Concept, FeedItem, InsightItem, StructuredBriefing, BriefingNewsItem, BriefingGoDeeper } from "./types";
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
@@ -42,21 +43,30 @@ export function invalidateProfileCache(): void {
   _profileCache = null;
 }
 
-const CLAUDE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const CLAUDE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-async function callClaude(prompt: string): Promise<string> {
+async function callClaude(prompt: string, debugLabel?: string): Promise<string> {
   // Prepend user profile context so all Claude calls respect user preferences
   const { userProfile, memoryProfile } = await loadUserProfiles();
   const profileParts: string[] = [];
-  if (userProfile) profileParts.push(`## User Profile\n${userProfile}`);
-  if (memoryProfile) profileParts.push(`## User Memory\n${memoryProfile}`);
+  if (userProfile) profileParts.push(`<user-preferences file="USER.md">\n${userProfile}\n</user-preferences>`);
+  if (memoryProfile) profileParts.push(`<user-memory file="MEMORY.md">\n${memoryProfile}\n</user-memory>`);
   const fullPrompt = profileParts.length > 0
-    ? `${profileParts.join("\n\n")}\n\n---\n\n${prompt}`
+    ? `You MUST follow the instructions in <user-preferences>.\n\n${profileParts.join("\n\n")}\n\n${prompt}`
     : prompt;
 
   const promptPreview = prompt.slice(0, 80).replace(/\n/g, " ");
   console.log(`[callClaude] Starting: "${promptPreview}..."`);
+  console.log(`[callClaude] User profile: ${userProfile ? `${userProfile.length} chars` : "none"}, Memory: ${memoryProfile ? `${memoryProfile.length} chars` : "none"}`);
   const startTime = Date.now();
+
+  // Debug: write full prompt and response to file
+  const debugDir = path.join(getCurrentRootPath(), ".debug");
+  const randomId = Math.random().toString(36).slice(2, 8);
+  const debugFile = path.join(debugDir, `claude-${debugLabel ?? "unknown"}-${randomId}.txt`);
+  await fs.mkdir(debugDir, { recursive: true });
+  await fs.writeFile(debugFile, `=== PROMPT ===\n${fullPrompt}\n`, "utf-8");
+  console.log(`[callClaude] Debug log: ${debugFile}`);
 
   return new Promise((resolve, reject) => {
     const proc = spawn("claude", ["--print", "--tools", "", "--output-format", "text"], {
@@ -89,6 +99,7 @@ async function callClaude(prompt: string): Promise<string> {
       if (killed) return; // already rejected
       if (code === 0) {
         console.log(`[callClaude] Done in ${elapsed}s (${stdout.length} chars)`);
+        fs.appendFile(debugFile, `\n=== RESPONSE ===\n${stdout}\n`).catch(() => {});
         resolve(stdout.trim());
       } else {
         console.error(`[callClaude] Failed (code ${code}) in ${elapsed}s: ${stderr.slice(0, 200)}`);
@@ -129,15 +140,15 @@ function parseJsonResponse(response: string, context: string): Record<string, un
     return JSON.parse(jsonMatch[0]);
   } catch (e) {
     const err = e as Error;
-    console.error(`[${context}] JSON parse error:`, err.message);
-    // Log the problematic part of the JSON (around the error position)
-    const posMatch = err.message.match(/position (\d+)/);
+    // "Unexpected non-whitespace character after JSON at position N" —
+    // Claude output valid JSON followed by extra text. Truncate and retry.
+    const posMatch = err.message.match(/after JSON at position (\d+)/);
     if (posMatch) {
-      const pos = parseInt(posMatch[1]);
-      const start = Math.max(0, pos - 100);
-      const end = Math.min(jsonMatch[0].length, pos + 100);
-      console.error(`[${context}] JSON context around error:`, jsonMatch[0].slice(start, end));
+      try {
+        return JSON.parse(jsonMatch[0].slice(0, parseInt(posMatch[1])));
+      } catch { /* fall through */ }
     }
+    console.error(`[${context}] JSON parse error:`, err.message);
     return null;
   }
 }
@@ -145,16 +156,16 @@ function parseJsonResponse(response: string, context: string): Record<string, un
 /**
  * Generate a concise title for content using AI
  */
-export async function generateTitle(content: string): Promise<string> {
+export async function generateTitle(content: string, sourceId?: string): Promise<string> {
   const prompt = promptGenerateTitle(content);
-  const title = await callClaude(prompt);
+  const title = await callClaude(prompt, `${sourceId ?? "unknown"}-generateTitle`);
   return title.replace(/^["']|["']$/g, "").trim() || "Untitled Note";
 }
 
 /**
  * Extract readable content from HTML using AI (fallback for JS-rendered pages)
  */
-export async function extractReadableContent(html: string): Promise<string> {
+export async function extractReadableContent(html: string, sourceId?: string): Promise<string> {
   // Clean HTML first to reduce token usage
   const cleanedHtml = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
@@ -163,15 +174,15 @@ export async function extractReadableContent(html: string): Promise<string> {
     .replace(/\s{2,}/g, " ");
 
   const prompt = promptExtractContent(cleanedHtml.slice(0, 120000));
-  return await callClaude(prompt);
+  return await callClaude(prompt, `${sourceId ?? "unknown"}-extractContent`);
 }
 
 /**
  * Format raw text into readable Markdown
  */
-export async function formatTextContent(text: string): Promise<string> {
+export async function formatTextContent(text: string, sourceId?: string): Promise<string> {
   const prompt = promptFormatText(text.slice(0, 30000));
-  return await callClaude(prompt);
+  return await callClaude(prompt, `${sourceId ?? "unknown"}-formatText`);
 }
 
 /**
@@ -252,12 +263,13 @@ async function callClaudeWithReadTool(prompt: string): Promise<string> {
 export async function analyzeContent(
   title: string,
   content: string,
-  sourceUrl?: string
+  sourceUrl?: string,
+  sourceId?: string
 ): Promise<Analysis> {
   const truncatedContent = content.slice(0, 20000) + (content.length > 20000 ? "\n\n[Content truncated...]" : "");
   const prompt = promptAnalyzeContent(title, truncatedContent, sourceUrl);
 
-  const responseText = await callClaude(prompt);
+  const responseText = await callClaude(prompt, `${sourceId ?? "unknown"}-analyzeContent`);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analysisData = parseJsonResponse(responseText, "analyzeContent") as any;
@@ -335,7 +347,7 @@ export async function findRelatedSources(
   const prompt = promptFindRelatedSources(newSourceSummary, sourcesContext);
 
   console.log("[findRelatedSources] Calling Claude...");
-  const responseText = await callClaude(prompt);
+  const responseText = await callClaude(prompt, "findRelatedSources");
   console.log("[findRelatedSources] Claude response:", responseText.slice(0, 300));
 
   try {
@@ -389,7 +401,7 @@ ${newSource.concepts.map((c) => `  - ${c.term}: ${c.definition}`).join("\n")}`;
 
   const prompt = promptAnalyzeConnections(newSource.title, newSourceContext, relatedContext, learnedContext);
 
-  const responseText = await callClaude(prompt);
+  const responseText = await callClaude(prompt, "analyzeConnections");
 
   try {
     let jsonText = responseText;
@@ -443,7 +455,7 @@ export async function mergeSourceIntoConnections(
 
   const prompt = promptMergeConnections(targetSourceTitle, connectionsContext, newSource.id, newSource.title, newSource.summary);
 
-  const responseText = await callClaude(prompt);
+  const responseText = await callClaude(prompt, "mergeConnections");
 
   try {
     let jsonText = responseText;
@@ -518,7 +530,7 @@ export async function extractUserInterests(
     .join("\n\n");
 
   const prompt = promptExtractInterests(sourcesContext, sources.length, FEED_CONFIG.maxInterests);
-  const responseText = await callClaude(prompt);
+  const responseText = await callClaude(prompt, "extractInterests");
 
   try {
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
@@ -645,7 +657,7 @@ export async function filterFeedItems(
         .join("\n");
 
       const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources, interactionContext, interests);
-      const responseText = await callClaude(prompt);
+      const responseText = await callClaude(prompt, "filterFeed");
 
       const items: FeedItem[] = [];
       try {
@@ -738,7 +750,7 @@ export async function generateBriefing(
   const prompt = promptGenerateBriefing(libraryContext, feedContext, interactionContext, interests);
 
   try {
-    const responseText = await callClaude(prompt);
+    const responseText = await callClaude(prompt, "generateBriefing");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = parseJsonResponse(responseText, "generateBriefing") as any;
     if (!parsed) {
@@ -785,7 +797,7 @@ export async function generateInsights(
   const prompt = promptGenerateInsights(interactionContext, libraryContext, interests);
 
   try {
-    const responseText = await callClaude(prompt);
+    const responseText = await callClaude(prompt, "generateInsights");
 
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {

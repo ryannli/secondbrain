@@ -78,7 +78,7 @@ const DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKi
  * @param url - The URL to fetch
  * @param userAgent - Optional User-Agent from the client's browser
  */
-export async function extractFromUrl(url: string, userAgent?: string): Promise<ExtractedContent> {
+export async function extractFromUrl(url: string, userAgent?: string, sourceId?: string): Promise<ExtractedContent> {
   const sourceType = getSourceType(url);
   const siteName = new URL(url).hostname;
 
@@ -129,10 +129,10 @@ export async function extractFromUrl(url: string, userAgent?: string): Promise<E
 
   if (cleanedContent.length > 500 && articleHtml) {
     console.log(`[Content] Readability extracted ${cleanedContent.length} chars`);
-    content = await extractReadableContent(articleHtml);
+    content = await extractReadableContent(articleHtml, sourceId);
   } else {
     console.log(`[Content] Readability got ${cleanedContent.length} chars, using AI extraction`);
-    content = await extractReadableContent(html);
+    content = await extractReadableContent(html, sourceId);
   }
 
   return {
@@ -152,7 +152,8 @@ export async function extractFromUrl(url: string, userAgent?: string): Promise<E
 export async function extractFromHtml(
   html: string,
   url?: string,
-  providedTitle?: string
+  providedTitle?: string,
+  sourceId?: string
 ): Promise<ExtractedContent> {
   const sourceType = getSourceType(url);
   const siteName = url ? new URL(url).hostname : undefined;
@@ -170,16 +171,16 @@ export async function extractFromHtml(
   const cleanedContent = articleText.replace(/\s+/g, " ").trim();
   if (cleanedContent.length > 500 && articleHtml) {
     console.log(`Converting Readability HTML to Markdown (${cleanedContent.length} chars)...`);
-    content = await extractReadableContent(articleHtml);
+    content = await extractReadableContent(articleHtml, sourceId);
   } else {
     console.log(`Readability extracted only ${cleanedContent.length} chars, falling back to AI extraction...`);
-    content = await extractReadableContent(html);
+    content = await extractReadableContent(html, sourceId);
   }
 
   // If title is too long, use AI to generate a concise one
   if (title.length > 60) {
     console.log(`Title too long (${title.length} chars), using AI to generate concise title...`);
-    title = await generateTitle(content);
+    title = await generateTitle(content, sourceId);
   }
 
   return {
