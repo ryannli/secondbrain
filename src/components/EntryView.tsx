@@ -789,7 +789,7 @@ function ConnectionsSection({
                           style={{ borderColor: theme.border, color: palette[600] }}
                         >
                           <LinkIcon className="w-3 h-3" />
-                          {conn.relatedSourceTitles[i] || sourceId}
+                          {conn.relatedSourceTitles?.[i] || sourceId}
                         </button>
                       ))}
                     </div>
