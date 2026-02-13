@@ -283,8 +283,8 @@ export function Dashboard({
       <button
         key={source.meta.id}
         onClick={() => !isExtracting && onSelect(source.meta.id)}
-        className={`p-4 border rounded-xl transition-all text-left relative overflow-hidden ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
-        style={{ borderColor: theme.border, backgroundColor: "white" }}
+        className={`p-4 border rounded-xl transition-all text-left relative overflow-hidden bg-white dark:bg-zinc-900 ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
+        style={{ borderColor: theme.border }}
         disabled={isExtracting}
       >
         {/* Badge - absolute positioned */}
