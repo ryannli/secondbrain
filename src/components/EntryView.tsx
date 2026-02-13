@@ -269,7 +269,13 @@ export function EntryView({
                 <span>Added {formatRelativeTime(entry.createdAt)}</span>
               )}
               {entry.content && (() => {
-                const count = entry.content.trim().split(/\s+/).length;
+                const text = entry.content.trim();
+                // CJK characters each count as a word
+                const cjk = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g);
+                // Non-CJK: split by whitespace
+                const nonCjk = text.replace(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]+/g, " ");
+                const words = nonCjk.trim().split(/\s+/).filter(Boolean);
+                const count = (cjk?.length ?? 0) + words.length;
                 return count > 0 ? <><span>·</span><span>{count.toLocaleString()} words</span></> : null;
               })()}
             </div>
