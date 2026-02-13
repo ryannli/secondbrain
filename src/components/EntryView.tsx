@@ -268,6 +268,10 @@ export function EntryView({
               {entry.createdAt && (
                 <span>Added {formatRelativeTime(entry.createdAt)}</span>
               )}
+              {entry.content && (() => {
+                const count = entry.content.trim().split(/\s+/).length;
+                return count > 0 ? <><span>·</span><span>{count.toLocaleString()} words</span></> : null;
+              })()}
             </div>
           )}
 
