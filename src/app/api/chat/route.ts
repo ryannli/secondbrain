@@ -128,10 +128,12 @@ Be concise but thorough. Use markdown formatting when helpful.
     const userDataPath = getUserDataPath();
 
     let proc: ReturnType<typeof spawn> | null = null;
+    let agentTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const stream = new ReadableStream({
       cancel() {
         // Client disconnected (e.g. fetch aborted) — kill the subprocess
+        if (agentTimeout) clearTimeout(agentTimeout);
         if (proc) {
           proc.kill();
         }
@@ -144,10 +146,19 @@ Be concise but thorough. Use markdown formatting when helpful.
           "--include-partial-messages",
           "--permission-mode", "acceptEdits",
           "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep,Task,WebSearch,WebFetch",
+          "--max-turns", "30",
         ], {
           stdio: ["pipe", "pipe", "pipe"],
           cwd: userDataPath,
         });
+
+        // Kill process if it runs too long (10 minutes)
+        const AGENT_TIMEOUT_MS = 10 * 60 * 1000;
+        agentTimeout = setTimeout(() => {
+          console.error("[Claude Agent] Timed out after 10 minutes, killing process");
+          sendEvent({ type: "error", message: "Agent timed out after 10 minutes" });
+          proc!.kill();
+        }, AGENT_TIMEOUT_MS);
 
         const encoder = new TextEncoder();
         let buffer = "";
@@ -276,6 +287,7 @@ Be concise but thorough. Use markdown formatting when helpful.
         });
 
         proc!.on("close", (code) => {
+          if (agentTimeout) clearTimeout(agentTimeout);
           if (code !== 0) {
             sendEvent({ type: "error", message: `Claude exited with code ${code}` });
           }
@@ -283,6 +295,7 @@ Be concise but thorough. Use markdown formatting when helpful.
         });
 
         proc!.on("error", (err) => {
+          if (agentTimeout) clearTimeout(agentTimeout);
           sendEvent({ type: "error", message: err.message });
           controller.close();
         });

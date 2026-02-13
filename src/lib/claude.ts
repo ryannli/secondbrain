@@ -42,6 +42,8 @@ export function invalidateProfileCache(): void {
   _profileCache = null;
 }
 
+const CLAUDE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 async function callClaude(prompt: string): Promise<string> {
   // Prepend user profile context so all Claude calls respect user preferences
   const { userProfile, memoryProfile } = await loadUserProfiles();
@@ -52,6 +54,10 @@ async function callClaude(prompt: string): Promise<string> {
     ? `${profileParts.join("\n\n")}\n\n---\n\n${prompt}`
     : prompt;
 
+  const promptPreview = prompt.slice(0, 80).replace(/\n/g, " ");
+  console.log(`[callClaude] Starting: "${promptPreview}..."`);
+  const startTime = Date.now();
+
   return new Promise((resolve, reject) => {
     const proc = spawn("claude", ["--print", "--tools", "", "--output-format", "text"], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -60,6 +66,14 @@ async function callClaude(prompt: string): Promise<string> {
 
     let stdout = "";
     let stderr = "";
+    let killed = false;
+
+    const timeout = setTimeout(() => {
+      killed = true;
+      proc.kill();
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      reject(new Error(`Claude timed out after ${elapsed}s: "${promptPreview}..."`));
+    }, CLAUDE_TIMEOUT_MS);
 
     proc.stdout.on("data", (data) => {
       stdout += data.toString();
@@ -70,14 +84,20 @@ async function callClaude(prompt: string): Promise<string> {
     });
 
     proc.on("close", (code) => {
+      clearTimeout(timeout);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      if (killed) return; // already rejected
       if (code === 0) {
+        console.log(`[callClaude] Done in ${elapsed}s (${stdout.length} chars)`);
         resolve(stdout.trim());
       } else {
+        console.error(`[callClaude] Failed (code ${code}) in ${elapsed}s: ${stderr.slice(0, 200)}`);
         reject(new Error(stderr || `Claude exited with code ${code}`));
       }
     });
 
     proc.on("error", (err) => {
+      clearTimeout(timeout);
       reject(err);
     });
 
