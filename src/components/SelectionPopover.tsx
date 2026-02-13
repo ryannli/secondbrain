@@ -48,12 +48,17 @@ export function SelectionPopover({
       return;
     }
 
-    const rect = range.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // Position the popover - clamp to container bounds
-    const popoverX = Math.max(containerRect.left + 50, Math.min(rect.left + rect.width / 2, containerRect.right - 50));
-    const popoverY = Math.max(containerRect.top + 30, rect.top - 10);
+    // Use first client rect for precise positioning on multi-line selections
+    // getClientRects() returns one rect per line fragment, so [0] is the exact
+    // selected portion of the first line (not the full bounding box)
+    const rects = range.getClientRects();
+    const firstRect = rects.length > 0 ? rects[0] : range.getBoundingClientRect();
+
+    // Position centered above the first line of selected text
+    const popoverX = Math.max(containerRect.left + 60, Math.min(firstRect.left + firstRect.width / 2, containerRect.right - 60));
+    const popoverY = firstRect.top - 6;
 
     setSelectedText(text);
     setPosition({
