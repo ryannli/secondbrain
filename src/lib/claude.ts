@@ -3,7 +3,7 @@ import { Analysis, Highlight, Connection, Concept, FeedItem, InsightItem, Struct
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
-import { getLibraryPath } from "./storage";
+import { getLibraryPath, getCurrentRootPath, loadProfileDoc } from "./storage";
 import {
   promptGenerateTitle,
   promptGenerateBriefing,
@@ -22,10 +22,40 @@ import {
 /**
  * Call Claude via CLI in print mode (async, non-blocking)
  */
+// Cache user profile docs for the lifetime of the process to avoid
+// reading from disk on every single Claude call.
+let _profileCache: { userProfile: string; memoryProfile: string } | null = null;
+
+async function loadUserProfiles(): Promise<{ userProfile: string; memoryProfile: string }> {
+  if (!_profileCache) {
+    const [userProfile, memoryProfile] = await Promise.all([
+      loadProfileDoc("USER").catch(() => ""),
+      loadProfileDoc("MEMORY").catch(() => ""),
+    ]);
+    _profileCache = { userProfile, memoryProfile };
+  }
+  return _profileCache;
+}
+
+// Call this when user edits their profile docs to invalidate the cache
+export function invalidateProfileCache(): void {
+  _profileCache = null;
+}
+
 async function callClaude(prompt: string): Promise<string> {
+  // Prepend user profile context so all Claude calls respect user preferences
+  const { userProfile, memoryProfile } = await loadUserProfiles();
+  const profileParts: string[] = [];
+  if (userProfile) profileParts.push(`## User Profile\n${userProfile}`);
+  if (memoryProfile) profileParts.push(`## User Memory\n${memoryProfile}`);
+  const fullPrompt = profileParts.length > 0
+    ? `${profileParts.join("\n\n")}\n\n---\n\n${prompt}`
+    : prompt;
+
   return new Promise((resolve, reject) => {
     const proc = spawn("claude", ["--print", "--tools", "", "--output-format", "text"], {
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: getCurrentRootPath(),
     });
 
     let stdout = "";
@@ -51,7 +81,7 @@ async function callClaude(prompt: string): Promise<string> {
       reject(err);
     });
 
-    proc.stdin.write(prompt);
+    proc.stdin.write(fullPrompt);
     proc.stdin.end();
   });
 }

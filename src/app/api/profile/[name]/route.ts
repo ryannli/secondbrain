@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadProfileDoc, saveProfileDoc } from "@/lib/storage";
+import { invalidateProfileCache } from "@/lib/claude";
 
 type ProfileName = "USER" | "MEMORY";
 
@@ -47,6 +48,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "content must be a string" }, { status: 400 });
     }
     await saveProfileDoc(name, content);
+    invalidateProfileCache();
     return NextResponse.json({ success: true, name, content });
   } catch (error) {
     return NextResponse.json(
