@@ -7,6 +7,8 @@ import {
   forceManyBody,
   forceCenter,
   forceCollide,
+  forceX,
+  forceY,
   SimulationNodeDatum,
   SimulationLinkDatum,
 } from "d3-force";
@@ -16,12 +18,15 @@ interface ConceptNodeData {
   term: string;
   count: number;
   status?: "learned" | "knew";
+  cluster: string;
+  clusterColor: string;
 }
 
 interface ConceptEdgeData {
   source: string;
   target: string;
   weight: number;
+  type: string;
 }
 
 interface ConceptNode extends SimulationNodeDatum {
@@ -29,6 +34,8 @@ interface ConceptNode extends SimulationNodeDatum {
   term: string;
   count: number;
   status?: "learned" | "knew";
+  cluster: string;
+  clusterColor: string;
   radius: number;
 }
 
@@ -38,10 +45,15 @@ interface ConceptConstProps {
 }
 
 /**
- * Force-directed network of concepts sized by frequency, connected by co-occurrence.
+ * Force-directed concept network with Claude-analyzed clusters and relationships.
  */
-export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
-  const [rawData, setRawData] = useState<{ nodes: ConceptNodeData[]; edges: ConceptEdgeData[] } | null>(null);
+export function ConceptConstellation({ theme }: ConceptConstProps) {
+  const [rawData, setRawData] = useState<{
+    clusters: string[];
+    clusterColors: string[];
+    concepts: ConceptNodeData[];
+    relationships: ConceptEdgeData[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<ConceptNode | null>(null);
@@ -69,25 +81,25 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
 
   // Run simulation
   const { nodes, edges, positions } = useMemo(() => {
-    if (!rawData || rawData.nodes.length === 0) {
-      return { nodes: [], edges: [], positions: new Map<string, { x: number; y: number }>() };
+    if (!rawData || rawData.concepts.length === 0) {
+      return { nodes: [], edges: [] as ConceptEdgeData[], positions: new Map<string, { x: number; y: number }>() };
     }
 
     const width = 500;
     const height = 380;
-    const maxCount = Math.max(...rawData.nodes.map(n => n.count), 1);
+    const maxCount = Math.max(...rawData.concepts.map(n => n.count), 1);
 
     // Build simulation nodes with radius based on count
-    const simNodes: ConceptNode[] = rawData.nodes.map(n => ({
+    const simNodes: ConceptNode[] = rawData.concepts.map(n => ({
       ...n,
       radius: 6 + (n.count / maxCount) * 18,
     }));
 
     const nodeMap = new Map(simNodes.map(n => [n.id, n]));
 
-    // Build links
+    // Build links from relationships
     type SimLink = SimulationLinkDatum<ConceptNode> & { weight: number };
-    const simLinks: SimLink[] = rawData.edges
+    const simLinks: SimLink[] = rawData.relationships
       .filter(e => nodeMap.has(e.source) && nodeMap.has(e.target))
       .map(e => ({
         source: nodeMap.get(e.source)!,
@@ -95,11 +107,25 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
         weight: e.weight,
       }));
 
+    // Cluster centers for pulling nodes toward their cluster
+    const uniqueClusters = rawData.clusters.length > 0 ? rawData.clusters : [...new Set(simNodes.map(n => n.cluster))];
+    const clusterCenters = new Map<string, { x: number; y: number }>();
+    uniqueClusters.forEach((c, i) => {
+      const angle = (2 * Math.PI * i) / uniqueClusters.length;
+      const radius = Math.min(width, height) * 0.2;
+      clusterCenters.set(c, {
+        x: width / 2 + Math.cos(angle) * radius,
+        y: height / 2 + Math.sin(angle) * radius,
+      });
+    });
+
     const sim = forceSimulation(simNodes)
-      .force("link", forceLink<ConceptNode, SimLink>(simLinks).distance(50).strength(e => Math.min(0.5, e.weight * 0.15)))
+      .force("link", forceLink<ConceptNode, SimLink>(simLinks).distance(50).strength(e => Math.min(0.5, e.weight * 0.1)))
       .force("charge", forceManyBody().strength(-60))
       .force("center", forceCenter(width / 2, height / 2))
       .force("collide", forceCollide<ConceptNode>(d => d.radius + 3))
+      .force("x", forceX<ConceptNode>(d => clusterCenters.get(d.cluster)?.x ?? width / 2).strength(0.12))
+      .force("y", forceY<ConceptNode>(d => clusterCenters.get(d.cluster)?.y ?? height / 2).strength(0.12))
       .stop();
 
     for (let i = 0; i < 200; i++) sim.tick();
@@ -109,14 +135,14 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
       pos.set(n.id, { x: n.x ?? 0, y: n.y ?? 0 });
     }
 
-    return { nodes: simNodes, edges: rawData.edges, positions: pos };
+    return { nodes: simNodes, edges: rawData.relationships, positions: pos };
   }, [rawData]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-4">
         <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: theme.textLight }} />
-        <span className="text-xs" style={{ color: theme.textMuted }}>Loading concept map...</span>
+        <span className="text-xs" style={{ color: theme.textMuted }}>Mapping concept relationships...</span>
       </div>
     );
   }
@@ -134,12 +160,6 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
   const width = 500;
   const height = 380;
 
-  function nodeColor(n: ConceptNode): string {
-    if (n.status === "learned") return palette[500];
-    if (n.status === "knew") return palette[300] ?? palette[400];
-    return theme.textLight;
-  }
-
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: 380 }}>
@@ -154,7 +174,7 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
               x1={s.x} y1={s.y} x2={t.x} y2={t.y}
               stroke={theme.borderLight}
               strokeWidth={Math.min(2, edge.weight)}
-              strokeOpacity={0.3}
+              strokeOpacity={0.4}
             />
           );
         })}
@@ -164,7 +184,10 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
           const pos = positions.get(node.id);
           if (!pos) return null;
           const isHovered = hoveredNode?.id === node.id;
-          const color = nodeColor(node);
+          const color = node.clusterColor;
+
+          // Learned/knew get full opacity, unreviewed slightly faded
+          const baseOpacity = node.status ? 0.85 : 0.55;
 
           return (
             <g key={node.id}>
@@ -176,7 +199,9 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
                 cy={pos.y}
                 r={node.radius}
                 fill={color}
-                fillOpacity={isHovered ? 0.9 : 0.6}
+                fillOpacity={isHovered ? 0.95 : baseOpacity}
+                stroke={node.status === "learned" ? color : "none"}
+                strokeWidth={node.status === "learned" ? 1.5 : 0}
                 style={{ cursor: "default", transition: "fill-opacity 0.15s" }}
                 onMouseEnter={() => setHoveredNode(node)}
                 onMouseLeave={() => setHoveredNode(null)}
@@ -215,22 +240,22 @@ export function ConceptConstellation({ palette, theme }: ConceptConstProps) {
           <span className="ml-1" style={{ opacity: 0.6 }}>
             {hoveredNode.count} {hoveredNode.count === 1 ? "source" : "sources"}
             {hoveredNode.status ? ` · ${hoveredNode.status}` : ""}
+            {hoveredNode.cluster ? ` · ${hoveredNode.cluster}` : ""}
           </span>
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-1">
-        <span className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.textMuted }}>
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: palette[500] }} /> Learned
-        </span>
-        <span className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.textMuted }}>
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: palette[300] ?? palette[400] }} /> Already knew
-        </span>
-        <span className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.textMuted }}>
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.textLight }} /> Unreviewed
-        </span>
-      </div>
+      {/* Cluster Legend */}
+      {rawData && rawData.clusters.length > 0 && (
+        <div className="flex items-center justify-center gap-3 mt-1 flex-wrap">
+          {rawData.clusters.map((cluster, i) => (
+            <span key={cluster} className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.textMuted }}>
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rawData.clusterColors[i] }} />
+              {cluster}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

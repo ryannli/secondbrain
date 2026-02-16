@@ -1,105 +1,73 @@
 import { NextResponse } from "next/server";
-import { listSourcesForConnections } from "@/lib/storage";
+import { promises as fs } from "fs";
+import path from "path";
+import { getCurrentRootPath, listSourcesForConnections } from "@/lib/storage";
+import { analyzeConceptNetwork, ConceptNetworkData } from "@/lib/claude";
 
-interface ConceptNode {
-  id: string;
-  term: string;
-  count: number;           // how many sources mention this concept
-  status?: "learned" | "knew";  // user's strongest status across sources
+interface ConceptCache {
+  generatedAt: string;
+  conceptCount: number;
+  result: ConceptNetworkData;
 }
 
-interface ConceptEdge {
-  source: string;
-  target: string;
-  weight: number;          // co-occurrence count
+function getCachePath(): string {
+  return path.join(getCurrentRootPath(), ".cache", "concept-constellation.json");
+}
+
+async function loadCache(): Promise<ConceptCache | null> {
+  try {
+    const raw = await fs.readFile(getCachePath(), "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function saveCache(cache: ConceptCache): Promise<void> {
+  const dir = path.dirname(getCachePath());
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(getCachePath(), JSON.stringify(cache, null, 2), "utf-8");
 }
 
 /**
  * GET /api/history/concepts
- * Returns aggregated concept nodes + co-occurrence edges for the Concept Constellation.
- * No AI call needed — pure aggregation from existing analysis data.
+ * Returns Claude-analyzed concept nodes + relationships for the Concept Constellation.
+ * Uses cache invalidated by concept count change.
  */
 export async function GET() {
   try {
     const sources = await listSourcesForConnections();
 
-    // Aggregate concepts across all sources
-    // Key = lowercase term for dedup, value = { term (display), count, status, sourceIds }
-    const conceptMap = new Map<string, {
-      term: string;
-      count: number;
-      status?: "learned" | "knew";
-      sourceIds: string[];
-    }>();
-
+    // Count total unique concepts
+    const conceptKeys = new Set<string>();
     for (const s of sources) {
       for (const c of s.concepts) {
         const key = c.term.toLowerCase().trim();
-        if (!key) continue;
-
-        const existing = conceptMap.get(key);
-        if (existing) {
-          existing.count++;
-          existing.sourceIds.push(s.id);
-          // Promote status: learned > knew > undefined
-          if (c.status === "learned") existing.status = "learned";
-          else if (c.status === "knew" && existing.status !== "learned") existing.status = "knew";
-        } else {
-          conceptMap.set(key, {
-            term: c.term,
-            count: 1,
-            status: c.status,
-            sourceIds: [s.id],
-          });
-        }
+        if (key) conceptKeys.add(key);
       }
     }
+    const conceptCount = conceptKeys.size;
 
-    // Build nodes — only include concepts that appear in 1+ sources
-    const nodes: ConceptNode[] = [];
-    const conceptList = Array.from(conceptMap.entries());
+    if (conceptCount === 0) {
+      return NextResponse.json({ success: true, result: { clusters: [], clusterColors: [], concepts: [], relationships: [] } });
+    }
 
-    // Sort by count desc, take top 60 to keep visualization readable
-    conceptList.sort((a, b) => b[1].count - a[1].count);
-    const topConcepts = conceptList.slice(0, 60);
+    // Check cache
+    const cache = await loadCache();
+    if (cache && cache.conceptCount === conceptCount) {
+      return NextResponse.json({ success: true, result: cache.result });
+    }
 
-    const keyToId = new Map<string, string>();
-    topConcepts.forEach(([key, val], i) => {
-      const id = `c${i}`;
-      keyToId.set(key, id);
-      nodes.push({
-        id,
-        term: val.term,
-        count: val.count,
-        status: val.status,
-      });
+    // Cache stale — regenerate with Claude
+    const result = await analyzeConceptNetwork();
+
+    await saveCache({
+      generatedAt: new Date().toISOString(),
+      conceptCount,
+      result,
     });
 
-    // Build co-occurrence edges (concepts that appear in the same source)
-    const edgeMap = new Map<string, number>(); // "c0-c1" → weight
-
-    for (const [key1, val1] of topConcepts) {
-      const id1 = keyToId.get(key1)!;
-      for (const [key2, val2] of topConcepts) {
-        if (key1 >= key2) continue; // avoid duplicates + self
-        const id2 = keyToId.get(key2)!;
-
-        // Count shared sources
-        const shared = val1.sourceIds.filter(sid => val2.sourceIds.includes(sid)).length;
-        if (shared > 0) {
-          const edgeKey = `${id1}-${id2}`;
-          edgeMap.set(edgeKey, shared);
-        }
-      }
-    }
-
-    const edges: ConceptEdge[] = [];
-    for (const [key, weight] of edgeMap) {
-      const [source, target] = key.split("-");
-      edges.push({ source, target, weight });
-    }
-
-    return NextResponse.json({ success: true, result: { nodes, edges } });
+    return NextResponse.json({ success: true, result });
   } catch (error) {
     console.error("[/api/history/concepts] Error:", error);
     return NextResponse.json(

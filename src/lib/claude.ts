@@ -19,6 +19,7 @@ import {
   promptMergeConnections,
   promptFilterFeed,
   promptExtractTopics,
+  promptAnalyzeConcepts,
 } from "./prompts";
 
 /**
@@ -1018,4 +1019,122 @@ export async function extractTopicStream(): Promise<InterestStreamData> {
   const colors = topics.map((_, i) => STREAM_COLORS[i % STREAM_COLORS.length]);
 
   return { topics, colors, weeks, data, sourceTopics };
+}
+
+export interface ConceptNetworkData {
+  clusters: string[];
+  clusterColors: string[];
+  concepts: { id: string; term: string; count: number; status?: "learned" | "knew"; cluster: string; clusterColor: string }[];
+  relationships: { source: string; target: string; weight: number; type: string }[];
+}
+
+const CLUSTER_COLORS = [
+  "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+  "#ec4899", "#8b5cf6", "#14b8a6",
+];
+
+/**
+ * Analyze concept relationships using Claude.
+ * Groups concepts into semantic clusters and identifies meaningful relationships.
+ */
+export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
+  const sources = await listSourcesForConnections();
+
+  // Aggregate concepts across all sources
+  const conceptMap = new Map<string, {
+    term: string;
+    count: number;
+    status?: "learned" | "knew";
+    sourceIds: string[];
+    definition: string;
+  }>();
+
+  for (const s of sources) {
+    for (const c of s.concepts) {
+      const key = c.term.toLowerCase().trim();
+      if (!key) continue;
+      const existing = conceptMap.get(key);
+      if (existing) {
+        existing.count++;
+        existing.sourceIds.push(s.id);
+        if (c.status === "learned") existing.status = "learned";
+        else if (c.status === "knew" && existing.status !== "learned") existing.status = "knew";
+        if (!existing.definition && c.definition) existing.definition = c.definition;
+      } else {
+        conceptMap.set(key, {
+          term: c.term,
+          count: 1,
+          status: c.status,
+          sourceIds: [s.id],
+          definition: c.definition ?? "",
+        });
+      }
+    }
+  }
+
+  // Take top 60 by frequency
+  const sorted = Array.from(conceptMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 60);
+
+  if (sorted.length === 0) {
+    return { clusters: [], clusterColors: [], concepts: [], relationships: [] };
+  }
+
+  // Build context for Claude
+  const conceptsContext = sorted.map(([, val], i) => {
+    const statusStr = val.status ? ` | Status: ${val.status}` : "";
+    return `${i}. ID: c${i} | Term: "${val.term}" | Definition: ${val.definition || "N/A"} | Sources: ${val.count}${statusStr}`;
+  }).join("\n");
+
+  const prompt = promptAnalyzeConcepts(conceptsContext);
+  const responseText = await callClaude(prompt, "analyzeConcepts");
+
+  const parsed = parseJsonResponse(responseText, "analyzeConceptNetwork");
+  if (!parsed || !Array.isArray(parsed.clusters) || !Array.isArray(parsed.concepts)) {
+    console.error("[analyzeConceptNetwork] Invalid response, falling back to unclustered");
+    // Fallback: single cluster, no relationships
+    const concepts = sorted.map(([, val], i) => ({
+      id: `c${i}`,
+      term: val.term,
+      count: val.count,
+      status: val.status,
+      cluster: "General",
+      clusterColor: CLUSTER_COLORS[0],
+    }));
+    return { clusters: ["General"], clusterColors: [CLUSTER_COLORS[0]], concepts, relationships: [] };
+  }
+
+  const clusters = parsed.clusters as string[];
+  const clusterColors = clusters.map((_, i) => CLUSTER_COLORS[i % CLUSTER_COLORS.length]);
+  const clusterColorMap = new Map(clusters.map((c, i) => [c, clusterColors[i]]));
+
+  // Map Claude's assignments back to our concept data
+  const conceptAssignments = parsed.concepts as { id: string; cluster: string }[];
+  const assignmentMap = new Map(conceptAssignments.map(c => [c.id, c.cluster]));
+
+  const concepts = sorted.map(([, val], i) => {
+    const id = `c${i}`;
+    const cluster = assignmentMap.get(id) ?? clusters[0] ?? "General";
+    return {
+      id,
+      term: val.term,
+      count: val.count,
+      status: val.status,
+      cluster,
+      clusterColor: clusterColorMap.get(cluster) ?? CLUSTER_COLORS[0],
+    };
+  });
+
+  const validIds = new Set(concepts.map(c => c.id));
+  const relationships = (parsed.relationships as { source: string; target: string; strength?: number; type?: string }[] ?? [])
+    .filter(r => validIds.has(r.source) && validIds.has(r.target))
+    .map(r => ({
+      source: r.source,
+      target: r.target,
+      weight: r.strength ?? 1,
+      type: r.type ?? "related",
+    }));
+
+  return { clusters, clusterColors, concepts, relationships };
 }

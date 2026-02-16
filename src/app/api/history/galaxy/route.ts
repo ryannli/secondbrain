@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { getCurrentRootPath, getLibraryPath, listSourcesForConnections, findEntryPath } from "@/lib/storage";
-import { InterestStreamData } from "@/lib/claude";
+import { extractTopicStream, InterestStreamData } from "@/lib/claude";
 
 interface GalaxyNode {
   id: string;
@@ -30,7 +30,7 @@ export async function GET() {
       return NextResponse.json({ success: true, result: { nodes: [], edges: [], topics: [], colors: [] } });
     }
 
-    // Load topic assignments from stream cache
+    // Load topic assignments from stream cache, or generate if missing
     let streamData: InterestStreamData | null = null;
     try {
       const cachePath = path.join(getCurrentRootPath(), ".cache", "interest-stream.json");
@@ -38,7 +38,26 @@ export async function GET() {
       const cache = JSON.parse(raw);
       streamData = cache.result as InterestStreamData;
     } catch {
-      // No cache — topics won't be available
+      // No cache
+    }
+
+    // If cache is missing sourceTopics, generate them (calls Claude)
+    if (!streamData?.sourceTopics && sources.length >= 3) {
+      try {
+        const result = await extractTopicStream();
+        streamData = result;
+        // Save to stream cache so Brain Waves and future galaxy loads reuse it
+        const cachePath = path.join(getCurrentRootPath(), ".cache", "interest-stream.json");
+        await fs.mkdir(path.dirname(cachePath), { recursive: true });
+        await fs.writeFile(cachePath, JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          sourceCount: sources.length,
+          latestSourceDate: new Date().toISOString(),
+          result,
+        }, null, 2), "utf-8");
+      } catch (err) {
+        console.error("[/api/history/galaxy] Failed to generate topics:", err);
+      }
     }
 
     // Build source → topic mapping from cache
