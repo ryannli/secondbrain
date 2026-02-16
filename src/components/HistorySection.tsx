@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { HistoryEvent } from "@/lib/types";
 import { InterestStream } from "./InterestStream";
+import { ReadingHeatmap } from "./ReadingHeatmap";
+import { KnowledgeGalaxy } from "./KnowledgeGalaxy";
+import { ConceptConstellation } from "./ConceptConstellation";
 
 interface HistorySectionProps {
   events: HistoryEvent[];
@@ -165,6 +168,30 @@ export function HistorySection({
 
       {/* Interest Stream */}
       <InterestStream palette={palette} theme={theme} />
+
+      {/* Reading Heatmap */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
+          Reading Activity
+        </h3>
+        <ReadingHeatmap events={events} palette={palette} theme={theme} />
+      </div>
+
+      {/* Knowledge Galaxy */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
+          Knowledge Galaxy
+        </h3>
+        <KnowledgeGalaxy palette={palette} theme={theme} onNavigateToSource={onNavigateToSource} />
+      </div>
+
+      {/* Concept Constellation */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
+          Concept Constellation
+        </h3>
+        <ConceptConstellation palette={palette} theme={theme} />
+      </div>
 
       {/* Activity Timeline */}
       <div className="flex items-center gap-2 mb-4 mt-2">

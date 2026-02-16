@@ -832,6 +832,7 @@ export interface InterestStreamData {
   colors: string[];
   weeks: string[];
   data: number[][];  // weeks × topics matrix
+  sourceTopics?: { id: string; topics: string[] }[];  // source → topic assignments
 }
 
 /**
@@ -889,13 +890,25 @@ export async function extractTopicStream(): Promise<InterestStreamData> {
     }
   }
 
-  // Determine time span and choose bucket granularity
+  // Determine time span from ALL events (additions + attention interactions)
   const now = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
 
-  let earliest = now.getTime();
+  const allTimestamps: number[] = [];
   for (const [, dateStr] of sourceDates) {
-    const t = new Date(dateStr).getTime();
+    allTimestamps.push(new Date(dateStr).getTime());
+  }
+  for (const s of sources) {
+    for (const h of s.highlights) {
+      if (h.reactionAt && h.reaction === "star") allTimestamps.push(new Date(h.reactionAt).getTime());
+    }
+    for (const c of s.concepts) {
+      if (c.statusAt && c.status === "learned") allTimestamps.push(new Date(c.statusAt).getTime());
+    }
+  }
+
+  let earliest = now.getTime();
+  for (const t of allTimestamps) {
     if (t < earliest) earliest = t;
   }
 
@@ -953,28 +966,56 @@ export async function extractTopicStream(): Promise<InterestStreamData> {
     }
   }
 
+  // Collect weighted attention events
+  // Weight reflects how strong an attention signal each interaction is
+  const timedEvents: { sourceId: string; timestamp: number; weight: number }[] = [];
+
+  // Source added — baseline interest (+1)
+  for (const [sourceId, dateStr] of sourceDates) {
+    timedEvents.push({ sourceId, timestamp: new Date(dateStr).getTime(), weight: 1 });
+  }
+
+  // User interactions — attention signals from source highlights & concepts
+  for (const s of sources) {
+    for (const h of s.highlights) {
+      if (h.reactionAt && h.reaction === "star") {
+        // Starred highlight = strong attention signal (+2)
+        timedEvents.push({ sourceId: s.id, timestamp: new Date(h.reactionAt).getTime(), weight: 2 });
+      }
+      // Dismiss = not interested, skip (weight 0)
+    }
+    for (const c of s.concepts) {
+      if (c.statusAt && c.status === "learned") {
+        // Learned new concept = deep engagement (+2)
+        timedEvents.push({ sourceId: s.id, timestamp: new Date(c.statusAt).getTime(), weight: 2 });
+      }
+      // Knew = already known, no current attention signal
+    }
+  }
+
+  // Note: Starred briefing items are omitted — they don't map to specific source topics.
+
   // Build data matrix: buckets × topics
   const data: number[][] = Array.from({ length: numBuckets }, () =>
     Array(topics.length).fill(0)
   );
 
-  for (const [sourceId, dateStr] of sourceDates) {
-    const t = new Date(dateStr).getTime();
-    if (t < startTime) continue;
+  for (const { sourceId, timestamp, weight } of timedEvents) {
+    if (timestamp < startTime) continue;
     const bucketIndex = Math.min(
       numBuckets - 1,
-      Math.floor((t - startTime) / bucketMs)
+      Math.floor((timestamp - startTime) / bucketMs)
     );
     const sourceTopicList = sourceTopicMap.get(sourceId) ?? [];
     for (const topic of sourceTopicList) {
       const topicIndex = topics.indexOf(topic);
       if (topicIndex >= 0) {
-        data[bucketIndex][topicIndex]++;
+        data[bucketIndex][topicIndex] += weight;
       }
     }
   }
 
   const colors = topics.map((_, i) => STREAM_COLORS[i % STREAM_COLORS.length]);
 
-  return { topics, colors, weeks, data };
+  return { topics, colors, weeks, data, sourceTopics };
 }
