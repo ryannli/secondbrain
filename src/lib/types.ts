@@ -146,7 +146,6 @@ export interface Analysis {
   analyzedAt: string;
   userRating?: number;          // 0.5 to 5, in 0.5 increments
   userRatingAt?: string;        // ISO timestamp
-  userHighlights?: UserHighlight[];
 }
 
 export interface Source {
@@ -231,6 +230,8 @@ export interface FeedItem {
 
 export interface FeedSignals {
   searchCalls: number;       // Number of search API calls triggered
+  rssFeedCount: number;      // Number of RSS feed sources used
+  radarCount: number;        // Number of configured interest radars
   libraryCount: number;
   interactionCount: number;  // Total: starred + dismissed + learned + knew
 }
@@ -257,7 +258,7 @@ export interface StudioDocument {
 // History timeline event
 export interface HistoryEvent {
   id: string;                  // e.g. "abc123-rating"
-  type: "rating" | "star" | "dismiss" | "knew" | "learned" | "read" | "briefing_star";
+  type: "rating" | "star" | "dismiss" | "knew" | "learned" | "read" | "briefing_star" | "added";
   timestamp: string;           // ISO
   sourceId: string;
   sourceTitle: string;

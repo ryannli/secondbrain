@@ -9,12 +9,21 @@ import { AnalysisSchema, OriginalDataSchema } from "./schemas";
  */
 export type ThemeMode = "light" | "dark" | "system";
 
+export interface RssFeedSource {
+  url: string;    // e.g. "https://hnrss.org/frontpage"
+  label: string;  // e.g. "Hacker News"
+}
+
 export interface UserConfig {
   accentColor?: string;  // Hex color like "#3b6044"
   fontFamily?: string;   // Font ID like "outfit", "inter", etc.
   theme?: ThemeMode;     // Theme mode: "light", "dark", or "system" (follow OS)
-  feedSources?: string[]; // Domains to prioritize in feed (e.g., ["reddit.com", "news.ycombinator.com"])
+  feedSources?: string[];       // DEPRECATED — migrated to rssFeeds + searchSources
+  rssFeeds?: RssFeedSource[];   // RSS feeds fetched directly
+  searchSources?: string[];     // Domains for Brave Search
   feedInterests?: string[]; // Search terms for feed (e.g., ["AI agents", "startups"])
+  fontSize?: string;      // "sm" | "base" | "lg"
+  headingStyle?: string;  // "clean" | "colored" | "accented"
 }
 
 /**
@@ -53,7 +62,19 @@ export async function loadUserConfig(): Promise<UserConfig> {
   try {
     const configPath = getConfigPath();
     const content = await fs.readFile(configPath, "utf-8");
-    return JSON.parse(content);
+    const config: UserConfig = JSON.parse(content);
+
+    // Migrate legacy feedSources → rssFeeds + searchSources
+    if (config.feedSources && !config.rssFeeds && !config.searchSources) {
+      config.rssFeeds = config.feedSources.includes("news.ycombinator.com")
+        ? [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }]
+        : [];
+      config.searchSources = config.feedSources.filter(s => s !== "news.ycombinator.com");
+      delete config.feedSources;
+      await saveUserConfig(config);
+    }
+
+    return config;
   } catch {
     return {}; // Return defaults if config doesn't exist
   }
@@ -2110,7 +2131,38 @@ export async function listInteractionHistory(
       if (await isEntryDirectory(fullPath)) {
         const sourceId = entry.name;
 
-        // Load analysis.json
+        // Load meta.json for created_at and lastReadAt
+        let metaData: OriginalData | null = null;
+        try {
+          metaData = await readMetaJson(fullPath);
+        } catch {
+          continue; // No meta = skip
+        }
+
+        // Load title and lastReadAt from content.md, fallback to meta.json
+        let title = sourceId;
+        let lastReadAt: string | undefined;
+        try {
+          const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
+          const parsed = parseContentMd(contentMd);
+          title = parsed.title;
+          lastReadAt = parsed.lastReadAt;
+        } catch {
+          title = metaData?.original_title || sourceId;
+        }
+
+        // Always emit "added" event from meta.json created_at
+        if (metaData?.created_at) {
+          events.push({
+            id: `${sourceId}-added`,
+            type: "added",
+            timestamp: metaData.created_at,
+            sourceId,
+            sourceTitle: title,
+          });
+        }
+
+        // Load analysis.json for interaction events
         let analysis: Analysis | null = null;
         try {
           const analysisJson = await fs.readFile(path.join(fullPath, "analysis.json"), "utf-8");
@@ -2119,72 +2171,47 @@ export async function listInteractionHistory(
             analysis = parsed.analysis;
           }
         } catch {
-          continue; // No analysis = no interactions to extract
-        }
-        if (!analysis) continue;
-
-        // Load title from content.md, fallback to meta.json
-        let title = sourceId;
-        try {
-          const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
-          const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
-          if (titleMatch) title = titleMatch[1];
-        } catch {
-          try {
-            const metaData = await readMetaJson(fullPath);
-            title = metaData.original_title || sourceId;
-          } catch {
-            // Keep sourceId as title
-          }
+          // No analysis = no interaction events, but "added" already emitted
         }
 
-        // Load lastReadAt from meta.json
-        let lastReadAt: string | undefined;
-        try {
-          const metaPath = path.join(fullPath, "meta.json");
-          const metaRaw = await fs.readFile(metaPath, "utf-8");
-          const metaJson = JSON.parse(metaRaw);
-          lastReadAt = metaJson.lastReadAt;
-        } catch {
-          // No meta or no lastReadAt
-        }
-
-        // Extract events
-        if (analysis.userRatingAt) {
-          events.push({
-            id: `${sourceId}-rating`,
-            type: "rating",
-            timestamp: analysis.userRatingAt,
-            sourceId,
-            sourceTitle: title,
-            rating: analysis.userRating,
-          });
-        }
-
-        for (const h of analysis.digest?.highlights ?? []) {
-          if (h.reactionAt && h.reaction) {
+        // Extract interaction events (only if analysis exists)
+        if (analysis) {
+          if (analysis.userRatingAt) {
             events.push({
-              id: `${sourceId}-${h.id}`,
-              type: h.reaction === "star" ? "star" : "dismiss",
-              timestamp: h.reactionAt,
+              id: `${sourceId}-rating`,
+              type: "rating",
+              timestamp: analysis.userRatingAt,
               sourceId,
               sourceTitle: title,
-              highlightText: h.text,
+              rating: analysis.userRating,
             });
           }
-        }
 
-        for (const c of analysis.digest?.concepts ?? []) {
-          if (c.statusAt && c.status) {
-            events.push({
-              id: `${sourceId}-${c.id}`,
-              type: c.status,
-              timestamp: c.statusAt,
-              sourceId,
-              sourceTitle: title,
-              conceptTerm: c.term,
-              conceptDefinition: c.definition,
-            });
+          for (const h of analysis.digest?.highlights ?? []) {
+            if (h.reactionAt && h.reaction) {
+              events.push({
+                id: `${sourceId}-${h.id}`,
+                type: h.reaction === "star" ? "star" : "dismiss",
+                timestamp: h.reactionAt,
+                sourceId,
+                sourceTitle: title,
+                highlightText: h.text,
+              });
+            }
+          }
+
+          for (const c of analysis.digest?.concepts ?? []) {
+            if (c.statusAt && c.status) {
+              events.push({
+                id: `${sourceId}-${c.id}`,
+                type: c.status,
+                timestamp: c.statusAt,
+                sourceId,
+                sourceTitle: title,
+                conceptTerm: c.term,
+                conceptDefinition: c.definition,
+              });
+            }
           }
         }
 

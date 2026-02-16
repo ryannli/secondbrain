@@ -9,8 +9,10 @@ import {
   CheckCircle,
   Lightbulb,
   BookOpen,
+  Plus,
 } from "lucide-react";
 import { HistoryEvent } from "@/lib/types";
+import { InterestStream } from "./InterestStream";
 
 interface HistorySectionProps {
   events: HistoryEvent[];
@@ -67,6 +69,12 @@ function getEventConfig(
         icon: <Star className="w-3.5 h-3.5 fill-current" />,
         color: "#f59e0b",
         text: "Starred from briefing",
+      };
+    case "added":
+      return {
+        icon: <Plus className="w-3.5 h-3.5" />,
+        color: palette[400] ?? palette[500],
+        text: "Added to library",
       };
   }
 }
@@ -150,16 +158,20 @@ export function HistorySection({
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
-        <Clock className="w-5 h-5" style={{ color: palette[500] }} />
         <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
-          History
+          Brain Waves
         </h2>
-        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}>
-          {events.length}
-        </span>
       </div>
 
-      {/* Timeline */}
+      {/* Interest Stream */}
+      <InterestStream palette={palette} theme={theme} />
+
+      {/* Activity Timeline */}
+      <div className="flex items-center gap-2 mb-4 mt-2">
+        <h3 className="text-sm font-semibold" style={{ color: theme.textMuted }}>
+          Activity
+        </h3>
+      </div>
       <div className="relative pl-6">
         {/* Vertical line */}
         <div

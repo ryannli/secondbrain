@@ -440,6 +440,34 @@ Example:
 Respond with ONLY the JSON array.`;
 }
 
+export function promptExtractTopics(sourcesContext: string): string {
+  return `Analyze this user's reading library and identify broad topic categories that describe their interests over time.
+
+## Sources
+${sourcesContext}
+
+## Task
+Identify 6-8 broad topic categories that cover the user's reading interests. Then tag each source with 1-3 of those topics.
+
+## Rules
+1. Topics should be BROAD (e.g. "AI & Machine Learning", "Web Development", "Startups") — not specific articles
+2. Every source must be tagged with at least 1 topic
+3. Topics should be distinct — don't create overlapping categories
+4. Use short, readable labels (2-4 words max)
+
+## Output
+Return a JSON object:
+{
+  "topics": ["Topic A", "Topic B", ...],
+  "sources": [
+    {"id": "abc123", "topics": ["Topic A", "Topic B"]},
+    ...
+  ]
+}
+
+Respond with ONLY the JSON object.`;
+}
+
 export function promptGenerateBriefing(libraryContext: string, feedContext: string, interactionContext: string = "", interests: string[] = []): string {
   const interactionSection = interactionContext
     ? `\n${interactionContext}\n`

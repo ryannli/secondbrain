@@ -4,7 +4,7 @@ import { Analysis, Highlight, Connection, Concept, FeedItem, InsightItem, Struct
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
-import { getLibraryPath, getCurrentRootPath, loadProfileDoc } from "./storage";
+import { getLibraryPath, getCurrentRootPath, loadProfileDoc, listSourcesForConnections, SourceForConnections, findEntryPath } from "./storage";
 import {
   promptGenerateTitle,
   promptGenerateBriefing,
@@ -18,6 +18,7 @@ import {
   promptAnalyzeConnections,
   promptMergeConnections,
   promptFilterFeed,
+  promptExtractTopics,
 } from "./prompts";
 
 /**
@@ -818,4 +819,162 @@ export async function generateInsights(
     console.error("[generateInsights] Failed:", err);
     return [];
   }
+}
+
+// Stream graph color palette (distinct, medium-saturation)
+const STREAM_COLORS = [
+  "#6366f1", "#f59e0b", "#10b981", "#f97316", "#3b82f6",
+  "#ec4899", "#8b5cf6", "#14b8a6", "#ef4444", "#84cc16",
+];
+
+export interface InterestStreamData {
+  topics: string[];
+  colors: string[];
+  weeks: string[];
+  data: number[][];  // weeks × topics matrix
+}
+
+/**
+ * Extract topic stream data from library sources for the Brain Waves visualization.
+ * Groups sources by week × topic to produce streamgraph data.
+ */
+export async function extractTopicStream(): Promise<InterestStreamData> {
+  const sources = await listSourcesForConnections();
+  if (sources.length < 3) {
+    return { topics: [], colors: [], weeks: [], data: [] };
+  }
+
+  // Build context for Claude
+  const sourcesContext = sources.map((s, i) => {
+    const concepts = s.concepts.map(c => c.term).join(", ");
+    return `${i + 1}. ID: ${s.id} | Title: "${s.title}" | Summary: ${s.summary.slice(0, 120)} | Concepts: ${concepts || "none"}`;
+  }).join("\n");
+
+  const prompt = promptExtractTopics(sourcesContext);
+  const responseText = await callClaude(prompt, "extractTopics");
+
+  // Parse response
+  const parsed = parseJsonResponse(responseText, "extractTopicStream");
+  if (!parsed || !Array.isArray(parsed.topics) || !Array.isArray(parsed.sources)) {
+    console.error("[extractTopicStream] Invalid response");
+    return { topics: [], colors: [], weeks: [], data: [] };
+  }
+
+  const topics: string[] = parsed.topics as string[];
+  const sourceTopics = parsed.sources as { id: string; topics: string[] }[];
+
+  // Build a map: sourceId → topics
+  const sourceTopicMap = new Map<string, string[]>();
+  for (const st of sourceTopics) {
+    sourceTopicMap.set(st.id, st.topics);
+  }
+
+  // Load created_at dates from meta.json for each source
+  const libraryPath = getLibraryPath();
+  const sourceDates = new Map<string, string>();
+  for (const s of sources) {
+    try {
+      let metaPath = path.join(libraryPath, s.id, "meta.json");
+      try {
+        await fs.access(metaPath);
+      } catch {
+        const entryPath = await findEntryPath(s.id, libraryPath);
+        if (entryPath) metaPath = path.join(entryPath, "meta.json");
+      }
+      const raw = await fs.readFile(metaPath, "utf-8");
+      const meta = JSON.parse(raw);
+      if (meta.created_at) sourceDates.set(s.id, meta.created_at);
+    } catch {
+      // Skip sources without readable meta
+    }
+  }
+
+  // Determine time span and choose bucket granularity
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  let earliest = now.getTime();
+  for (const [, dateStr] of sourceDates) {
+    const t = new Date(dateStr).getTime();
+    if (t < earliest) earliest = t;
+  }
+
+  const spanDays = Math.max(1, Math.ceil((now.getTime() - earliest) / dayMs));
+
+  // Pick granularity based on usage span
+  let bucketMs: number;
+  let maxBuckets: number;
+  let granularity: "day" | "week" | "month";
+
+  if (spanDays <= 14) {
+    // Under 2 weeks → daily buckets
+    granularity = "day";
+    bucketMs = dayMs;
+    maxBuckets = 14;
+  } else if (spanDays <= 90) {
+    // 2 weeks to 3 months → weekly buckets
+    granularity = "week";
+    bucketMs = 7 * dayMs;
+    maxBuckets = 13;
+  } else {
+    // Over 3 months → monthly buckets (~30 day)
+    granularity = "month";
+    bucketMs = 30 * dayMs;
+    maxBuckets = 12;
+  }
+
+  const totalBuckets = Math.max(1, Math.ceil((now.getTime() - earliest) / bucketMs));
+  const numBuckets = Math.min(totalBuckets, maxBuckets);
+  const startTime = now.getTime() - numBuckets * bucketMs;
+
+  // Build labels based on granularity
+  const weeks: string[] = [];
+  for (let b = 0; b < numBuckets; b++) {
+    const bucketStart = new Date(startTime + b * bucketMs);
+    if (b === numBuckets - 1) {
+      weeks.push("Now");
+    } else if (granularity === "day") {
+      // Show day labels: "Mon 3", but skip some to avoid crowding
+      if (b === 0 || bucketStart.getDay() === 1 /* Monday */) {
+        weeks.push(bucketStart.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+      } else {
+        weeks.push("");
+      }
+    } else if (granularity === "week") {
+      // Show month name at start of each month
+      if (b === 0 || bucketStart.getDate() <= 7) {
+        weeks.push(bucketStart.toLocaleDateString(undefined, { month: "short" }));
+      } else {
+        weeks.push("");
+      }
+    } else {
+      // Monthly: always show month name
+      weeks.push(bucketStart.toLocaleDateString(undefined, { month: "short" }));
+    }
+  }
+
+  // Build data matrix: buckets × topics
+  const data: number[][] = Array.from({ length: numBuckets }, () =>
+    Array(topics.length).fill(0)
+  );
+
+  for (const [sourceId, dateStr] of sourceDates) {
+    const t = new Date(dateStr).getTime();
+    if (t < startTime) continue;
+    const bucketIndex = Math.min(
+      numBuckets - 1,
+      Math.floor((t - startTime) / bucketMs)
+    );
+    const sourceTopicList = sourceTopicMap.get(sourceId) ?? [];
+    for (const topic of sourceTopicList) {
+      const topicIndex = topics.indexOf(topic);
+      if (topicIndex >= 0) {
+        data[bucketIndex][topicIndex]++;
+      }
+    }
+  }
+
+  const colors = topics.map((_, i) => STREAM_COLORS[i % STREAM_COLORS.length]);
+
+  return { topics, colors, weeks, data };
 }
