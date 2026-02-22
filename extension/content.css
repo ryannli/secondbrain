@@ -123,3 +123,26 @@
   max-width: 100px;
   opacity: 1;
 }
+
+/* Twitter auto-capture toast */
+#sb-autocapture-toast {
+  all: initial;
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  z-index: 2147483647 !important;
+  padding: 8px 14px !important;
+  background: #3b6044 !important;
+  color: white !important;
+  border-radius: 8px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  transition: opacity 0.3s !important;
+  pointer-events: none !important;
+}
+
+#sb-autocapture-toast.sb-toast-error {
+  background: #ef4444 !important;
+}

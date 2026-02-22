@@ -43,8 +43,67 @@ async function captureFromContent(html, title, url) {
   }
 }
 
+// Check if a URL is Twitter/X
+function isTwitterUrl(url) {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.includes("twitter.com") || hostname.includes("x.com");
+  } catch {
+    return false;
+  }
+}
+
+// Update badge for a tab based on auto-capture state
+async function updateBadge(tabId, url) {
+  if (!isTwitterUrl(url)) {
+    chrome.action.setBadgeText({ text: "", tabId });
+    return;
+  }
+  const { twitterAutoCapture } = await chrome.storage.local.get("twitterAutoCapture");
+  chrome.action.setBadgeText({ text: twitterAutoCapture ? "AUTO" : "", tabId });
+  chrome.action.setBadgeBackgroundColor({ color: "#3b6044", tabId });
+}
+
+// Update badge when navigating
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || changeInfo.status === "complete") {
+    updateBadge(tabId, tab.url);
+  }
+});
+
+// Update all Twitter tabs when toggle changes
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.twitterAutoCapture) {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (isTwitterUrl(tab.url)) {
+          updateBadge(tab.id, tab.url);
+        }
+      }
+    });
+  }
+});
+
 // Handle extension icon click (toolbar button)
 chrome.action.onClicked.addListener(async (tab) => {
+  // On Twitter/X: toggle auto-capture
+  if (isTwitterUrl(tab.url)) {
+    const { twitterAutoCapture } = await chrome.storage.local.get("twitterAutoCapture");
+    const newValue = !twitterAutoCapture;
+    await chrome.storage.local.set({ twitterAutoCapture: newValue });
+
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: showNotification,
+      args: [
+        newValue ? "Auto-capture ON — liked tweets will be saved" : "Auto-capture OFF",
+        "success",
+      ],
+    });
+    return;
+  }
+
+  // On other sites: capture page as before
   try {
     // Show immediate feedback
     chrome.scripting.executeScript({
