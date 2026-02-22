@@ -1129,7 +1129,13 @@ async function loadSourceFromPath(
     } else if (!analysis && !analysisError) {
       processingStage = "analyzing";
     } else if (analysis && analysis.connections === undefined && !analysis.connectionError) {
-      processingStage = "connecting";
+      const ageMs = Date.now() - new Date(originalData.created_at).getTime();
+      if (ageMs > 10 * 60 * 1000) {
+        analysis.connectionError = "Connection analysis interrupted";
+        processingStage = "complete";
+      } else {
+        processingStage = "connecting";
+      }
     } else {
       processingStage = "complete";
     }

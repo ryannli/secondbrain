@@ -59,20 +59,8 @@ export async function processSourceInBackground(
     console.log(`[${id}] Saving analysis (progressive step 2)...`);
     await saveSourceAnalysis(id, analysis);
 
-    // Step 3: Find connections with existing sources (can be slower)
-    console.log(`[${id}] Finding connections...`);
-    const { connections, error: connectionError } = await findConnectionsForSource(id, extractedTitle, analysis);
-    if (connectionError) {
-      console.error(`[${id}] Connection error: ${connectionError}`);
-      // Save error to analysis.json so UI can display it
-      await saveConnectionError(id, connectionError);
-    } else {
-      // Always save connections (even if empty) so UI knows loading is done
-      // undefined = still loading, [] = no connections found
-      console.log(`[${id}] Found ${connections.length} connections`);
-      console.log(`[${id}] Saving connections (progressive step 3)...`);
-      await setSourceConnections(id, connections);
-    }
+    // Step 3: Find connections (isolated — failure here never marks source as failed)
+    await findAndSaveConnections(id, extractedTitle, analysis);
 
     console.log(`[${id}] Source processing complete`);
   } catch (error) {
@@ -119,24 +107,44 @@ export async function processFileInBackground(
     console.log(`[${id}] Saving analysis (progressive step 2)...`);
     await saveSourceAnalysis(id, analysis);
 
-    // Step 3: Find connections with existing sources
-    console.log(`[${id}] Finding connections...`);
-    const { connections, error: connectionError } = await findConnectionsForSource(id, extractedTitle, analysis);
-    if (connectionError) {
-      console.error(`[${id}] Connection error: ${connectionError}`);
-      await saveConnectionError(id, connectionError);
-    } else {
-      // Always save connections (even if empty) so UI knows loading is done
-      console.log(`[${id}] Found ${connections.length} connections`);
-      console.log(`[${id}] Saving connections (progressive step 3)...`);
-      await setSourceConnections(id, connections);
-    }
+    // Step 3: Find connections (isolated — failure here never marks source as failed)
+    await findAndSaveConnections(id, extractedTitle, analysis);
 
     console.log(`[${id}] File processing complete`);
   } catch (error) {
     console.error(`[${id}] File processing failed:`, error);
     await failSource(id, error instanceof Error ? error.message : "Unknown error");
     throw error;
+  }
+}
+
+/**
+ * Step 3 helper: find and save connections, fully isolated.
+ * Failures here never propagate — the source already has content + analysis.
+ */
+async function findAndSaveConnections(
+  id: string,
+  title: string,
+  analysis: { digest: { summary: string; highlights: { text: string }[]; concepts: { term: string; definition: string; status?: "knew" | "learned" }[] } }
+): Promise<void> {
+  try {
+    console.log(`[${id}] Finding connections...`);
+    const { connections, error } = await findConnectionsForSource(id, title, analysis);
+    if (error) {
+      console.error(`[${id}] Connection error: ${error}`);
+      await saveConnectionError(id, error);
+    } else {
+      console.log(`[${id}] Found ${connections.length} connections`);
+      console.log(`[${id}] Saving connections (progressive step 3)...`);
+      await setSourceConnections(id, connections);
+    }
+  } catch (error) {
+    console.error(`[${id}] Connection step failed:`, error);
+    try {
+      await saveConnectionError(id, `Connection step failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } catch {
+      // Storage-layer stale detection is the final safety net
+    }
   }
 }
 
