@@ -23,21 +23,35 @@
   document.addEventListener(
     "click",
     (e) => {
-      if (!enabled) return;
+      if (!enabled) {
+        console.log("[SB] auto-capture disabled, ignoring click");
+        return;
+      }
 
-      const likeButton = e.target.closest('[data-testid="like"]');
-      if (!likeButton) return;
+      const bookmarkButton = e.target.closest('[data-testid="bookmark"]');
+      if (!bookmarkButton) return;
 
-      // Walk up to the tweet article
-      const article = likeButton.closest('article[data-testid="tweet"]');
-      if (!article) return;
+      console.log("[SB] bookmark button clicked!", e.target, bookmarkButton);
 
-      // Extract tweet URL from the time element's parent link
-      const timeLink = article.querySelector("a[href*='/status/'] time")
-        ?.closest("a[href*='/status/']");
-      if (!timeLink) return;
+      // Try to find the tweet article (works in timeline view)
+      const article = bookmarkButton.closest('article[data-testid="tweet"]');
 
-      const tweetUrl = new URL(timeLink.href, window.location.origin).href;
+      // Determine tweet URL: from article's time link, or fall back to page URL
+      let tweetUrl;
+      if (article) {
+        const timeLink = article.querySelector("a[href*='/status/'] time")
+          ?.closest("a[href*='/status/']");
+        if (timeLink) {
+          tweetUrl = new URL(timeLink.href, window.location.origin).href;
+        }
+      }
+      if (!tweetUrl && /\/status\/\d+/.test(window.location.pathname)) {
+        tweetUrl = window.location.href.split("?")[0];
+      }
+      if (!tweetUrl) {
+        console.log("[SB] could not determine tweet URL");
+        return;
+      }
 
       // Dedup check
       chrome.storage.local.get(CAPTURED_KEY, (result) => {
@@ -48,16 +62,15 @@
         const updated = [...captured, tweetUrl].slice(-500);
         chrome.storage.local.set({ [CAPTURED_KEY]: updated });
 
-        // Extract content and send
-        const html = article.outerHTML;
-        const title = article.querySelector('[data-testid="tweetText"]')
-          ?.textContent?.slice(0, 80) || "Tweet";
+        // Use full page HTML + document.title, same as manual capture
+        const html = document.documentElement.outerHTML;
+        const title = document.title;
 
         chrome.runtime.sendMessage(
           { action: "capture", html, title, url: tweetUrl },
           (response) => {
             if (response?.success) {
-              showToast("Liked tweet captured");
+              showToast("Bookmarked tweet captured");
             } else {
               showToast("Capture failed", true);
             }
