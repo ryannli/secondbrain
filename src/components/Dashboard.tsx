@@ -45,7 +45,7 @@ export interface DashboardProps {
   feed?: FeedProps;
 }
 
-export function Dashboard({
+export const Dashboard = React.memo(function Dashboard({
   sources,
   onSelect,
   captureInput,
@@ -179,6 +179,7 @@ export function Dashboard({
             onClick={handleCaptureWithFile}
             disabled={!canCapture}
             className="px-4 py-2 font-medium text-white text-sm rounded-lg disabled:opacity-50 transition-all hover:opacity-90"
+            data-track="capture.submit"
             style={{ backgroundColor: palette[600] }}
           >
             Capture
@@ -284,6 +285,7 @@ export function Dashboard({
         key={source.meta.id}
         onClick={() => !isExtracting && onSelect(source.meta.id)}
         className={`p-4 border rounded-xl transition-all text-left relative overflow-hidden bg-white dark:bg-zinc-900 ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
+        data-track="source.card_select"
         style={{ borderColor: theme.border }}
         disabled={isExtracting}
       >
@@ -382,6 +384,7 @@ export function Dashboard({
         <button
           onClick={() => setFilter("all")}
           className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "all" ? "text-white" : "hover:bg-black/5"}`}
+          data-track="filter.all"
           style={{
             backgroundColor: filter === "all" ? palette[500] : undefined,
             color: filter === "all" ? "white" : theme.textMuted,
@@ -403,6 +406,7 @@ export function Dashboard({
         <button
           onClick={() => setFilter("saved")}
           className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "saved" ? "text-white" : "hover:bg-black/5"}`}
+          data-track="filter.saved"
           style={{
             backgroundColor: filter === "saved" ? palette[500] : undefined,
             color: filter === "saved" ? "white" : theme.textMuted,
@@ -425,6 +429,7 @@ export function Dashboard({
         <button
           onClick={() => setFilter("recommended")}
           className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${filter === "recommended" ? "text-white" : "hover:bg-black/5"}`}
+          data-track="filter.recommended"
           style={{
             backgroundColor: filter === "recommended" ? palette[500] : undefined,
             color: filter === "recommended" ? "white" : theme.textMuted,
@@ -497,7 +502,7 @@ export function Dashboard({
       )}
     </div>
   );
-}
+});
 
 /**
  * Timer component showing elapsed time since processing started

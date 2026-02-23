@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { generatePalette } from "@/lib/theme";
-import type { ThemeMode } from "@/lib/storage";
+import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 
-// Default feed sources users commonly use
-const DEFAULT_FEED_SOURCES = ["reddit.com", "news.ycombinator.com"];
+const DEFAULT_RSS_FEEDS: RssFeedSource[] = [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }];
+const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
 
 // Apply theme class to <html> element
 function applyTheme(mode: ThemeMode) {
@@ -28,8 +28,11 @@ export function useSettings() {
   const [rootPath, setRootPath] = useState("");
   const [libraryPath, setLibraryPath] = useState("");
   const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
-  const [feedSources, setFeedSources] = useState<string[]>(DEFAULT_FEED_SOURCES);
+  const [rssFeeds, setRssFeeds] = useState<RssFeedSource[]>(DEFAULT_RSS_FEEDS);
+  const [searchSources, setSearchSources] = useState<string[]>(DEFAULT_SEARCH_SOURCES);
   const [feedInterests, setFeedInterests] = useState<string[]>([]);
+  const [fontSize, setFontSize] = useState("sm");
+  const [headingStyle, setHeadingStyle] = useState("clean");
 
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
 
@@ -48,8 +51,11 @@ export function useSettings() {
         if (data.config.rootPath) {
           setRootPath(data.config.rootPath);
         }
-        if (data.config.feedSources) {
-          setFeedSources(data.config.feedSources);
+        if (data.config.rssFeeds) {
+          setRssFeeds(data.config.rssFeeds);
+        }
+        if (data.config.searchSources) {
+          setSearchSources(data.config.searchSources);
         }
         if (data.config.feedInterests) {
           setFeedInterests(data.config.feedInterests);
@@ -58,6 +64,8 @@ export function useSettings() {
           setThemeModeState(data.config.theme);
           applyTheme(data.config.theme);
         }
+        if (data.config.fontSize) setFontSize(data.config.fontSize);
+        if (data.config.headingStyle) setHeadingStyle(data.config.headingStyle);
       }
     } catch (err) {
       console.error("Failed to load config:", err);
@@ -80,19 +88,35 @@ export function useSettings() {
     }
   };
 
-  const saveFeedSources = async (sources: string[]) => {
+  const saveRssFeeds = async (feeds: RssFeedSource[]) => {
     try {
       const res = await fetch("/api/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedSources: sources }),
+        body: JSON.stringify({ rssFeeds: feeds }),
       });
       const data = await res.json();
       if (data.success) {
-        setFeedSources(sources);
+        setRssFeeds(feeds);
       }
     } catch (err) {
-      console.error("Failed to save feed sources:", err);
+      console.error("Failed to save RSS feeds:", err);
+    }
+  };
+
+  const saveSearchSources = async (sources: string[]) => {
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchSources: sources }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSearchSources(sources);
+      }
+    } catch (err) {
+      console.error("Failed to save search sources:", err);
     }
   };
 
@@ -109,6 +133,19 @@ export function useSettings() {
       }
     } catch (err) {
       console.error("Failed to save feed interests:", err);
+    }
+  };
+
+  const saveReadingSetting = async (key: string, value: string, setter: (v: string) => void) => {
+    setter(value);
+    try {
+      await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value }),
+      });
+    } catch (err) {
+      console.error(`Failed to save ${key}:`, err);
     }
   };
 
@@ -159,9 +196,15 @@ export function useSettings() {
     debugLoadingMode,
     setDebugLoadingMode,
     palette,
-    feedSources,
-    saveFeedSources,
+    rssFeeds,
+    saveRssFeeds,
+    searchSources,
+    saveSearchSources,
     feedInterests,
     saveFeedInterests,
+    fontSize,
+    saveFontSize: (v: string) => saveReadingSetting("fontSize", v, setFontSize),
+    headingStyle,
+    saveHeadingStyle: (v: string) => saveReadingSetting("headingStyle", v, setHeadingStyle),
   };
 }

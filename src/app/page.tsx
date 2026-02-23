@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useCallback } from "react";
+import React, { useState, useEffect, Suspense, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, Eye, SkipForward, Target } from "lucide-react";
-import { SourceSummary, ActionType, ACTION_CONFIG } from "@/lib/types";
+import { SourceSummary, ActionType, ACTION_CONFIG, UserHighlight } from "@/lib/types";
 import { theme } from "@/lib/theme";
 import { EntryView } from "@/components/EntryView";
 import { Dashboard } from "@/components/Dashboard";
@@ -26,6 +26,7 @@ import { CoLearningPanel, useCoLearning } from "@/components/CoLearningPanel";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { useReadingTimer } from "@/hooks/useReadingTimer";
+import { TrackingProvider } from "@/components/TrackingProvider";
 
 export default function Home() {
   return (
@@ -51,6 +52,7 @@ function HomeContent() {
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const { addContext } = useCoLearning();
   const [profileDoc, setProfileDoc] = useState<{ name: string; content: string } | null>(null);
+  const [highlights, setHighlights] = useState<UserHighlight[]>([]);
   const readingTimer = useReadingTimer(entry.source?.meta.id ?? null);
 
   const sidebarResize = useResizable({
@@ -95,10 +97,16 @@ function HomeContent() {
     debugLoadingMode,
     setDebugLoadingMode,
     palette,
-    feedSources,
-    saveFeedSources,
+    rssFeeds,
+    saveRssFeeds,
+    searchSources,
+    saveSearchSources,
     feedInterests,
     saveFeedInterests,
+    fontSize,
+    saveFontSize,
+    headingStyle,
+    saveHeadingStyle,
   } = useSettings();
 
   // Entry collections (unified hooks for Library and Studio)
@@ -247,6 +255,19 @@ function HomeContent() {
     }
   }, [docId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load highlights for the current entry (source or document)
+  const currentEntryId = entry.source?.meta.id ?? entry.document?.meta.id ?? null;
+  useEffect(() => {
+    if (currentEntryId) {
+      fetch(`/api/entries/${currentEntryId}/highlight`)
+        .then((res) => res.ok ? res.json() : null)
+        .catch(() => null)
+        .then((data) => setHighlights(data?.highlights ?? []));
+    } else {
+      setHighlights([]);
+    }
+  }, [currentEntryId]);
+
   // Load profile doc from URL param
   useEffect(() => {
     if (profileParam && (profileParam === "User" || profileParam === "Memory")) {
@@ -304,24 +325,24 @@ function HomeContent() {
   }, [entry.document?.meta.folder]);
 
   // Score color helper
-  const getScoreColor = (score: number) => {
+  const getScoreColor = useMemo(() => (score: number) => {
     if (score >= 80) return palette[600];
     if (score >= 60) return palette[500];
     if (score >= 40) return "#eab308";
     if (score >= 20) return "#f97316";
     return "#ef4444";
-  };
+  }, [palette]);
 
   // Action UI config
-  const actionUI: Record<ActionType, { icon: React.ReactNode; color: string }> = {
+  const actionUI = useMemo<Record<ActionType, { icon: React.ReactNode; color: string }>>(() => ({
     must_read: { icon: <BookOpen className="w-3.5 h-3.5" />, color: palette[600] },
     worth_reading: { icon: <BookOpen className="w-3.5 h-3.5" />, color: palette[500] },
     skim: { icon: <Eye className="w-3.5 h-3.5" />, color: "#eab308" },
     summary_only: { icon: <Eye className="w-3.5 h-3.5" />, color: "#f97316" },
     skip: { icon: <SkipForward className="w-3.5 h-3.5" />, color: "#ef4444" },
-  };
+  }), [palette]);
 
-  const getActionConfig = (action: ActionType) => {
+  const getActionConfig = useMemo(() => (action: ActionType) => {
     const config = ACTION_CONFIG[action];
     const ui = actionUI[action];
     return {
@@ -330,7 +351,7 @@ function HomeContent() {
       description: config?.description ?? "",
       color: ui?.color ?? theme.textMuted,
     };
-  };
+  }, [actionUI]);
 
   // Context menu action handlers
   const onDeleteEntry = async () => {
@@ -396,6 +417,7 @@ function HomeContent() {
       className="h-screen overflow-hidden flex flex-col"
       style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: `var(--font-${fontFamily})` }}
     >
+      <TrackingProvider />
       <Header palette={palette} onOpenSettings={() => setIsSettingsOpen(true)} />
 
       <SettingsModal
@@ -409,10 +431,16 @@ function HomeContent() {
         debugLoadingMode={debugLoadingMode}
         onDebugModeChange={setDebugLoadingMode}
         palette={palette}
-        feedSources={feedSources}
-        onFeedSourcesChange={saveFeedSources}
+        rssFeeds={rssFeeds}
+        onRssFeedsChange={saveRssFeeds}
+        searchSources={searchSources}
+        onSearchSourcesChange={saveSearchSources}
         feedInterests={feedInterests}
         onFeedInterestsChange={saveFeedInterests}
+        fontSize={fontSize}
+        onFontSizeChange={saveFontSize}
+        headingStyle={headingStyle}
+        onHeadingStyleChange={saveHeadingStyle}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -497,6 +525,9 @@ function HomeContent() {
                 onClose={() => { setProfileDoc(null); router.push("/"); }}
                 palette={palette}
                 theme={theme}
+                fontSize={fontSize}
+                headingStyle={headingStyle}
+
               />
             ) : entry.document ? (
               <EntryView
@@ -519,8 +550,13 @@ function HomeContent() {
                   }
                 }}
                 onClose={() => { entry.setDocument(null); router.push("/"); }}
+                highlights={highlights}
+                onRemoveHighlight={(highlightId) => handleRemoveHighlight(entry.document!.meta.id, highlightId, setHighlights)}
                 palette={palette}
                 theme={theme}
+                fontSize={fontSize}
+                headingStyle={headingStyle}
+
               />
             ) : entry.source ? (
               <EntryView
@@ -581,7 +617,8 @@ function HomeContent() {
                 onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
                 onRating={(rating) => handleRating(entry.source!.meta.id, rating)}
-                onRemoveHighlight={(highlightId) => handleRemoveHighlight(entry.source!.meta.id, highlightId)}
+                highlights={highlights}
+                onRemoveHighlight={(highlightId) => handleRemoveHighlight(entry.source!.meta.id, highlightId, setHighlights)}
                 onNavigateToSource={navigateToSource}
                 isReanalyzing={reanalyzingIds.has(entry.source.meta.id)}
                 originalFileUrl={`/api/sources/${entry.source.meta.id}/original`}
@@ -590,6 +627,9 @@ function HomeContent() {
                 getActionConfig={getActionConfig}
                 getScoreColor={getScoreColor}
                 debugLoadingMode={debugLoadingMode}
+                fontSize={fontSize}
+                headingStyle={headingStyle}
+
               />
             ) : currentView === "history" ? (
               <div className="max-w-2xl mx-auto">
@@ -683,13 +723,13 @@ function HomeContent() {
         />
       </div>
 
-      {/* Selection Popover for adding context - only when viewing a source */}
-      {entry.source && (
+      {/* Selection Popover for adding context and highlighting */}
+      {(entry.source || entry.document) && (
         <SelectionPopover
           containerRef={mainContentRef as React.RefObject<HTMLElement>}
-          sourceTitle={entry.source.meta.title}
+          sourceTitle={entry.source?.meta.title ?? entry.document?.meta.title}
           palette={palette}
-          onHighlight={(text) => handleAddHighlight(entry.source!.meta.id, text)}
+          onHighlight={currentEntryId ? (text) => handleAddHighlight(currentEntryId, text, setHighlights) : undefined}
         />
       )}
 

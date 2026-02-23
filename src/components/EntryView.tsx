@@ -68,7 +68,6 @@ export interface EntryData {
     connectionError?: string;
     userRating?: number;
     userRatingAt?: string;
-    userHighlights?: UserHighlight[];
   };
 }
 
@@ -84,6 +83,7 @@ export interface EntryViewProps {
   onReanalyze?: () => void;
   onReaction?: (type: "highlight" | "concept", itemId: string, reaction: string) => void;
   onRating?: (rating: number | undefined) => void;
+  highlights?: UserHighlight[];
   onRemoveHighlight?: (highlightId: string) => void;
   onNavigateToSource?: (sourceId: string) => void;
   isReanalyzing?: boolean;
@@ -95,9 +95,12 @@ export interface EntryViewProps {
   getActionConfig?: (action: ActionType) => { icon: React.ReactNode; label: string; description: string; color: string };
   getScoreColor?: (score: number) => string;
   debugLoadingMode?: "none" | "analysis" | "connections";
+  // Reading customization
+  fontSize?: string;
+  headingStyle?: string;
 }
 
-export function EntryView({
+export const EntryView = React.memo(function EntryView({
   entry,
   onSave,
   onClose,
@@ -106,6 +109,7 @@ export function EntryView({
   onReanalyze,
   onReaction,
   onRating,
+  highlights,
   onRemoveHighlight,
   onNavigateToSource,
   isReanalyzing = false,
@@ -115,6 +119,8 @@ export function EntryView({
   getActionConfig,
   getScoreColor,
   debugLoadingMode = "none",
+  fontSize,
+  headingStyle,
 }: EntryViewProps) {
   const hasAnalysis = !!entry.analysis;
   const realAnalysis = entry.analysis;
@@ -339,8 +345,10 @@ export function EntryView({
                 content={entry.content}
                 palette={palette}
                 className="h-full overflow-y-auto pr-6"
-                highlights={entry.analysis?.userHighlights}
+                highlights={highlights}
                 onRemoveHighlight={onRemoveHighlight}
+                fontSize={fontSize}
+                headingStyle={headingStyle}
               />
             )}
           </div>
@@ -448,6 +456,7 @@ export function EntryView({
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-all capitalize ${activeTab === tab ? "bg-white dark:bg-zinc-800" : ""}`}
+                    data-track={`tab.${tab}`}
                     style={activeTab === tab ? { color: theme.text } : { color: theme.textMuted }}
                   >
                     {tab}
@@ -533,7 +542,7 @@ export function EntryView({
       )}
     </div>
   );
-}
+});
 
 // Sub-components
 
@@ -596,6 +605,7 @@ function HighlightsSection({
                   onMouseEnter={() => setHoveredButton(`${h.id}-star`)}
                   onMouseLeave={() => setHoveredButton(null)}
                   className="p-2 rounded-lg transition-colors"
+                  data-track="highlight.star"
                   title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
@@ -608,6 +618,7 @@ function HighlightsSection({
                   onMouseEnter={() => setHoveredButton(`${h.id}-dismiss`)}
                   onMouseLeave={() => setHoveredButton(null)}
                   className="p-2 rounded-lg transition-colors"
+                  data-track="highlight.dismiss"
                   title={isDismissed ? "Restore" : "Dismiss"}
                 >
                   <X className="w-5 h-5 transition-colors" style={{ color: isDismissed || isDismissHovered ? "#6b7280" : theme.textLight }} />
@@ -668,6 +679,7 @@ function ConceptsSection({
                     onMouseEnter={() => setHoveredButton(`${c.id}-knew`)}
                     onMouseLeave={() => setHoveredButton(null)}
                     className="px-2 py-0.5 text-xs rounded transition-colors"
+                    data-track="concept.knew"
                     style={{
                       backgroundColor: c.status === "knew" ? `${palette[500]}20` : undefined,
                       color: c.status === "knew" || isKnewHovered ? palette[600] : theme.textLight,
@@ -681,6 +693,7 @@ function ConceptsSection({
                     onMouseEnter={() => setHoveredButton(`${c.id}-learned`)}
                     onMouseLeave={() => setHoveredButton(null)}
                     className="px-2 py-0.5 text-xs rounded transition-colors"
+                    data-track="concept.learned"
                     style={{
                       backgroundColor: c.status === "learned" ? `${palette[500]}20` : undefined,
                       color: c.status === "learned" || isLearnedHovered ? palette[600] : theme.textLight,
@@ -760,7 +773,7 @@ function ConnectionsSection({
 
   return (
     <div className="p-4 mb-4 rounded-xl border" style={{ borderColor: theme.border }}>
-      <button onClick={() => setIsExpanded(!isExpanded)} className="w-full flex items-center justify-between text-left">
+      <button onClick={() => setIsExpanded(!isExpanded)} className="w-full flex items-center justify-between text-left" data-track="connections.toggle">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Connections</span>
           <span className="px-1.5 py-0.5 text-xs rounded-full" style={{ backgroundColor: `${palette[500]}20`, color: palette[600] }}>{sortedConnections.length}</span>

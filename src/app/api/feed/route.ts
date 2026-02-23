@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings, listFeedSnapshots, loadFeedSnapshot } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
-import { extractUserInterests, filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
+import { filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
 import { FEED_CONFIG } from "@/lib/config";
 import { FeedCache, FeedSignals, InsightItem } from "@/lib/types";
 
@@ -21,15 +21,6 @@ function isCacheFresh(cache: FeedCache): boolean {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check for API key
-    if (!process.env.BRAVE_SEARCH_API_KEY) {
-      return NextResponse.json({
-        success: true,
-        feed: null,
-        message: "Feed disabled: BRAVE_SEARCH_API_KEY not configured",
-      });
-    }
-
     // Load available snapshot dates
     const availableDates = await listFeedSnapshots();
 
@@ -114,14 +105,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST() {
   try {
-    // Check for API key
-    if (!process.env.BRAVE_SEARCH_API_KEY) {
-      return NextResponse.json({
-        success: false,
-        error: "Feed disabled: BRAVE_SEARCH_API_KEY not configured",
-      }, { status: 400 });
-    }
-
     const feedResult = await generateFeed();
     const starredBriefingsPost = await loadStarredBriefings();
     const historyPost = await loadFeedHistory();
@@ -153,20 +136,23 @@ async function generateFeed() {
 
   // 0. Load user config
   const config = await loadUserConfig();
-  const DEFAULT_FEED_SOURCES = ["reddit.com", "news.ycombinator.com"];
-  const feedSources = config.feedSources ?? DEFAULT_FEED_SOURCES;
+  const DEFAULT_RSS_FEEDS = [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }];
+  const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
+  const rssFeeds = config.rssFeeds ?? DEFAULT_RSS_FEEDS;
+  const searchSources = config.searchSources ?? DEFAULT_SEARCH_SOURCES;
   const feedInterests = config.feedInterests ?? [];
-  console.log(`[generateFeed] Feed sources:`, feedSources);
+  console.log(`[generateFeed] RSS feeds:`, rssFeeds.map(f => f.label));
+  console.log(`[generateFeed] Search sources:`, searchSources);
   console.log(`[generateFeed] Feed interests:`, feedInterests);
 
-  // 1. Use configured interests, or require configuration
-  if (feedInterests.length === 0) {
+  // 1. Allow RSS-only mode (no interests needed for RSS feeds)
+  if (feedInterests.length === 0 && rssFeeds.length === 0) {
     return {
       items: [],
       interests: [],
       generatedAt: new Date().toISOString(),
       fromCache: false,
-      message: "Add topics to Your Radar in Settings to get personalized feed",
+      message: "Add RSS feeds or topics to Your Radar in Settings to get personalized feed",
     };
   }
 
@@ -176,8 +162,8 @@ async function generateFeed() {
   const sources = await listSourcesForConnections();
   console.log(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
 
-  // 3. Search for news (including preferred sources)
-  const allSearchResults = await searchNews(interests, feedSources);
+  // 3. Search for news (RSS feeds + search sources)
+  const { results: allSearchResults, rssFeedCount, searchCallCount } = await searchNews(interests, searchSources, rssFeeds);
   console.log(`[generateFeed] Found ${allSearchResults.length} search results`);
 
   // 3.5 Filter out previously seen URLs
@@ -242,7 +228,11 @@ async function generateFeed() {
     summary: s.summary,
     concepts: s.concepts.map((c) => c.term),
   }));
-  const feedItems = await filterFeedItems(searchResults, sourcesForFilter, feedSources, interactionContext, interests);
+  const allPreferredDomains = [
+    ...rssFeeds.map(f => { try { return new URL(f.url).hostname; } catch { return ""; } }).filter(Boolean),
+    ...searchSources,
+  ];
+  const feedItems = await filterFeedItems(searchResults, sourcesForFilter, allPreferredDomains, interactionContext, interests);
   console.log(`[generateFeed] Filtered to ${feedItems.length} feed items`);
 
   // 5. Generate briefing
@@ -264,8 +254,9 @@ async function generateFeed() {
   // 6. Save cache
   const generatedAt = new Date().toISOString();
   const signals: FeedSignals = {
-    searchCalls: (feedSources.includes("news.ycombinator.com") ? 1 : 0)
-      + interests.length * (1 + feedSources.filter(s => s !== "news.ycombinator.com").length),
+    searchCalls: searchCallCount,
+    rssFeedCount,
+    radarCount: interests.length,
     libraryCount: sources.length,
     interactionCount: totalInteractions,
   };

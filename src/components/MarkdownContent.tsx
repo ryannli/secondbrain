@@ -12,6 +12,8 @@ interface MarkdownContentProps {
   className?: string;
   highlights?: UserHighlight[];
   onRemoveHighlight?: (id: string) => void;
+  fontSize?: string;      // "xs" | "sm" | "base" | "lg"
+  headingStyle?: string;  // "clean" | "colored" | "accented"
 }
 
 // ---------------------------------------------------------------------------
@@ -68,8 +70,8 @@ function rehypeHighlight(options: { highlights: UserHighlight[] }) {
           const t = child as HastText;
           if (!inCode) {
             segments.push({ node: t, parentChildren: children, indexInParent: i, globalStart: globalPos });
+            globalPos += t.value.length;
           }
-          globalPos += t.value.length;
         } else if (child.type === "element") {
           const el = child as HastElement;
           collect(el.children, inCode || el.tagName === "code" || el.tagName === "pre");
@@ -171,11 +173,43 @@ const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS_NONE: never[] = [];
 
 // ---------------------------------------------------------------------------
+// Heading style presets
+// ---------------------------------------------------------------------------
+
+function buildHeadingComponents(style: string, palette: Record<number, string>) {
+  if (style === "colored") {
+    const colors = { h1: palette[700], h2: palette[600], h3: palette[500] };
+    return {
+      h1: ({ children }: { children?: React.ReactNode }) => <h1 style={{ color: colors.h1 }}>{children}</h1>,
+      h2: ({ children }: { children?: React.ReactNode }) => <h2 style={{ color: colors.h2 }}>{children}</h2>,
+      h3: ({ children }: { children?: React.ReactNode }) => <h3 style={{ color: colors.h3 }}>{children}</h3>,
+    };
+  }
+  if (style === "accented") {
+    return {
+      h1: ({ children }: { children?: React.ReactNode }) => (
+        <h1 className="border-l-4 pl-4 py-1" style={{ borderColor: palette[500], backgroundColor: `${palette[500]}08` }}>{children}</h1>
+      ),
+      h2: ({ children }: { children?: React.ReactNode }) => (
+        <h2 className="border-l-3 pl-3 py-0.5" style={{ borderColor: palette[400], backgroundColor: `${palette[400]}06` }}>{children}</h2>
+      ),
+      h3: ({ children }: { children?: React.ReactNode }) => (
+        <h3 className="border-l-2 pl-3" style={{ borderColor: palette[300] }}>{children}</h3>
+      ),
+    };
+  }
+  return {}; // "clean" = prose defaults
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function MarkdownContent({ content, palette, className = "", highlights, onRemoveHighlight }: MarkdownContentProps) {
-  // Event delegation for highlight removal
+export const MarkdownContent = React.memo(function MarkdownContent({
+  content, palette, className = "", highlights, onRemoveHighlight,
+  fontSize = "sm", headingStyle = "clean",
+}: MarkdownContentProps) {
+  // Event delegation for highlight removal (ref avoids re-render on callback change)
   const onRemoveRef = useRef(onRemoveHighlight);
   onRemoveRef.current = onRemoveHighlight;
 
@@ -193,19 +227,41 @@ export function MarkdownContent({ content, palette, className = "", highlights, 
     [highlights],
   );
 
+  // Build components with heading style overrides
+  const components = useMemo(() => {
+    const headingOverrides = buildHeadingComponents(headingStyle, palette);
+    return Object.keys(headingOverrides).length > 0
+      ? { ...mdComponents, ...headingOverrides }
+      : mdComponents;
+  }, [headingStyle, palette]);
+
+  // Prose size class (prose-xs doesn't exist in @tailwindcss/typography, use prose-sm + override)
+  const proseSizeMap: Record<string, string> = { xs: "prose-sm", sm: "prose-sm", base: "prose-base", lg: "prose-lg" };
+  const proseSize = proseSizeMap[fontSize] || "prose-sm";
+
   return (
     <div
-      className={`prose prose-sm prose-neutral dark:prose-invert max-w-none ${className}`}
-      style={{ "--md-link-color": palette[600] } as React.CSSProperties}
+      className={`prose ${proseSize} prose-neutral dark:prose-invert max-w-none ${className}`}
+      style={{
+        "--md-link-color": palette[600],
+        ...(fontSize === "xs" ? { fontSize: "0.8rem" } : {}),
+      } as React.CSSProperties}
       onClick={handleClick}
     >
       <ReactMarkdown
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={rehypePlugins as Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]}
-        components={mdComponents}
+        components={components}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.content === next.content
+  && prev.className === next.className
+  && prev.highlights === next.highlights
+  && prev.palette[600] === next.palette[600]
+  && prev.fontSize === next.fontSize
+  && prev.headingStyle === next.headingStyle
+);

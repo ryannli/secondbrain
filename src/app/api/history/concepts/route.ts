@@ -49,7 +49,7 @@ export async function GET() {
     const conceptCount = conceptKeys.size;
 
     if (conceptCount === 0) {
-      return NextResponse.json({ success: true, result: { clusters: [], clusterColors: [], concepts: [], relationships: [] } });
+      return NextResponse.json({ success: true, result: { clusters: [], clusterColors: [], concepts: [] } });
     }
 
     // Check cache

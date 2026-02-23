@@ -5,28 +5,10 @@
   window.__sbTwitterAutocapture = true;
 
   const CAPTURED_KEY = "sb-captured-tweets";
-  let enabled = false;
-
-  // Load initial state
-  chrome.storage.local.get("twitterAutoCapture", (result) => {
-    enabled = !!result.twitterAutoCapture;
-  });
-
-  // React to toggle changes from background script
-  chrome.storage.onChanged.addListener((changes) => {
-    if (changes.twitterAutoCapture) {
-      enabled = !!changes.twitterAutoCapture.newValue;
-    }
-  });
-
-  // Detect like clicks (capture phase to catch before React handles it)
+  // Detect bookmark clicks (capture phase to catch before React handles it)
   document.addEventListener(
     "click",
     (e) => {
-      if (!enabled) {
-        console.log("[SB] auto-capture disabled, ignoring click");
-        return;
-      }
 
       const bookmarkButton = e.target.closest('[data-testid="bookmark"]');
       if (!bookmarkButton) return;

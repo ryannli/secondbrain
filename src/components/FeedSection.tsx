@@ -33,7 +33,7 @@ interface FeedSectionProps {
   theme: Record<string, string>;
 }
 
-export function FeedSection({
+export const FeedSection = React.memo(function FeedSection({
   items,
   interests,
   generatedAt,
@@ -93,6 +93,7 @@ export function FeedSection({
               onClick={onRefresh}
               disabled={loading}
               className="p-2 rounded-lg hover:bg-black/5 transition-colors disabled:opacity-50"
+              data-track="feed.refresh"
               title="Refresh feed"
             >
               <RefreshCw
@@ -138,6 +139,7 @@ export function FeedSection({
               <button
                 onClick={() => setShowFiltered(!showFiltered)}
                 className="flex items-center gap-1 hover:underline"
+                data-track="feed.togglefiltered"
                 style={{ color: theme.textMuted }}
               >
                 {filteredItems.length} filtered
@@ -149,8 +151,8 @@ export function FeedSection({
       )}
 
       {/* Personalization signals */}
-      {items.length > 0 && !loading && (signals || interests.length > 0) && (
-        <SignalsBar interests={interests} signals={signals} palette={palette} theme={theme} />
+      {items.length > 0 && !loading && signals && (
+        <SignalsBar signals={signals} palette={palette} theme={theme} />
       )}
 
       {/* Error state */}
@@ -285,40 +287,29 @@ export function FeedSection({
       )}
     </div>
   );
-}
+});
 
 /**
- * Signals bar: colored dots showing what the AI considered
+ * Signals bar: one-line summary of what sources the feed is curated from
  */
 function SignalsBar({
-  interests,
   signals,
   palette,
   theme,
 }: {
-  interests: string[];
   signals?: FeedSignals;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
-  const dots: { label: string; color: string }[] = [];
-  if (interests.length > 0) dots.push({ label: `${interests.length} configured radars`, color: palette[500] });
-  if (signals?.libraryCount) dots.push({ label: `${signals.libraryCount} library articles`, color: palette[500] });
-  if (signals?.interactionCount) dots.push({ label: `${signals.interactionCount} library interactions`, color: palette[500] });
-  if (dots.length === 0) return null;
+  const parts: string[] = [];
+  if (signals?.rssFeedCount) parts.push(`${signals.rssFeedCount} RSS feed${signals.rssFeedCount > 1 ? "s" : ""}`);
+  if (signals?.radarCount) parts.push(`${signals.radarCount} configured radar${signals.radarCount > 1 ? "s" : ""}`);
+  if (parts.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5 px-3 mb-4 text-xs" style={{ color: theme.textMuted }}>
-      <span>Based on</span>
-      {dots.map((dot, i) => (
-        <React.Fragment key={i}>
-          {i > 0 && <span className="mx-0.5">·</span>}
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: dot.color }} />
-            <span>{dot.label}</span>
-          </span>
-        </React.Fragment>
-      ))}
+    <div className="px-3 mb-4 text-xs" style={{ color: theme.textMuted }}>
+      <span>Curated from </span>
+      <span style={{ color: palette[600] }}>{parts.join(" and ")}</span>
     </div>
   );
 }
@@ -400,6 +391,7 @@ function DateSelector({
                 }
               }}
               className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+              data-track="feed.date_select"
               style={pillStyle(isActive(group.keys[0]))}
             >
               {formatDayLabel(group.day)}
@@ -421,6 +413,7 @@ function DateSelector({
                     }
                   }}
                   className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                  data-track="feed.date_select"
                   style={pillStyle(isActive(key))}
                 >
                   {formatTimeLabel(key)}
@@ -464,6 +457,7 @@ function InsightsSection({
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-black/[0.02] transition-colors"
+        data-track="insights.toggle"
       >
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold" style={{ color: palette[600] }}>
@@ -617,6 +611,7 @@ function StructuredBriefing({
               key={i}
               className="group/card flex items-start gap-2.5 p-3 rounded-lg cursor-pointer transition-all hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
               style={{ opacity: isRead ? 0.35 : 1 }}
+              data-track={isRead ? "briefing.mark_unread" : "briefing.mark_read"}
               onClick={(e) => {
                 // Don't toggle if clicking a ref badge
                 if ((e.target as HTMLElement).closest("[data-ref-badge]")) return;
@@ -631,6 +626,7 @@ function StructuredBriefing({
                 data-ref-badge
                 onClick={(e) => { e.stopPropagation(); toggleStar(i); }}
                 className="shrink-0 mt-1 transition-colors"
+                data-track="briefing.star"
                 title={isStarred ? "Unstar" : "Star"}
               >
                 <Star
@@ -824,6 +820,7 @@ function FeedCard({
               onCapture(item.url);
             }}
             className="px-3 py-1.5 bg-white dark:bg-zinc-700 rounded-lg text-xs font-medium shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors flex items-center gap-1"
+            data-track="feed.card_save"
           >
             <Plus className="w-3.5 h-3.5" />
             Save
@@ -849,6 +846,7 @@ function FeedCard({
           className={`absolute top-2 right-2 p-1 rounded-full bg-white/80 dark:bg-zinc-700/80 hover:bg-white dark:hover:bg-zinc-600 transition-all ${
             hovering ? "opacity-100" : "opacity-0"
           }`}
+          data-track="feed.card_dismiss"
         >
           <X className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
         </button>

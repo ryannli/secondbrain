@@ -113,6 +113,7 @@ export function SectionTree({
         <div
           onClick={onToggle}
           className="flex items-center gap-2 flex-1 min-w-0"
+          data-track="section.toggle"
         >
           {isOpen ? (
             <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: theme.textMuted }} />
@@ -134,6 +135,7 @@ export function SectionTree({
             folderManagement.onStartCreateFolder("");
           }}
           className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
+          data-track="folder.create"
           title="New folder"
         >
           <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />

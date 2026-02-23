@@ -121,6 +121,7 @@ export function SelectionPopover({
             onClick={handleHighlight}
             className="flex items-center gap-1 px-2 py-1 text-white text-xs whitespace-nowrap hover:brightness-110 transition-all"
             style={{ backgroundColor: "#d97706" }}
+            data-track="selection.highlight"
             title="Highlight"
           >
             <Highlighter className="w-3 h-3" />
@@ -130,6 +131,7 @@ export function SelectionPopover({
           onClick={handleAddContext}
           className="flex items-center gap-1 px-2 py-1 text-white text-xs whitespace-nowrap hover:brightness-110 transition-all"
           style={{ backgroundColor: palette[600] }}
+          data-track="selection.addcontext"
         >
           <Plus className="w-3 h-3" />
           Add to context

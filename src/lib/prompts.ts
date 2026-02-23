@@ -469,24 +469,18 @@ Respond with ONLY the JSON object.`;
 }
 
 export function promptAnalyzeConcepts(conceptsContext: string): string {
-  return `Analyze these concepts from a user's reading library and identify meaningful relationships and clusters.
+  return `Analyze these concepts from a user's reading library and group them into semantic clusters.
 
 ## Concepts
 ${conceptsContext}
 
 ## Task
-1. Group concepts into 4-8 semantic clusters (broad categories)
-2. Identify meaningful relationships between concepts:
-   - "builds-on": concept A is foundational to understanding B
-   - "related": concepts are semantically related at the same level
-   - "contrasts": concepts represent different approaches to the same problem
+Group concepts into 4-8 semantic clusters (broad categories).
 
 ## Rules
-- Only include relationships that are genuinely meaningful, not trivial co-occurrence
-- Strength from 1 (weak connection) to 5 (strong connection)
 - Every concept must belong to exactly 1 cluster
 - Cluster names should be 2-4 words
-- Keep relationships sparse — quality over quantity (max ~2× the number of concepts)
+- Clusters should be distinct and non-overlapping
 
 ## Output
 Return a JSON object:
@@ -494,10 +488,6 @@ Return a JSON object:
   "clusters": ["Cluster A", "Cluster B", ...],
   "concepts": [
     {"id": "c0", "cluster": "Cluster A"},
-    ...
-  ],
-  "relationships": [
-    {"source": "c0", "target": "c1", "type": "builds-on", "strength": 3},
     ...
   ]
 }

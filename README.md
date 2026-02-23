@@ -26,7 +26,10 @@ This means:
 - **Dual Analysis**:
   - **Digest**: Summary, key highlights, concepts
   - **Critique**: Hidden assumptions, potential issues, verification needs
-- **For You Feed**: Personalized news recommendations based on your library
+- **For You Feed**: Personalized news from two independent pipelines:
+  - **RSS Feeds**: Direct subscriptions (blogs, newsletters, subreddits) — fetched as-is, no keywords needed
+  - **Search Sources**: Domains searched via Brave API, multiplied by your interest keywords (each keyword × each domain = one search)
+  - Both pipelines merge into one pool, then AI scores and filters everything together based on your interests and reading history
 - **Daily Briefing**: AI-generated summary that tells you what's worth your attention today — what's new, what you already know, and where to focus
 - **Library Organization**: Tree-based file organization with user-created folders
 

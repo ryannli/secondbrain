@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2d4a35"/>
+      <stop offset="1" stop-color="#1a2e20"/>
+    </linearGradient>
+    <linearGradient id="ring1" x1="200" y1="200" x2="824" y2="824" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8bbf9a"/>
+      <stop offset="1" stop-color="#5a9e6e"/>
+    </linearGradient>
+    <linearGradient id="ring2" x1="300" y1="300" x2="724" y2="724" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a3d4b0"/>
+      <stop offset="1" stop-color="#6db882"/>
+    </linearGradient>
+    <linearGradient id="ring3" x1="380" y1="380" x2="644" y2="644" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#bce3c6"/>
+      <stop offset="1" stop-color="#82c996"/>
+    </linearGradient>
+    <linearGradient id="core" x1="440" y1="440" x2="584" y2="584" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d4f0dc"/>
+      <stop offset="1" stop-color="#a3d4b0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+
+  <!-- Outer ring -->
+  <circle cx="512" cy="512" r="340" fill="none" stroke="url(#ring1)" stroke-width="52" opacity="0.5"/>
+
+  <!-- Second ring -->
+  <circle cx="512" cy="512" r="250" fill="none" stroke="url(#ring2)" stroke-width="48" opacity="0.65"/>
+
+  <!-- Third ring -->
+  <circle cx="512" cy="512" r="165" fill="none" stroke="url(#ring3)" stroke-width="42" opacity="0.8"/>
+
+  <!-- Core dot -->
+  <circle cx="512" cy="512" r="62" fill="url(#core)"/>
+</svg>

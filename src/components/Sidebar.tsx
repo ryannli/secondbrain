@@ -81,7 +81,7 @@ export interface SidebarProps {
   width?: number;
 }
 
-export function Sidebar({
+export const Sidebar = React.memo(function Sidebar({
   isSidebarOpen,
   onToggleSidebar,
   selectedSource,
@@ -109,6 +109,7 @@ export function Sidebar({
         <button
           onClick={onToggleSidebar}
           className="p-1 rounded hover:bg-black/5 transition-colors"
+          data-track="sidebar.toggle"
           title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {isSidebarOpen ? (
@@ -126,6 +127,7 @@ export function Sidebar({
           <button
             onClick={onNavigateToDashboard}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.dashboard"
             style={{
               backgroundColor: !selectedSource && !selectedProfile && currentView === "dashboard" ? `${palette[500]}15` : undefined,
             }}
@@ -146,6 +148,7 @@ export function Sidebar({
           <button
             onClick={onNavigateToForYou}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.foryou"
             style={{
               backgroundColor: !selectedSource && !selectedProfile && currentView === "foryou" ? `${palette[500]}15` : undefined,
             }}
@@ -166,6 +169,7 @@ export function Sidebar({
           <button
             onClick={onNavigateToHistory}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.history"
             style={{
               backgroundColor: !selectedSource && !selectedProfile && currentView === "history" ? `${palette[500]}15` : undefined,
             }}
@@ -189,6 +193,7 @@ export function Sidebar({
           <button
             onClick={() => onSelectProfile("User")}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.profile.user"
             style={{
               backgroundColor: selectedProfile === "User" ? `${palette[500]}15` : undefined,
             }}
@@ -208,6 +213,7 @@ export function Sidebar({
           <button
             onClick={() => onSelectProfile("Memory")}
             className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.profile.memory"
             style={{
               backgroundColor: selectedProfile === "Memory" ? `${palette[500]}15` : undefined,
             }}
@@ -258,4 +264,4 @@ export function Sidebar({
       )}
     </aside>
   );
-}
+});

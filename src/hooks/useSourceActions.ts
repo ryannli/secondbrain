@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Source, SourceSummary } from "@/lib/types";
+import { Source, SourceSummary, UserHighlight } from "@/lib/types";
 
 interface UseSourceActionsProps {
   onUpsertSourceSummary: (summary: SourceSummary, options?: { prepend?: boolean }) => void;
@@ -264,33 +264,29 @@ export function useSourceActions({
     }
   };
 
-  const handleAddHighlight = async (sourceId: string, text: string) => {
+  const handleAddHighlight = async (entryId: string, text: string, onUpdate?: (highlights: UserHighlight[]) => void) => {
     try {
-      const res = await fetch(`/api/sources/${sourceId}/highlight`, {
+      const res = await fetch(`/api/entries/${entryId}/highlight`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
       const data = await res.json();
-      if (data.success) {
-        setSelectedSource(data.source);
-      }
+      if (data.success) onUpdate?.(data.highlights);
     } catch (err) {
       console.error("Failed to add highlight:", err);
     }
   };
 
-  const handleRemoveHighlight = async (sourceId: string, highlightId: string) => {
+  const handleRemoveHighlight = async (entryId: string, highlightId: string, onUpdate?: (highlights: UserHighlight[]) => void) => {
     try {
-      const res = await fetch(`/api/sources/${sourceId}/highlight`, {
+      const res = await fetch(`/api/entries/${entryId}/highlight`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ highlightId }),
       });
       const data = await res.json();
-      if (data.success) {
-        setSelectedSource(data.source);
-      }
+      if (data.success) onUpdate?.(data.highlights);
     } catch (err) {
       console.error("Failed to remove highlight:", err);
     }

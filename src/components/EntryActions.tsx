@@ -194,6 +194,7 @@ function WideActions({
             description: saved ? "Remove from your saved items." : "Save this for later.",
           }}
           style={{ color: saved ? palette[500] : iconColor }}
+          data-track="entry.bookmark"
         >
           <Bookmark className="w-4 h-4" style={{ fill: saved ? palette[500] : "none" }} />
         </TooltipButton>
@@ -204,6 +205,7 @@ function WideActions({
           onClick={onMarkUnread}
           tooltip={{ title: "Back to Inbox", description: "Mark as unread and return to Inbox." }}
           style={{ color: iconColor }}
+          data-track="entry.back_to_inbox"
         >
           <Inbox className="w-4 h-4" />
         </TooltipButton>
@@ -213,6 +215,7 @@ function WideActions({
         onClick={onEdit}
         tooltip={{ title: "Edit", description: "Edit the title and content directly." }}
         style={{ color: iconColor }}
+        data-track="entry.edit"
       >
         <Pencil className="w-4 h-4" />
       </TooltipButton>
@@ -223,6 +226,7 @@ function WideActions({
           disabled={isReanalyzing}
           tooltip={{ title: "Re-process", description: "Re-fetch content and re-run AI analysis." }}
           style={{ color: iconColor }}
+          data-track="entry.reanalyze"
         >
           <RefreshCw className={`w-4 h-4 ${isReanalyzing ? "animate-spin" : ""}`} />
         </TooltipButton>

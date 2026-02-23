@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { TreeNode, SourceSummary, StudioDocument } from "@/lib/types";
 import { buildTree } from "@/lib/tree";
 
@@ -106,18 +106,22 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     loadFolders();
   }, [loadEntries, loadFolders]);
 
-  // Poll for updates (faster when processing)
+  // Track processing state in a ref to avoid polling dependency on entries
+  const hasProcessingRef = useRef(false);
   useEffect(() => {
-    const hasProcessing = type === "library" && entries.some((e) =>
+    hasProcessingRef.current = type === "library" && entries.some((e) =>
       (e.data as SourceSummary | undefined)?.meta?.processingStatus === "processing"
     );
-    const pollInterval = hasProcessing ? 2000 : 5000;
+  }, [entries, type]);
+
+  // Poll for updates (faster when processing)
+  useEffect(() => {
     const interval = setInterval(() => {
       loadEntries();
       loadFolders();
-    }, pollInterval);
+    }, hasProcessingRef.current ? 2000 : 5000);
     return () => clearInterval(interval);
-  }, [entries, loadEntries, loadFolders, type]);
+  }, [loadEntries, loadFolders]);
 
   // Toggle type open/close
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
@@ -303,6 +307,45 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     setDragOverFolder(null);
   }, []);
 
+  // Memoize tree nodes
+  const treeNodes = useMemo(() => getTreeNodes(), [getTreeNodes]);
+
+  // Memoize drag & drop object
+  const dragDrop = useMemo(() => ({
+    dragOverFolder,
+    onDragStart: handleDragStart,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
+    onDragEnd: handleDragEnd,
+  }), [dragOverFolder, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd]);
+
+  // Memoize folder management object
+  const folderManagement = useMemo(() => ({
+    isCreatingFolder,
+    newFolderParent,
+    newFolderName,
+    onStartCreateFolder: startCreateFolder,
+    onFolderNameChange: setNewFolderName,
+    onCreateFolder: createFolder,
+    onCancelCreate: cancelCreateFolder,
+    renamingFolder,
+    renameFolderValue,
+    onRenameFolderChange: setRenameFolderValue,
+    onRenameFolder: renameFolder,
+    onCancelRename: cancelRenameFolder,
+  }), [isCreatingFolder, newFolderParent, newFolderName, startCreateFolder, createFolder, cancelCreateFolder, renamingFolder, renameFolderValue, renameFolder, cancelRenameFolder]);
+
+  // Memoize typed convenience accessors
+  const sourceSummaries = useMemo(() =>
+    type === "library" ? entries.map((e) => e.data).filter(Boolean) as SourceSummary[] : [],
+    [entries, type]
+  );
+  const documents = useMemo(() =>
+    type === "studio" ? entries.map((e) => e.data).filter(Boolean) as StudioDocument[] : [],
+    [entries, type]
+  );
+
   // Return type config ready for Sidebar
   return {
     // Section state
@@ -314,36 +357,16 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     isEmpty: entries.length === 0,
 
     // Tree
-    treeNodes: getTreeNodes(),
+    treeNodes,
     expandedFolders,
     toggleFolder,
     setExpandedFolders,
 
     // Drag & drop (grouped for SectionConfig)
-    dragDrop: {
-      dragOverFolder,
-      onDragStart: handleDragStart,
-      onDragOver: handleDragOver,
-      onDragLeave: handleDragLeave,
-      onDrop: handleDrop,
-      onDragEnd: handleDragEnd,
-    },
+    dragDrop,
 
     // Folder management (grouped for SectionConfig)
-    folderManagement: {
-      isCreatingFolder,
-      newFolderParent,
-      newFolderName,
-      onStartCreateFolder: startCreateFolder,
-      onFolderNameChange: setNewFolderName,
-      onCreateFolder: createFolder,
-      onCancelCreate: cancelCreateFolder,
-      renamingFolder,
-      renameFolderValue,
-      onRenameFolderChange: setRenameFolderValue,
-      onRenameFolder: renameFolder,
-      onCancelRename: cancelRenameFolder,
-    },
+    folderManagement,
 
     // Direct folder actions (for context menu)
     startRenameFolder,
@@ -354,11 +377,7 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
       await Promise.all([loadEntries(), loadFolders()]);
     }, [loadEntries, loadFolders]),
     // Typed convenience accessors
-    sourceSummaries: type === "library"
-      ? entries.map((e) => e.data).filter(Boolean) as SourceSummary[]
-      : [],
-    documents: type === "studio"
-      ? entries.map((e) => e.data).filter(Boolean) as StudioDocument[]
-      : [],
+    sourceSummaries,
+    documents,
   };
 }

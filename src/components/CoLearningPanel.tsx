@@ -302,6 +302,8 @@ export function CoLearningPanel({
   const [contexts, setContexts] = useState<AgentContext[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
   const conversationListRef = useRef<HTMLDivElement>(null);
   // Track current conversation ID in a ref so background fetches can check it
   const currentConvIdRef = useRef<string | null>(null);
@@ -329,10 +331,20 @@ export function CoLearningPanel({
     }
   }, [currentConversationId]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom only if user is near the bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, streamingEvents]);
+
+  // Track whether user is near the bottom of the messages container
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const threshold = 80;
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }, []);
 
   // Handle context events (text selection)
   useEffect(() => {
@@ -522,6 +534,7 @@ export function CoLearningPanel({
     setInput("");
     setContexts([]);
     setIsLoading(true);
+    isNearBottomRef.current = true;
 
     // Save conversation immediately with user message
     let convId = currentConversationId;
@@ -731,6 +744,7 @@ export function CoLearningPanel({
         onClick={onToggle}
         className="fixed right-0 top-1/2 -translate-y-1/2 p-2 rounded-l-lg shadow-lg z-40"
         style={{ backgroundColor: palette[500] }}
+        data-track="agent.toggle"
         title="Agent"
       >
         <ChevronLeft className="w-5 h-5 text-white" />
@@ -758,6 +772,7 @@ export function CoLearningPanel({
             <button
               onClick={toggleConversationList}
               className="flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded px-2 py-1 transition-colors max-w-full"
+              data-track="agent.selectconv"
             >
               <span className="font-semibold truncate">
                 {currentConv ? currentConv.title : "Agent"}
@@ -813,6 +828,7 @@ export function CoLearningPanel({
           <button
             onClick={startNewConversation}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            data-track="agent.newconv"
             title="New conversation"
           >
             <Plus className="w-4 h-4" style={{ color: theme.textMuted }} />
@@ -820,6 +836,7 @@ export function CoLearningPanel({
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            data-track="agent.close"
           >
             <ChevronRight className="w-4 h-4" style={{ color: theme.textMuted }} />
           </button>
@@ -827,7 +844,7 @@ export function CoLearningPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && contexts.length === 0 && !isLoading && (
           <div className="text-center py-8">
             <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
@@ -962,6 +979,7 @@ export function CoLearningPanel({
             onClick={sendMessage}
             disabled={isLoading || (!input.trim() && contexts.length === 0)}
             className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
+            data-track="agent.send"
             style={{ backgroundColor: palette[500], color: "white" }}
           >
             <Send className="w-4 h-4" />

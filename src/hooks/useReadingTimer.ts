@@ -93,8 +93,13 @@ export function useReadingTimer(sourceId: string | null) {
       updateActive();
     };
 
-    // Activity handler - reset idle timer
+    // Activity handler - reset idle timer (throttled to 200ms)
+    let lastActivity = 0;
     const onActivity = () => {
+      const now = Date.now();
+      if (now - lastActivity < 200) return;
+      lastActivity = now;
+
       if (isIdleRef.current) {
         isIdleRef.current = false;
         updateActive();

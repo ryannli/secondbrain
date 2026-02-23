@@ -71,9 +71,11 @@ async function callClaude(prompt: string, debugLabel?: string): Promise<string> 
   console.log(`[callClaude] Debug log: ${debugFile}`);
 
   return new Promise((resolve, reject) => {
+    const { CLAUDECODE, ...cleanEnv } = process.env;
     const proc = spawn("claude", ["--print", "--tools", "", "--output-format", "text"], {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: getCurrentRootPath(),
+      env: cleanEnv,
     });
 
     let stdout = "";
@@ -124,9 +126,13 @@ async function callClaude(prompt: string, debugLabel?: string): Promise<string> 
  * Strips markdown code blocks if present
  */
 function parseJsonResponse(response: string, context: string): Record<string, unknown> | null {
+  // Strip tool call/result XML blocks (Claude sometimes uses tools before answering)
+  let jsonText = response
+    .replace(/<tool_calls>[\s\S]*?<\/tool_calls>/g, "")
+    .replace(/<tool_results>[\s\S]*?<\/tool_results>/g, "");
+
   // Strip markdown code block if present
-  let jsonText = response;
-  const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     jsonText = codeBlockMatch[1];
   }
@@ -1024,8 +1030,7 @@ export async function extractTopicStream(): Promise<InterestStreamData> {
 export interface ConceptNetworkData {
   clusters: string[];
   clusterColors: string[];
-  concepts: { id: string; term: string; count: number; status?: "learned" | "knew"; cluster: string; clusterColor: string }[];
-  relationships: { source: string; target: string; weight: number; type: string }[];
+  concepts: { id: string; term: string; count: number; score: number; latestDate: string; status?: "learned" | "knew"; cluster: string; clusterColor: string }[];
 }
 
 const CLUSTER_COLORS = [
@@ -1034,22 +1039,41 @@ const CLUSTER_COLORS = [
 ];
 
 /**
- * Analyze concept relationships using Claude.
- * Groups concepts into semantic clusters and identifies meaningful relationships.
+ * Analyze concepts using Claude.
+ * Groups concepts into semantic clusters for the word cloud visualization.
  */
 export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
   const sources = await listSourcesForConnections();
 
-  // Aggregate concepts across all sources
+  // Load source dates for recency sorting
+  const libraryPath = getLibraryPath();
+  const sourceDateMap = new Map<string, string>();
+  for (const s of sources) {
+    try {
+      let metaPath = path.join(libraryPath, s.id, "meta.json");
+      try { await fs.access(metaPath); } catch {
+        const ep = await findEntryPath(s.id, libraryPath);
+        if (ep) metaPath = path.join(ep, "meta.json");
+      }
+      const raw = await fs.readFile(metaPath, "utf-8");
+      const meta = JSON.parse(raw);
+      if (meta.created_at) sourceDateMap.set(s.id, meta.created_at);
+    } catch { /* skip */ }
+  }
+
+  // Build full concept map for count/status aggregation
   const conceptMap = new Map<string, {
     term: string;
     count: number;
+    score: number;
     status?: "learned" | "knew";
     sourceIds: string[];
     definition: string;
+    latestDate: string;
   }>();
 
   for (const s of sources) {
+    const sourceDate = sourceDateMap.get(s.id) ?? "";
     for (const c of s.concepts) {
       const key = c.term.toLowerCase().trim();
       if (!key) continue;
@@ -1057,6 +1081,7 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
       if (existing) {
         existing.count++;
         existing.sourceIds.push(s.id);
+        if (sourceDate > existing.latestDate) existing.latestDate = sourceDate;
         if (c.status === "learned") existing.status = "learned";
         else if (c.status === "knew" && existing.status !== "learned") existing.status = "knew";
         if (!existing.definition && c.definition) existing.definition = c.definition;
@@ -1064,21 +1089,28 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
         conceptMap.set(key, {
           term: c.term,
           count: 1,
+          score: 0,
           status: c.status,
           sourceIds: [s.id],
           definition: c.definition ?? "",
+          latestDate: sourceDate,
         });
       }
     }
   }
 
-  // Take top 60 by frequency
+  // Score: count + learned bonus
+  for (const [, val] of conceptMap) {
+    val.score = val.count + (val.status === "learned" ? 1 : 0);
+  }
+
+  // All concepts from the last month — frontend handles week/month filtering and sizing by score
+  const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const sorted = Array.from(conceptMap.entries())
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 60);
+    .filter(([, val]) => val.latestDate >= oneMonthAgo);
 
   if (sorted.length === 0) {
-    return { clusters: [], clusterColors: [], concepts: [], relationships: [] };
+    return { clusters: [], clusterColors: [], concepts: [] };
   }
 
   // Build context for Claude
@@ -1093,16 +1125,17 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
   const parsed = parseJsonResponse(responseText, "analyzeConceptNetwork");
   if (!parsed || !Array.isArray(parsed.clusters) || !Array.isArray(parsed.concepts)) {
     console.error("[analyzeConceptNetwork] Invalid response, falling back to unclustered");
-    // Fallback: single cluster, no relationships
     const concepts = sorted.map(([, val], i) => ({
       id: `c${i}`,
       term: val.term,
       count: val.count,
+      score: val.score,
+      latestDate: val.latestDate,
       status: val.status,
       cluster: "General",
       clusterColor: CLUSTER_COLORS[0],
     }));
-    return { clusters: ["General"], clusterColors: [CLUSTER_COLORS[0]], concepts, relationships: [] };
+    return { clusters: ["General"], clusterColors: [CLUSTER_COLORS[0]], concepts };
   }
 
   const clusters = parsed.clusters as string[];
@@ -1120,21 +1153,13 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
       id,
       term: val.term,
       count: val.count,
+      score: val.score,
+      latestDate: val.latestDate,
       status: val.status,
       cluster,
       clusterColor: clusterColorMap.get(cluster) ?? CLUSTER_COLORS[0],
     };
   });
 
-  const validIds = new Set(concepts.map(c => c.id));
-  const relationships = (parsed.relationships as { source: string; target: string; strength?: number; type?: string }[] ?? [])
-    .filter(r => validIds.has(r.source) && validIds.has(r.target))
-    .map(r => ({
-      source: r.source,
-      target: r.target,
-      weight: r.strength ?? 1,
-      type: r.type ?? "related",
-    }));
-
-  return { clusters, clusterColors, concepts, relationships };
+  return { clusters, clusterColors, concepts };
 }

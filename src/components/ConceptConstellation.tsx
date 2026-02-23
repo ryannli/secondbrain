@@ -1,62 +1,58 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
-import {
-  forceSimulation,
-  forceLink,
-  forceManyBody,
-  forceCenter,
-  forceCollide,
-  forceX,
-  forceY,
-  SimulationNodeDatum,
-  SimulationLinkDatum,
-} from "d3-force";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import cloud from "d3-cloud";
 
 interface ConceptNodeData {
   id: string;
   term: string;
   count: number;
+  score: number;
+  latestDate: string;
   status?: "learned" | "knew";
   cluster: string;
   clusterColor: string;
 }
 
-interface ConceptEdgeData {
-  source: string;
-  target: string;
-  weight: number;
-  type: string;
-}
-
-interface ConceptNode extends SimulationNodeDatum {
+interface CloudWord {
+  text: string;
+  size: number;
+  fontWeight: number;
+  color: string;
+  opacity: number;
   id: string;
-  term: string;
-  count: number;
   status?: "learned" | "knew";
+  count: number;
   cluster: string;
-  clusterColor: string;
-  radius: number;
+  // Placed by d3-cloud
+  x?: number;
+  y?: number;
+  rotate?: number;
 }
+
+export type ConceptTimeRange = "week" | "month";
 
 interface ConceptConstProps {
   palette: Record<number, string>;
   theme: Record<string, string>;
+  range: ConceptTimeRange;
 }
 
 /**
- * Force-directed concept network with Claude-analyzed clusters and relationships.
+ * Clustered word cloud of concepts using d3-cloud spiral layout.
+ * Font size encodes frequency + learning status, color encodes semantic cluster.
  */
-export function ConceptConstellation({ theme }: ConceptConstProps) {
+export function ConceptConstellation({ theme, range }: ConceptConstProps) {
   const [rawData, setRawData] = useState<{
     clusters: string[];
     clusterColors: string[];
     concepts: ConceptNodeData[];
-    relationships: ConceptEdgeData[];
   } | null>(null);
+  const [placedWords, setPlacedWords] = useState<CloudWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<ConceptNode | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,75 +75,98 @@ export function ConceptConstellation({ theme }: ConceptConstProps) {
     return () => { cancelled = true; };
   }, []);
 
-  // Run simulation
-  const { nodes, edges, positions } = useMemo(() => {
-    if (!rawData || rawData.concepts.length === 0) {
-      return { nodes: [], edges: [] as ConceptEdgeData[], positions: new Map<string, { x: number; y: number }>() };
+  // Filter by time range, then rank-based sizing for variation
+  const cloudWords = useMemo(() => {
+    if (!rawData || rawData.concepts.length === 0) return [];
+
+    const now = Date.now();
+    const cutoff = range === "week"
+      ? new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const filtered = rawData.concepts.filter(n => n.latestDate >= cutoff);
+    if (filtered.length === 0) return [];
+
+    // Value-based with deterministic jitter for same-score variation
+    const minScore = Math.min(...filtered.map(n => n.score));
+    const maxScore = Math.max(...filtered.map(n => n.score));
+    const scoreRange = maxScore - minScore || 1;
+    // Fewer concepts → larger base font so the cloud doesn't look sparse
+    const boost = filtered.length < 40 ? Math.round((40 - filtered.length) * 0.15) : 0;
+    const minFont = 14 + boost;
+    const maxFont = 32 + boost;
+    const jitterRange = 2; // ±2px variation within same score
+
+    // Deterministic hash from term string → stable jitter per concept
+    function hashJitter(term: string): number {
+      let h = 0;
+      for (let i = 0; i < term.length; i++) h = ((h << 5) - h + term.charCodeAt(i)) | 0;
+      return ((h % 100) / 100) * jitterRange * 2 - jitterRange; // [-4, +4]
     }
 
-    const width = 500;
-    const height = 380;
-    const maxCount = Math.max(...rawData.concepts.map(n => n.count), 1);
+    const allSameScore = maxScore === minScore;
 
-    // Build simulation nodes with radius based on count
-    const simNodes: ConceptNode[] = rawData.concepts.map(n => ({
-      ...n,
-      radius: 6 + (n.count / maxCount) * 18,
-    }));
+    return filtered.map((n): CloudWord => {
+      const t = allSameScore ? 0.5 : (n.score - minScore) / scoreRange;
+      const base = minFont + t * (maxFont - minFont);
+      const size = Math.round(Math.max(minFont, Math.min(maxFont, base + hashJitter(n.term))));
+      const opacity = n.status === "learned" ? 1 : n.status === "knew" ? 0.85 : 0.7;
+      const fontWeight = n.status === "learned" ? 700 : t >= 0.5 ? 600 : 400;
 
-    const nodeMap = new Map(simNodes.map(n => [n.id, n]));
-
-    // Build links from relationships
-    type SimLink = SimulationLinkDatum<ConceptNode> & { weight: number };
-    const simLinks: SimLink[] = rawData.relationships
-      .filter(e => nodeMap.has(e.source) && nodeMap.has(e.target))
-      .map(e => ({
-        source: nodeMap.get(e.source)!,
-        target: nodeMap.get(e.target)!,
-        weight: e.weight,
-      }));
-
-    // Cluster centers for pulling nodes toward their cluster
-    const uniqueClusters = rawData.clusters.length > 0 ? rawData.clusters : [...new Set(simNodes.map(n => n.cluster))];
-    const clusterCenters = new Map<string, { x: number; y: number }>();
-    uniqueClusters.forEach((c, i) => {
-      const angle = (2 * Math.PI * i) / uniqueClusters.length;
-      const radius = Math.min(width, height) * 0.2;
-      clusterCenters.set(c, {
-        x: width / 2 + Math.cos(angle) * radius,
-        y: height / 2 + Math.sin(angle) * radius,
-      });
+      return {
+        text: n.term,
+        size,
+        fontWeight,
+        color: n.clusterColor,
+        opacity,
+        id: n.id,
+        status: n.status,
+        count: n.count,
+        cluster: n.cluster,
+      };
     });
+  }, [rawData, range]);
 
-    const sim = forceSimulation(simNodes)
-      .force("link", forceLink<ConceptNode, SimLink>(simLinks).distance(50).strength(e => Math.min(0.5, e.weight * 0.1)))
-      .force("charge", forceManyBody().strength(-60))
-      .force("center", forceCenter(width / 2, height / 2))
-      .force("collide", forceCollide<ConceptNode>(d => d.radius + 3))
-      .force("x", forceX<ConceptNode>(d => clusterCenters.get(d.cluster)?.x ?? width / 2).strength(0.12))
-      .force("y", forceY<ConceptNode>(d => clusterCenters.get(d.cluster)?.y ?? height / 2).strength(0.12))
-      .stop();
+  // Run d3-cloud layout
+  const onEnd = useCallback((words: CloudWord[]) => {
+    setPlacedWords(words);
+  }, []);
 
-    for (let i = 0; i < 200; i++) sim.tick();
-
-    const pos = new Map<string, { x: number; y: number }>();
-    for (const n of simNodes) {
-      pos.set(n.id, { x: n.x ?? 0, y: n.y ?? 0 });
+  useEffect(() => {
+    if (cloudWords.length === 0) {
+      setPlacedWords([]);
+      return;
     }
 
-    return { nodes: simNodes, edges: rawData.relationships, positions: pos };
-  }, [rawData]);
+    const width = 700;
+    const height = 480;
+
+    const padX = 20;
+    const padY = 60;
+    const layout = cloud<CloudWord>()
+      .size([width - padX * 2, height - padY * 2])
+      .words(cloudWords.map(w => ({ ...w })))
+      .padding(3)
+      .rotate(0)
+      .fontSize(d => d.size ?? 12)
+      .fontWeight(d => d.fontWeight ?? 400)
+      .font("system-ui, -apple-system, sans-serif")
+      .spiral("archimedean")
+      .on("end", onEnd);
+
+    layout.start();
+  }, [cloudWords, onEnd]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-4">
         <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: theme.textLight }} />
-        <span className="text-xs" style={{ color: theme.textMuted }}>Mapping concept relationships...</span>
+        <span className="text-xs" style={{ color: theme.textMuted }}>Mapping concept clusters...</span>
       </div>
     );
   }
 
-  if (error || nodes.length === 0) {
+  if (error || !rawData || rawData.concepts.length === 0) {
     return (
       <div className="text-center py-6">
         <p className="text-xs" style={{ color: theme.textMuted }}>
@@ -157,96 +176,73 @@ export function ConceptConstellation({ theme }: ConceptConstProps) {
     );
   }
 
-  const width = 500;
+  const width = 700;
   const height = 380;
+  const noResults = cloudWords.length === 0;
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: 380 }}>
-        {/* Edges */}
-        {edges.map((edge, i) => {
-          const s = positions.get(edge.source);
-          const t = positions.get(edge.target);
-          if (!s || !t) return null;
-          return (
-            <line
-              key={i}
-              x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-              stroke={theme.borderLight}
-              strokeWidth={Math.min(2, edge.weight)}
-              strokeOpacity={0.4}
-            />
-          );
-        })}
-
-        {/* Nodes */}
-        {nodes.map(node => {
-          const pos = positions.get(node.id);
-          if (!pos) return null;
-          const isHovered = hoveredNode?.id === node.id;
-          const color = node.clusterColor;
-
-          // Learned/knew get full opacity, unreviewed slightly faded
-          const baseOpacity = node.status ? 0.85 : 0.55;
-
-          return (
-            <g key={node.id}>
-              {isHovered && (
-                <circle cx={pos.x} cy={pos.y} r={node.radius + 4} fill={color} fillOpacity={0.15} />
-              )}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={node.radius}
-                fill={color}
-                fillOpacity={isHovered ? 0.95 : baseOpacity}
-                stroke={node.status === "learned" ? color : "none"}
-                strokeWidth={node.status === "learned" ? 1.5 : 0}
-                style={{ cursor: "default", transition: "fill-opacity 0.15s" }}
-                onMouseEnter={() => setHoveredNode(node)}
-                onMouseLeave={() => setHoveredNode(null)}
-              />
-              {/* Label for larger nodes */}
-              {node.radius > 12 && (
-                <text
-                  x={pos.x}
-                  y={pos.y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  className="text-[8px] pointer-events-none select-none"
-                  fill={theme.bg}
-                  fontWeight={600}
-                >
-                  {node.term.length > 12 ? node.term.slice(0, 10) + ".." : node.term}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Tooltip */}
-      {hoveredNode && positions.get(hoveredNode.id) && (
-        <div
-          className="absolute pointer-events-none px-2 py-1 rounded text-[10px] whitespace-nowrap -translate-x-1/2"
-          style={{
-            left: `${(positions.get(hoveredNode.id)!.x / width) * 100}%`,
-            top: `${(positions.get(hoveredNode.id)!.y / height) * 100 - 5}%`,
-            backgroundColor: theme.text,
-            color: theme.bg,
-          }}
-        >
-          <strong>{hoveredNode.term}</strong>
-          <span className="ml-1" style={{ opacity: 0.6 }}>
-            {hoveredNode.count} {hoveredNode.count === 1 ? "source" : "sources"}
-            {hoveredNode.status ? ` · ${hoveredNode.status}` : ""}
-            {hoveredNode.cluster ? ` · ${hoveredNode.cluster}` : ""}
-          </span>
+    <div>
+      {noResults ? (
+        <div className="text-center py-10">
+          <p className="text-xs" style={{ color: theme.textMuted }}>
+            No concepts from this {range === "week" ? "week" : "month"}
+          </p>
         </div>
+      ) : (
+        <>
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: 480 }}>
+            <g transform={`translate(${width / 2},${height / 2})`}>
+              {placedWords.map(word => {
+                const isHovered = hoveredId === word.id;
+                return (
+                  <text
+                    key={word.id}
+                    textAnchor="middle"
+                    transform={`translate(${word.x ?? 0},${word.y ?? 0})`}
+                    fontSize={word.size}
+                    fontWeight={word.fontWeight}
+                    fontFamily="system-ui, -apple-system, sans-serif"
+                    fill={word.color}
+                    fillOpacity={isHovered ? 1 : word.opacity}
+                    className="select-none"
+                    style={{ cursor: "default", transition: "fill-opacity 0.15s" }}
+                    onMouseEnter={() => setHoveredId(word.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  >
+                    {word.text}
+                  </text>
+                );
+              })}
+            </g>
+          </svg>
+
+          {/* Tooltip */}
+          {hoveredId && (() => {
+            const word = placedWords.find(w => w.id === hoveredId);
+            if (!word || word.x == null || word.y == null) return null;
+            return (
+              <div
+                className="absolute pointer-events-none px-2 py-1 rounded text-[10px] whitespace-nowrap -translate-x-1/2"
+                style={{
+                  left: `${((word.x + width / 2) / width) * 100}%`,
+                  top: `${((word.y + height / 2) / height) * 100 - 4}%`,
+                  backgroundColor: theme.text,
+                  color: theme.bg,
+                }}
+              >
+                <strong>{word.text}</strong>
+                <span className="ml-1" style={{ opacity: 0.6 }}>
+                  {word.count} {word.count === 1 ? "source" : "sources"}
+                  {word.status ? ` · ${word.status}` : ""}
+                </span>
+              </div>
+            );
+          })()}
+        </>
       )}
 
       {/* Cluster Legend */}
-      {rawData && rawData.clusters.length > 0 && (
+      {rawData.clusters.length > 0 && !noResults && (
         <div className="flex items-center justify-center gap-3 mt-1 flex-wrap">
           {rawData.clusters.map((cluster, i) => (
             <span key={cluster} className="flex items-center gap-1.5 text-[10px]" style={{ color: theme.textMuted }}>

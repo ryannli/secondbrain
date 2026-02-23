@@ -1,0 +1,39 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Second Brain",
+  "version": "0.1.0",
+  "identifier": "com.secondbrain.app",
+  "build": {
+    "frontendDist": "http://localhost:41932",
+    "devUrl": "http://localhost:41932",
+    "beforeDevCommand": "next dev -p 41932",
+    "beforeBuildCommand": "next build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Second Brain",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

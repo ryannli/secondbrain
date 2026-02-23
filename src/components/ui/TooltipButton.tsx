@@ -12,6 +12,7 @@ interface TooltipButtonProps {
   disabled?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  "data-track"?: string;
 }
 
 export function TooltipButton({
@@ -21,9 +22,10 @@ export function TooltipButton({
   disabled = false,
   className = "",
   style,
+  "data-track": dataTrack,
 }: TooltipButtonProps) {
   return (
-    <div className="relative group">
+    <div className="relative group" data-track={dataTrack}>
       <button
         onClick={onClick}
         disabled={disabled}
