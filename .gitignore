@@ -45,6 +45,15 @@ next-env.d.ts
 
 # user data
 /user_data/
+/library/
+/studio/
+/workspace/
+/.agent/
+/.cache/
+/.debug/
+/.feed/
+/.index/
+/.tracking/
 
 # claude code local settings
 .claude/settings.local.json
