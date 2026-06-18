@@ -35,6 +35,7 @@ export function useSettings() {
   const [agentProvider, setAgentProvider] = useState<AgentProvider>(DEFAULT_AGENT_PROVIDER);
   const [agentStatuses, setAgentStatuses] = useState<Record<AgentProvider, AgentStatus> | null>(null);
   const [agentStatusLoading, setAgentStatusLoading] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [fontSize, setFontSize] = useState("sm");
   const [headingStyle, setHeadingStyle] = useState("clean");
 
@@ -259,8 +260,23 @@ export function useSettings() {
 
   // Load config on mount
   useEffect(() => {
-    loadConfig();
-    loadAgentStatus();
+    let isMounted = true;
+
+    async function initializeSettings() {
+      setSettingsLoading(true);
+      try {
+        await Promise.all([loadConfig(), loadAgentStatus()]);
+      } finally {
+        if (isMounted) {
+          setSettingsLoading(false);
+        }
+      }
+    }
+
+    initializeSettings();
+    return () => {
+      isMounted = false;
+    };
   }, [loadAgentStatus]);
 
   // Listen for system theme changes when in "system" mode
@@ -299,6 +315,7 @@ export function useSettings() {
     saveAgentProvider,
     agentStatuses,
     agentStatusLoading,
+    settingsLoading,
     loadAgentStatus,
     fontSize,
     saveFontSize: (v: string) => saveReadingSetting("fontSize", v, setFontSize),

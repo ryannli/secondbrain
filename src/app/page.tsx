@@ -111,6 +111,7 @@ function HomeContent() {
     saveAgentProvider,
     agentStatuses,
     agentStatusLoading,
+    settingsLoading,
     loadAgentStatus,
     fontSize,
     saveFontSize,
@@ -130,6 +131,7 @@ function HomeContent() {
 
   const selectedAgentStatus = agentStatuses?.[agentProvider];
   const canEnterWorkspace = agentModeEnabled && selectedAgentStatus?.state === "ready";
+  const isOpeningWorkspace = settingsLoading || (agentModeEnabled && agentStatusLoading && !selectedAgentStatus);
 
   // Context menu
   const {
@@ -423,6 +425,10 @@ function HomeContent() {
   const handleStudioFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
     handleFolderContextMenu(e, folderPath, folderName, "studio");
   };
+
+  if (isOpeningWorkspace) {
+    return <OpeningWorkspace palette={palette} fontFamily={fontFamily} />;
+  }
 
   if (!canEnterWorkspace) {
     return (
@@ -776,6 +782,34 @@ function HomeContent() {
         onRenameFolder={onStartRenameFolder}
         onDeleteFolder={onDeleteFolder}
       />
+    </div>
+  );
+}
+
+function OpeningWorkspace({
+  palette,
+  fontFamily,
+}: {
+  palette: Record<number, string>;
+  fontFamily: string;
+}) {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: `var(--font-${fontFamily})` }}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ backgroundColor: `${palette[500]}14` }}
+        >
+          <div
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ backgroundColor: palette[500] }}
+          />
+        </div>
+        <p className="text-sm font-medium">Opening workspace</p>
+      </div>
     </div>
   );
 }
