@@ -180,10 +180,10 @@ export const FeedSection = React.memo(function FeedSection({
         <InsightsSection insights={insights} palette={palette} theme={theme} onAddContext={onAddContext} />
       )}
 
-      {/* Message (empty state or disabled) */}
-      {message && items.length === 0 && !loading && (
+      {/* Message (empty state or degraded mode) */}
+      {message && !loading && (
         <div
-          className="p-6 rounded-xl text-sm text-center border"
+          className={`rounded-xl text-sm border ${items.length === 0 ? "p-6 text-center" : "px-3 py-2 mb-4"}`}
           style={{ borderColor: theme.border, color: theme.textMuted }}
         >
           {message}
@@ -339,8 +339,15 @@ function DateSelector({
   palette: Record<number, string>;
   theme: Record<string, string>;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const [{ today, yesterday }] = useState(() => {
+    const now = new Date();
+    const previousDay = new Date(now);
+    previousDay.setDate(now.getDate() - 1);
+    return {
+      today: now.toISOString().slice(0, 10),
+      yesterday: previousDay.toISOString().slice(0, 10),
+    };
+  });
 
   // Group keys by day
   const grouped: { day: string; keys: string[] }[] = [];

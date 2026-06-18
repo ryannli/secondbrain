@@ -1,0 +1,14 @@
+{
+  "fontFamily": "outfit",
+  "theme": "light",
+  "fontSize": "sm",
+  "headingStyle": "clean",
+  "feedInterests": ["AI agents", "local-first software", "knowledge workflows"],
+  "rssFeeds": [
+    { "url": "https://hnrss.org/frontpage", "label": "Hacker News" },
+    { "url": "https://www.reddit.com/r/LocalLLaMA/.rss", "label": "r/LocalLLaMA" },
+    { "url": "https://www.reddit.com/r/MachineLearning/.rss", "label": "r/MachineLearning" },
+    { "url": "https://www.reddit.com/r/startups/.rss", "label": "r/startups" }
+  ],
+  "searchSources": ["reddit.com"]
+}

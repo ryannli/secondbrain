@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings, listFeedSnapshots, loadFeedSnapshot } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
 import { filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
-import { FEED_CONFIG } from "@/lib/config";
+import { DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES, FEED_CONFIG } from "@/lib/config";
 import { FeedCache, FeedSignals, InsightItem } from "@/lib/types";
 
 /**
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
           briefing: cache.briefing,
           signals: cache.signals,
           insights: cache.insights,
+          message: cache.message,
           starredBriefingTexts,
           readBriefingTexts,
         },
@@ -136,11 +137,13 @@ async function generateFeed() {
 
   // 0. Load user config
   const config = await loadUserConfig();
-  const DEFAULT_RSS_FEEDS = [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }];
-  const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
   const rssFeeds = config.rssFeeds ?? DEFAULT_RSS_FEEDS;
   const searchSources = config.searchSources ?? DEFAULT_SEARCH_SOURCES;
   const feedInterests = config.feedInterests ?? [];
+  const searchConfigured = Boolean(process.env.BRAVE_SEARCH_API_KEY);
+  const rssOnlyMessage = !searchConfigured && feedInterests.length > 0 && searchSources.length > 0
+    ? "Search API key is not configured, so this feed is running in RSS-only mode. Add BRAVE_SEARCH_API_KEY to enable web search."
+    : undefined;
   console.log(`[generateFeed] RSS feeds:`, rssFeeds.map(f => f.label));
   console.log(`[generateFeed] Search sources:`, searchSources);
   console.log(`[generateFeed] Feed interests:`, feedInterests);
@@ -178,7 +181,7 @@ async function generateFeed() {
       interests,
       generatedAt: new Date().toISOString(),
       fromCache: false,
-      message: "No relevant news found",
+      message: rssOnlyMessage ?? "No relevant news found",
     };
   }
 
@@ -267,6 +270,7 @@ async function generateFeed() {
     briefing: briefing ?? undefined,
     signals,
     insights: insights.length > 0 ? insights : undefined,
+    message: rssOnlyMessage,
   };
   await saveFeedCache(cache);
 
@@ -278,5 +282,6 @@ async function generateFeed() {
     briefing: briefing ?? undefined,
     signals,
     insights: insights.length > 0 ? insights : undefined,
+    message: rssOnlyMessage,
   };
 }

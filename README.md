@@ -1,149 +1,173 @@
 # Second Brain
 
-A persistent cognitive workspace that manages information flow for knowledge workers.
+**AI triage for people who read more than they can reasonably process.**
 
-**The Problem**: AI content grows exponentially, but human attention scales linearly.
+Second Brain turns links, notes, PDFs, images, and feeds into a local-first reading workspace. It preserves the original source, creates an editable analysis layer, and helps you decide what deserves real attention.
 
-**The Solution**: AI acts as your **Chief of Staff** — handling information triage, surfacing what matters, and proactively guiding your attention. You focus on judgment and decisions.
+![Second Brain product preview](docs/assets/second-brain-preview.svg)
 
-## Core Principle: Everything is a Local File
+## Why It Exists
 
-Your library is just a folder on your computer. Every source, every analysis, every piece of metadata is a plain file you can read, edit, or move with any tool.
+AI made it cheap to produce information. It did not make your attention bigger.
 
-**The UI is just a view.** It renders what's in your filesystem and writes changes back to it. There's no database, no cloud sync, no lock-in. Edit a file directly, and the UI updates. Reorganize folders however you like.
+Second Brain is built around a sharper loop:
 
-This means:
-- **You own your data** — it's just markdown and JSON files
-- **AI outputs are editable** — don't like the summary? Edit the file
-- **Use any tool** — grep, git, scripts, whatever works for you
-- **Offline by default** — everything works without internet (except AI analysis)
-- **AI agents work natively** — coding agents like Claude Code can read, edit, and organize your library directly through the filesystem
+1. Capture anything quickly.
+2. Let AI summarize, critique, and connect it.
+3. Spend your judgment only where it matters.
 
-## Features
+This is not a passive bookmark manager. It is an attention filter with a filesystem you own.
 
-- **URL Capture**: Paste any URL to extract and analyze content
-- **AI Triage**: Get a recommendation score (0-100) for how much attention content deserves
-- **Dual Analysis**:
-  - **Digest**: Summary, key highlights, concepts
-  - **Critique**: Hidden assumptions, potential issues, verification needs
-- **For You Feed**: Personalized news from two independent pipelines:
-  - **RSS Feeds**: Direct subscriptions (blogs, newsletters, subreddits) — fetched as-is, no keywords needed
-  - **Search Sources**: Domains searched via Brave API, multiplied by your interest keywords (each keyword × each domain = one search)
-  - Both pipelines merge into one pool, then AI scores and filters everything together based on your interests and reading history
-- **Daily Briefing**: AI-generated summary that tells you what's worth your attention today — what's new, what you already know, and where to focus
-- **Library Organization**: Tree-based file organization with user-created folders
+## Key Features
 
-## How Data is Stored
+| Feature | What it does |
+| --- | --- |
+| Triage cards | Scores each source and recommends whether to read, skim, summarize, or skip. |
+| Digest + critique | Separates comprehension from evaluation: summary, structure, concepts, assumptions, issues, and verification needs. |
+| Local-first library | Stores sources as plain files under your data folder. No database lock-in. |
+| Preserved originals | Keeps `meta.json` and `original.*` intact so derived analysis can be regenerated safely. |
+| RSS-first feed | Starts with RSS defaults so the feed works before any search API key is configured. |
+| Agent-native workspace | Claude Code or another local agent can inspect and organize the same markdown/JSON files the app uses. |
+| Chrome capture extension | Optional one-click capture for logged-in or heavily dynamic pages. |
 
-Each source lives in its own folder:
+## Product Shape
 
-```
-library/{id}/
-├── meta.json        # Metadata at capture (immutable)
-├── original.*       # Raw content file (immutable) - html, txt, pdf, png, etc.
-├── content.md       # Processed content (regeneratable, editable)
-├── analysis.json    # AI analysis (regeneratable)
-└── README.md        # Human-readable triage card
-```
+Second Brain has three core surfaces:
 
-### meta.json Schema
+| Surface | Job |
+| --- | --- |
+| Dashboard | Capture new material and review what needs attention. |
+| Source view | Read the processed content beside digest, critique, highlights, concepts, and connections. |
+| For You feed | Pull candidates from RSS and optional search, then rank them against your interests and reading history. |
 
-```typescript
-interface OriginalData {
-  id: string;              // Unique 8-char ID
-  schemaVersion?: number;  // Metadata schema version (default: 1)
-  created_at: string;      // ISO timestamp
-  type: "html" | "text" | "document" | "image";  // File format type
-  original_file: string;   // e.g. "original.html", "original.pdf", "original.png"
-  original_title: string;  // Title at capture time
-  source_url?: string;     // URL if captured from web (optional for uploads)
-}
-```
+## Recommended Path Today
 
-**Type System**: The `type` field represents the *file format*, not the content source:
-- `html` - Web pages (YouTube, Twitter, articles, etc. - source inferred from `source_url`)
-- `text` - Plain text notes
-- `document` - PDF, DOC, DOCX, etc.
-- `image` - PNG, JPG, WebP, etc. (OCR extracted to Markdown)
+Use the **web version first**.
 
-**Original vs Derived**: `meta.json` and the original file are captured once and preserved forever. Everything else (processed content, analysis) can be regenerated from them. This means you can always re-analyze with improved AI without losing the source material.
+It is the clearest open-source path: easy to run, easy to inspect, and easiest for contributors to debug.
 
-## Tech Stack
+The Tauri desktop app is promising, but it should stay experimental until signing, update flow, app data location, and extension communication are more polished.
 
-- **Frontend**: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4
-- **Content Extraction**: Mozilla Readability + JSDOM
-- **AI Integration**: Claude Code CLI (subprocess, no API key needed)
-- **Storage**: Local filesystem (markdown + JSON)
+| Version | Recommendation |
+| --- | --- |
+| Web app | Recommended for open-source users and contributors. |
+| Tauri app | Experimental local desktop shell. Good for testing packaging direction. |
+| Chrome extension | Optional companion for one-click and logged-in page capture. |
 
-## Getting Started
+## Chrome Extension
 
-### Prerequisites
+The extension is **not required**.
 
-- Node.js 20+
-- [Claude Code CLI](https://claude.ai/claude-code) installed and authenticated
+You can use Second Brain without it for:
 
-### Installation
+- pasted text
+- public URLs
+- PDFs and images
+- RSS feed review
+- manual capture from the web app
+
+Use the extension when you want:
+
+- one-click capture from Chrome
+- logged-in pages
+- JavaScript-rendered pages where server-side fetch cannot see the content
+- Twitter/X-like pages where the browser-rendered DOM is the real source
+
+Chrome does not allow a normal website or local app to silently install an unpacked extension for a user. For development, users must load it manually through `chrome://extensions`. Later, a Chrome Web Store release can make installation one click. Enterprise force-install policies exist, but they are not appropriate for normal open-source onboarding.
+
+## First Run
 
 ```bash
 npm install
+npm run import:sample
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Configuration
+The sample import gives you a small working library with:
 
-Set library path in `config.json` or via the app settings.
+- `USER.md` preferences
+- two captured example documents
+- processed `content.md`
+- ready `analysis.json`
+- cross-source connections
+- RSS/search defaults
 
-## Chrome Extension
+The import is safe by default: it copies missing files into `user_data/` and skips files that already exist.
 
-A companion Chrome extension for one-click capture from any webpage.
+For a guided setup flow, see [docs/ONBOARDING.md](docs/ONBOARDING.md).
 
-### Installation
+## Search And RSS
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top right)
-3. Click **Load unpacked**
-4. Select the `/extension` folder from this repository
+The feed works in RSS-only mode by default. New installs start with a small set of high-signal RSS feeds:
 
-### Usage
+- Hacker News
+- r/LocalLLaMA
+- r/MachineLearning
+- r/startups
 
-- Click the extension icon on any webpage to capture it
-- Or right-click and select "Save to Second Brain"
-- The page will be sent to your local Second Brain for AI analysis
+Search is optional. Add a Brave Search API key only when you want broader web coverage:
 
-## Content Capture: Technical Architecture
+```bash
+BRAVE_SEARCH_API_KEY=...
+```
 
-### Current Approach
+Without that key, Second Brain still runs the feed from RSS and shows a clear RSS-only notice.
 
-| Content Type | Method | Notes |
-|--------------|--------|-------|
-| Public websites | `fetch` + Readability | Works for most sites (SSR/static HTML) |
-| Logged-in content | Chrome Extension | Twitter, paywalls, etc. |
+## Data Model
 
-### Why Chrome Extension for Logged-in Content?
+Every captured source is a folder:
 
-**The problem**: Sites like Twitter require authentication. To capture content, we need the user's login session.
+```text
+library/{id}/
+├── meta.json        # original metadata, captured once
+├── original.*       # original raw source, captured once
+├── content.md       # derived readable content, editable
+├── analysis.json    # derived AI analysis, editable/regeneratable
+└── README.md        # human-readable triage card
+```
 
-**Web App limitation**: Browser security (same-origin policy) prevents our web app from accessing cookies/sessions of other domains. The backend cannot access the user's Chrome profile.
+The rule is simple: original files are evidence; derived files are workspace.
 
-**Current solution**: Chrome Extension runs *inside* the user's browser with their active session, so it can capture any page the user can see.
+## Local Data
 
-### Future: Native macOS App
+By default, local data lives in:
 
-A native app can solve the login problem properly:
+```text
+./user_data
+```
 
-| | Web App | macOS App |
-|---|---|---|
-| User logs in | In their Chrome | In app's built-in WebView |
-| Session storage | Chrome profile (inaccessible) | App's own storage (we control) |
-| Capture with auth | ❌ Cannot access | ✅ Uses app's session |
+You can point it elsewhere:
 
-**The key insight**: It's not that "native apps have magic" — it's that **when users log in within our controlled environment, we can use that session for capture**.
+```bash
+SECONDBRAIN_ROOT=~/SecondBrain npm run dev
+```
 
-This enables future features like:
-- **Proactive debrief**: App monitors your feeds overnight, surfaces what's worth reading
-- **One-click capture**: Paste URL → App uses its stored sessions → Content captured (no extension needed)
+Do not commit your real `user_data/`. It can contain source text, prompt logs, preferences, reading history, and agent conversations.
+
+## AI Model Boundary
+
+Second Brain currently calls Claude Code CLI through a subprocess. That means:
+
+- content may be sent through your authenticated Claude Code session for analysis
+- no separate Anthropic API key is required for core analysis
+- `BRAVE_SEARCH_API_KEY` is only for optional feed search
+- debug prompt logs may contain sensitive source text if debug logging is enabled
+
+## Development
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+Current contributor guidance lives in [AGENTS.md](AGENTS.md). `CLAUDE.md` is a symlink to the same file so Claude Code and Codex share one project context.
+
+## Status
+
+Second Brain is an early local-first product. The web app is the recommended open-source entrypoint. Desktop packaging, extension distribution, and richer first-run onboarding are still evolving.
 
 ## License
 

@@ -1,0 +1,75 @@
+{
+  "triage": {
+    "score": 86,
+    "reason": "Useful framing for understanding why Second Brain preserves originals while letting AI regenerate derived analysis.",
+    "action": "must_read",
+    "readTimeMinutes": 3,
+    "density": 78,
+    "originality": 72
+  },
+  "digest": {
+    "summary": "The piece argues that AI reading tools should triage attention while preserving user agency and original source records. It frames local files as the substrate that makes AI output inspectable, editable, and reversible.",
+    "highlights": [
+      {
+        "id": "h1",
+        "text": "A reading system should decide what deserves attention before it asks the user to organize anything.",
+        "type": "insight"
+      },
+      {
+        "id": "h2",
+        "text": "AI can triage, compare, and draft, but the user should decide what matters and what is true.",
+        "type": "actionable"
+      },
+      {
+        "id": "h3",
+        "text": "Original records must remain untouched so derived analysis can be regenerated safely.",
+        "type": "fact"
+      }
+    ],
+    "concepts": [
+      {
+        "id": "c1",
+        "term": "Derived reading layer",
+        "definition": "A regeneratable layer of summaries, critique, claims, and recommendations built from preserved source material."
+      },
+      {
+        "id": "c2",
+        "term": "Reversibility",
+        "definition": "The product property that lets users recover from bad AI output by returning to immutable original content."
+      }
+    ],
+    "structure": [
+      "Problem: passive archives do not protect attention",
+      "Principle: local files make AI output inspectable",
+      "Workflow: capture, derive, revisit",
+      "Requirement: preserve originals"
+    ]
+  },
+  "critique": {
+    "hiddenAssumptions": [
+      "Users are comfortable with filesystem-visible data.",
+      "The cost of preserving raw originals is acceptable."
+    ],
+    "potentialIssues": [
+      "The workflow depends on high-quality triage; poor scoring could hide useful material.",
+      "Local-first storage does not automatically solve backup or sync."
+    ],
+    "needsVerification": [
+      "Whether users actually edit derived files outside the UI.",
+      "How large raw captures affect performance over time."
+    ],
+    "biasIndicators": [
+      "Strong preference for user agency and inspectability over cloud convenience."
+    ]
+  },
+  "connections": [
+    {
+      "id": "conn-demo001a-demo002b",
+      "type": "related",
+      "summary": "Both sources describe attention triage before deep reading.",
+      "details": "The local-first workflow explains why original records and derived analysis should be separate; the RSS triage note applies that idea to feed defaults and search fallback behavior.",
+      "relatedSourceIds": ["demo002b"]
+    }
+  ],
+  "analyzedAt": "2026-01-15T09:02:00.000Z"
+}

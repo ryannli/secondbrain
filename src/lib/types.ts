@@ -240,6 +240,7 @@ export interface FeedCache {
   generatedAt: string;           // ISO timestamp
   interests: string[];           // Extracted interest terms
   items: FeedItem[];
+  message?: string;              // Empty-state or degraded-mode notice
   briefing?: StructuredBriefing;  // AI-generated structured briefing
   signals?: FeedSignals;         // What the AI considered when filtering
   insights?: InsightItem[];      // AI-generated insights from user's reading behavior

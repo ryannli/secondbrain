@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "import:sample": "node scripts/import-sample-data.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
   },

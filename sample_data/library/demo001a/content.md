@@ -1,0 +1,20 @@
+---
+title: "Local-first AI reading workflow"
+readStatus: "unread"
+---
+
+# Local-first AI reading workflow
+
+Knowledge tools fail when they become passive archives. A better reading system should help the user decide what deserves attention before it asks them to organize anything.
+
+Local files make the system inspectable: every summary, source, and critique can be edited, searched, moved, or versioned with ordinary tools.
+
+The main design tradeoff is not whether AI should summarize. The harder question is where AI should be allowed to act. AI can triage, compare, and draft. The user should still decide what matters, what is true, and what becomes part of their long-term memory.
+
+## Workflow loops
+
+1. Capture quickly, preserving the original.
+2. Generate a derived reading layer with summary, critique, and claims.
+3. Revisit only the pieces that cross an attention threshold.
+
+The most important product requirement is reversibility. If a model makes a bad summary, the user should not lose the raw source. If the user's interests change, the system should re-run derived analysis without rewriting the original record.

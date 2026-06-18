@@ -1,0 +1,70 @@
+{
+  "triage": {
+    "score": 74,
+    "reason": "Directly relevant to onboarding because it explains why RSS defaults should work before search configuration.",
+    "action": "worth_reading",
+    "readTimeMinutes": 2,
+    "density": 70,
+    "originality": 62
+  },
+  "digest": {
+    "summary": "The note argues that RSS should be the default feed substrate because it works without API keys or billing. Search should add depth after the user has already experienced a useful first-run feed.",
+    "highlights": [
+      {
+        "id": "h1",
+        "text": "Search should expand coverage, not decide whether the product works at all.",
+        "type": "insight"
+      },
+      {
+        "id": "h2",
+        "text": "Defaults should demonstrate the product without becoming generic news.",
+        "type": "actionable"
+      }
+    ],
+    "concepts": [
+      {
+        "id": "c1",
+        "term": "RSS baseline",
+        "definition": "A feed mode that works without search credentials, billing, or account setup."
+      },
+      {
+        "id": "c2",
+        "term": "Coverage expansion",
+        "definition": "The role of search APIs after baseline feeds already provide value."
+      }
+    ],
+    "structure": [
+      "Problem: search-key dependency breaks first run",
+      "Principle: RSS as baseline",
+      "Design: opinionated but replaceable defaults",
+      "Onboarding: show gathering, reasoning, and capture"
+    ]
+  },
+  "critique": {
+    "hiddenAssumptions": [
+      "The default RSS sources match the user's interests well enough to demonstrate value.",
+      "RSS freshness and availability are reliable enough for first-run use."
+    ],
+    "potentialIssues": [
+      "Reddit RSS can be rate-limited or noisy.",
+      "Users outside AI/startup interests may need different defaults."
+    ],
+    "needsVerification": [
+      "Which default feeds produce the best first-run recommendations.",
+      "Whether users notice the difference between RSS-only and search-enhanced mode."
+    ],
+    "biasIndicators": [
+      "Prefers immediate local usefulness over exhaustive search coverage."
+    ]
+  },
+  "connections": [
+    {
+      "id": "conn-demo002b-demo001a",
+      "type": "related",
+      "summary": "Both sources prioritize attention triage before organization.",
+      "details": "The RSS note applies the local-first workflow's principle that defaults should help users judge value before asking them to configure infrastructure.",
+      "relatedSourceIds": ["demo001a"]
+    }
+  ],
+  "analyzedAt": "2026-01-15T09:12:00.000Z"
+}

@@ -1,0 +1,48 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Second Brain product preview</title>
+  <desc id="desc">A stylized preview of the Second Brain dashboard, library, triage card, digest, critique, and RSS-only feed notice.</desc>
+  <rect width="1200" height="720" rx="32" fill="#F7F5EF"/>
+  <rect x="44" y="44" width="1112" height="632" rx="24" fill="#FFFFFF" stroke="#DED8CA"/>
+  <rect x="44" y="44" width="260" height="632" rx="24" fill="#F0EDE4"/>
+  <rect x="76" y="82" width="72" height="16" rx="8" fill="#3B6044"/>
+  <rect x="76" y="126" width="184" height="12" rx="6" fill="#B8B09F"/>
+  <rect x="76" y="156" width="152" height="12" rx="6" fill="#C9C2B4"/>
+  <rect x="76" y="204" width="196" height="44" rx="10" fill="#FFFFFF" stroke="#DED8CA"/>
+  <circle cx="98" cy="226" r="8" fill="#3B6044"/>
+  <rect x="116" y="218" width="110" height="10" rx="5" fill="#5F685D"/>
+  <rect x="76" y="264" width="196" height="44" rx="10" fill="#FFFFFF" stroke="#DED8CA"/>
+  <circle cx="98" cy="286" r="8" fill="#D4942F"/>
+  <rect x="116" y="278" width="132" height="10" rx="5" fill="#5F685D"/>
+  <rect x="76" y="324" width="196" height="44" rx="10" fill="#FFFFFF" stroke="#DED8CA"/>
+  <circle cx="98" cy="346" r="8" fill="#8F6FBC"/>
+  <rect x="116" y="338" width="96" height="10" rx="5" fill="#5F685D"/>
+  <rect x="344" y="82" width="320" height="18" rx="9" fill="#263126"/>
+  <rect x="344" y="116" width="530" height="12" rx="6" fill="#9B9384"/>
+  <rect x="344" y="156" width="460" height="58" rx="16" fill="#F8FAF8" stroke="#B8C7B8"/>
+  <circle cx="378" cy="185" r="13" fill="#3B6044"/>
+  <rect x="406" y="176" width="230" height="12" rx="6" fill="#334736"/>
+  <rect x="406" y="196" width="154" height="8" rx="4" fill="#9CAC99"/>
+  <rect x="790" y="172" width="62" height="26" rx="13" fill="#3B6044"/>
+  <text x="821" y="189" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">86</text>
+  <rect x="344" y="246" width="356" height="340" rx="18" fill="#FFFFFF" stroke="#DED8CA"/>
+  <rect x="376" y="280" width="78" height="14" rx="7" fill="#3B6044"/>
+  <rect x="376" y="318" width="260" height="10" rx="5" fill="#6E7669"/>
+  <rect x="376" y="346" width="288" height="10" rx="5" fill="#A9A192"/>
+  <rect x="376" y="374" width="238" height="10" rx="5" fill="#A9A192"/>
+  <rect x="376" y="430" width="132" height="12" rx="6" fill="#263126"/>
+  <rect x="376" y="462" width="280" height="10" rx="5" fill="#A9A192"/>
+  <rect x="376" y="490" width="250" height="10" rx="5" fill="#A9A192"/>
+  <rect x="376" y="518" width="300" height="10" rx="5" fill="#A9A192"/>
+  <rect x="730" y="246" width="360" height="156" rx="18" fill="#F9F7F2" stroke="#DED8CA"/>
+  <rect x="762" y="280" width="96" height="14" rx="7" fill="#8F4E2D"/>
+  <rect x="762" y="318" width="270" height="10" rx="5" fill="#7D7367"/>
+  <rect x="762" y="346" width="240" height="10" rx="5" fill="#B8B09F"/>
+  <rect x="762" y="374" width="192" height="10" rx="5" fill="#B8B09F"/>
+  <rect x="730" y="430" width="360" height="156" rx="18" fill="#F8FAF8" stroke="#B8C7B8"/>
+  <rect x="762" y="464" width="118" height="14" rx="7" fill="#3B6044"/>
+  <rect x="762" y="502" width="280" height="10" rx="5" fill="#6E7669"/>
+  <rect x="762" y="530" width="220" height="10" rx="5" fill="#A9A192"/>
+  <rect x="762" y="558" width="252" height="10" rx="5" fill="#A9A192"/>
+  <rect x="344" y="612" width="746" height="34" rx="17" fill="#EEF4EE" stroke="#B8C7B8"/>
+  <text x="374" y="634" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600" fill="#3B6044">RSS-only mode: add BRAVE_SEARCH_API_KEY when you want broader web search.</text>
+</svg>

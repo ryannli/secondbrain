@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Plus, Copy, Check, Sun, Moon, Monitor } from "lucide-react";
 import { theme } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
+import { DEFAULT_RSS_FEEDS, SUGGESTED_SEARCH_SOURCES } from "@/lib/config";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -50,22 +51,7 @@ const DEBUG_OPTIONS = [
   { id: "connections", label: "Connections" },
 ] as const;
 
-// Preset RSS feeds
-const RSS_PRESETS: RssFeedSource[] = [
-  { url: "https://hnrss.org/frontpage", label: "Hacker News" },
-];
-
-// Suggested search sources (domains for Brave Search)
-const SUGGESTED_SEARCH_SOURCES = [
-  { domain: "reddit.com", label: "Reddit" },
-  { domain: "arstechnica.com", label: "Ars Technica" },
-  { domain: "theverge.com", label: "The Verge" },
-  { domain: "wired.com", label: "Wired" },
-  { domain: "techcrunch.com", label: "TechCrunch" },
-  { domain: "nytimes.com", label: "New York Times" },
-  { domain: "bloomberg.com", label: "Bloomberg" },
-  { domain: "theguardian.com", label: "The Guardian" },
-];
+const RSS_PRESETS: RssFeedSource[] = DEFAULT_RSS_FEEDS;
 
 type Tab = "appearance" | "feed" | "advanced";
 
@@ -334,7 +320,7 @@ export function SettingsModal({
                     {isGenerating ? "Generating..." : "Generate from library"}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mb-3">We'll keep you updated on these topics</p>
+                <p className="text-xs text-gray-400 mb-3">We&apos;ll keep you updated on these topics</p>
 
                 {/* Interest tags */}
                 <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">

@@ -3,9 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { generatePalette } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
-
-const DEFAULT_RSS_FEEDS: RssFeedSource[] = [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }];
-const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
+import { DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES } from "@/lib/config";
 
 // Apply theme class to <html> element
 function applyTheme(mode: ThemeMode) {
