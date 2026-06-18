@@ -204,7 +204,7 @@ export const EntryView = React.memo(function EntryView({
     <div ref={containerRef} className="flex items-stretch">
       {/* Content Area */}
       <div className="flex-1 min-w-0 h-[calc(100vh-100px)] sticky top-0 pr-2">
-        <div className="bg-white dark:bg-zinc-900 border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col" style={{ borderColor: theme.border }}>
+        <div className="bg-white dark:bg-zinc-900 border rounded-xl pt-6 pl-6 pb-6 h-full flex flex-col min-w-0 overflow-hidden" style={{ borderColor: theme.border }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-2 pr-6" data-entry-header>
             {isEditing ? (
@@ -262,13 +262,13 @@ export const EntryView = React.memo(function EntryView({
 
           {/* Source URL and timestamp */}
           {(entry.sourceUrl || entry.createdAt) && (
-            <div className="flex items-center gap-2 text-sm pr-6" style={{ color: theme.textLight }}>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 max-w-full text-sm leading-snug pr-6" style={{ color: theme.textLight }}>
               {entry.sourceUrl && (
                 <a
                   href={entry.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:underline"
+                  className="min-w-0 max-w-full truncate hover:underline"
                 >
                   {new URL(entry.sourceUrl).hostname} ↗
                 </a>
@@ -390,7 +390,7 @@ export const EntryView = React.memo(function EntryView({
                     <div className="h-2 rounded-full mb-3" style={{ backgroundColor: theme.borderLight }}>
                       <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: scoreColor }} />
                     </div>
-                    <p className="text-sm mb-4" style={{ color: theme.textMuted }}>{analysis.triage.reason}</p>
+                    <p className="text-sm mb-4 break-words" style={{ color: theme.textMuted }}>{analysis.triage.reason}</p>
                     <div className="grid grid-cols-3 gap-3 text-center text-sm">
                       <div>
                         <div className="font-medium font-mono tabular-nums">
