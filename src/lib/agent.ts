@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 import { AGENT_PROVIDER_DETAILS, DEFAULT_AGENT_PROVIDER, AgentProvider, AgentStatus, isAgentProvider } from "./agentTypes";
 import { AGENT_CLI_PROVIDERS, buildAgentCommandSpec } from "./agentProviders";
@@ -7,6 +8,7 @@ import { getCurrentRootPath, loadProfileDoc, loadUserConfig } from "./storage";
 
 const AGENT_TIMEOUT_MS = 10 * 60 * 1000;
 const STATUS_TIMEOUT_MS = 8 * 1000;
+const AGENT_DEBUG_ENV = "SECONDBRAIN_AGENT_DEBUG_LOGS";
 
 let profileCache: { userProfile: string } | null = null;
 
@@ -41,28 +43,57 @@ async function buildPromptWithProfiles(prompt: string): Promise<string> {
     : prompt;
 }
 
+function shouldWriteAgentDebugLogs(): boolean {
+  const value = process.env[AGENT_DEBUG_ENV];
+  return value === "1" || value === "true";
+}
+
+async function prepareCodexOutputPath(
+  provider: AgentProvider,
+  label: string,
+  runId: string,
+  debugDir: string | undefined,
+): Promise<{ outputPath?: string; cleanupPath?: string }> {
+  if (provider !== "codex") return {};
+
+  if (debugDir) {
+    return { outputPath: path.join(debugDir, `${provider}-${label}-${runId}-last-message.txt`) };
+  }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "secondbrain-agent-"));
+  return { outputPath: path.join(tempDir, "last-message.txt"), cleanupPath: tempDir };
+}
+
+async function cleanupAgentTempPath(cleanupPath: string | undefined): Promise<void> {
+  if (!cleanupPath) return;
+  await fs.rm(cleanupPath, { recursive: true, force: true }).catch(() => {});
+}
+
 export async function callAgent(prompt: string, debugLabel?: string): Promise<string> {
   const provider = await getConfiguredAgentProvider();
+  const rootPath = getCurrentRootPath();
   const fullPrompt = await buildPromptWithProfiles(prompt);
   const promptPreview = prompt.slice(0, 80).replace(/\n/g, " ");
   const startTime = Date.now();
+  const label = debugLabel ?? "unknown";
+  const runId = Math.random().toString(36).slice(2, 8);
+  const debugDir = shouldWriteAgentDebugLogs() ? path.join(rootPath, ".debug") : undefined;
+  const debugFile = debugDir ? path.join(debugDir, `${provider}-${label}-${runId}.txt`) : undefined;
 
   console.log(`[callAgent:${provider}] Starting: "${promptPreview}..."`);
 
-  const debugDir = path.join(getCurrentRootPath(), ".debug");
-  const randomId = Math.random().toString(36).slice(2, 8);
-  const debugFile = path.join(debugDir, `${provider}-${debugLabel ?? "unknown"}-${randomId}.txt`);
-  await fs.mkdir(debugDir, { recursive: true });
-  await fs.writeFile(debugFile, `=== PROMPT ===\n${fullPrompt}\n`, "utf-8");
-  console.log(`[callAgent:${provider}] Debug log: ${debugFile}`);
+  if (debugFile && debugDir) {
+    await fs.mkdir(debugDir, { recursive: true });
+    await fs.writeFile(debugFile, `=== PROMPT ===\n${fullPrompt}\n`, "utf-8");
+    console.log(`[callAgent:${provider}] Debug log: ${debugFile}`);
+  }
 
-  const outputPath = provider === "codex"
-    ? path.join(debugDir, `${provider}-${debugLabel ?? "unknown"}-${randomId}-last-message.txt`)
-    : undefined;
-  const commandSpec = buildAgentCommandSpec(provider, "text", { rootPath: getCurrentRootPath(), outputPath });
+  const { outputPath, cleanupPath } = await prepareCodexOutputPath(provider, label, runId, debugDir);
+  const commandSpec = buildAgentCommandSpec(provider, "text", { rootPath, outputPath });
 
   return spawnAgentForText(provider, commandSpec, fullPrompt, {
-    cwd: getCurrentRootPath(),
+    cwd: rootPath,
+    cleanupPath,
     debugFile,
     outputPath,
     promptPreview,
@@ -73,17 +104,21 @@ export async function callAgent(prompt: string, debugLabel?: string): Promise<st
 export async function callAgentWithFileAccess(prompt: string, filePath: string): Promise<string> {
   const provider = await getConfiguredAgentProvider();
   const rootPath = getCurrentRootPath();
-  const randomId = Math.random().toString(36).slice(2, 8);
-  const outputPath = provider === "codex"
-    ? path.join(rootPath, ".debug", `${provider}-file-${randomId}-last-message.txt`)
-    : undefined;
-  if (outputPath) {
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  const runId = Math.random().toString(36).slice(2, 8);
+  const debugDir = shouldWriteAgentDebugLogs() ? path.join(rootPath, ".debug") : undefined;
+  const debugFile = debugDir ? path.join(debugDir, `${provider}-file-${runId}.txt`) : undefined;
+  if (debugDir && debugFile) {
+    await fs.mkdir(debugDir, { recursive: true });
+    await fs.writeFile(debugFile, `=== PROMPT ===\n${prompt}\n`, "utf-8");
+    console.log(`[callAgent:${provider}] Debug log: ${debugFile}`);
   }
+  const { outputPath, cleanupPath } = await prepareCodexOutputPath(provider, "file", runId, debugDir);
   const commandSpec = buildAgentCommandSpec(provider, "file", { rootPath, filePath, outputPath });
 
   return spawnAgentForText(provider, commandSpec, prompt, {
     cwd: rootPath,
+    cleanupPath,
+    debugFile,
     outputPath,
     promptPreview: prompt.slice(0, 80).replace(/\n/g, " "),
     startTime: Date.now(),
@@ -96,6 +131,7 @@ function spawnAgentForText(
   prompt: string,
   options: {
     cwd: string;
+    cleanupPath?: string;
     promptPreview: string;
     startTime: number;
     debugFile?: string;
@@ -117,6 +153,7 @@ function spawnAgentForText(
       killed = true;
       proc.kill();
       const elapsed = ((Date.now() - options.startTime) / 1000).toFixed(1);
+      void cleanupAgentTempPath(options.cleanupPath);
       reject(new Error(`${AGENT_PROVIDER_DETAILS[provider].label} timed out after ${elapsed}s: "${options.promptPreview}..."`));
     }, AGENT_TIMEOUT_MS);
 
@@ -128,29 +165,37 @@ function spawnAgentForText(
       stderr += data.toString();
     });
 
-    proc.on("close", (code) => {
+    proc.on("close", async (code) => {
       clearTimeout(timeout);
       const elapsed = ((Date.now() - options.startTime) / 1000).toFixed(1);
       if (killed) return;
 
       if (code === 0) {
-        console.log(`[callAgent:${provider}] Done in ${elapsed}s (${stdout.length} chars)`);
-        const finalOutput = options.outputPath
-          ? fs.readFile(options.outputPath, "utf-8").then((content) => content.trim()).catch(() => stdout.trim())
-          : Promise.resolve(stdout.trim());
-        if (options.debugFile) {
-          fs.appendFile(options.debugFile, `\n=== RESPONSE ===\n${stdout}\n`).catch(() => {});
+        try {
+          console.log(`[callAgent:${provider}] Done in ${elapsed}s (${stdout.length} chars)`);
+          const finalOutput = options.outputPath
+            ? await fs.readFile(options.outputPath, "utf-8").then((content) => content.trim()).catch(() => stdout.trim())
+            : stdout.trim();
+          if (options.debugFile) {
+            await fs.appendFile(options.debugFile, `\n=== RESPONSE ===\n${stdout}\n`);
+          }
+          await cleanupAgentTempPath(options.cleanupPath);
+          resolve(finalOutput);
+        } catch (error) {
+          await cleanupAgentTempPath(options.cleanupPath);
+          reject(error);
         }
-        finalOutput.then(resolve, reject);
       } else {
         const message = stderr || `${AGENT_PROVIDER_DETAILS[provider].label} exited with code ${code}`;
         console.error(`[callAgent:${provider}] Failed (code ${code}) in ${elapsed}s: ${message.slice(0, 200)}`);
+        await cleanupAgentTempPath(options.cleanupPath);
         reject(new Error(message));
       }
     });
 
     proc.on("error", (err) => {
       clearTimeout(timeout);
+      void cleanupAgentTempPath(options.cleanupPath);
       reject(err);
     });
 

@@ -77,6 +77,6 @@ If the key is missing, the app should keep working and show an RSS-only notice i
 
 - Keep real `user_data/` out of git.
 - Keep `.env.local` out of git.
-- Do not commit prompt debug logs.
+- Keep agent prompt/response debug logs disabled unless you are actively developing with `SECONDBRAIN_AGENT_DEBUG_LOGS=1`.
 - Keep `AGENTS.md` as the canonical contributor/agent instruction file.
 - Keep `CLAUDE.md` as a symlink to `AGENTS.md`.

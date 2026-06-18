@@ -138,7 +138,7 @@ SECONDBRAIN_ROOT=~/SecondBrain npm run dev
 
 You can also change the data location from Settings when `SECONDBRAIN_ROOT` is not set. The local override is saved in `.secondbrain.local.json`, which should stay out of git.
 
-Do not commit your real `user_data/`. It can contain source text, prompt logs, preferences, reading history, and agent conversations.
+Do not commit your real `user_data/`. It can contain source text, preferences, reading history, and agent conversations.
 
 ## AI Agent Boundary
 
@@ -156,7 +156,7 @@ That means:
 - content may be sent through your authenticated local agent session for analysis
 - no separate model API key is required for core analysis
 - `BRAVE_SEARCH_API_KEY` is only for optional feed search
-- debug prompt logs may contain sensitive source text if debug logging is enabled
+- prompt/response debug logs are off by default; set `SECONDBRAIN_AGENT_DEBUG_LOGS=1` only while developing because logs may contain sensitive source text
 
 ## Development
 
@@ -165,6 +165,14 @@ npm test
 npm run lint
 npm run build
 ```
+
+For local agent debugging, you can temporarily run:
+
+```bash
+SECONDBRAIN_AGENT_DEBUG_LOGS=1 npm run dev
+```
+
+This writes full agent prompts and raw responses under your data folder's `.debug/` directory. Keep it off for normal use.
 
 Current contributor guidance lives in [AGENTS.md](AGENTS.md). `CLAUDE.md` is a symlink to the same file so Claude Code and Codex share one project context.
 

@@ -219,5 +219,8 @@ Multi-turn agent history should include tool calls and results, not just the tex
 
 Without tool traces, the agent in Turn 2 only sees "I read 26 files" but not what was in them—leading to hallucinated details when acting on that data.
 
+### Agent Debug Logs Are Opt-In (2026-06-18)
+Do not write full agent prompts/responses to disk during normal use. Enable `SECONDBRAIN_AGENT_DEBUG_LOGS=1` only for local debugging, because those logs can contain captured source text and user preferences.
+
 ### Sample Data Seeds Automatically (2026-06-18)
 First-run sample data is a product behavior, not an onboarding command. `sample_data/` should auto-copy only into an empty user data root and must never overwrite existing user files.

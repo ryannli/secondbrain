@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { AGENT_CLI_PROVIDERS, buildAgentCommandSpec, resolveExecutableCommand } from "@/lib/agentProviders";
-import { getConfiguredAgentProvider } from "@/lib/agent";
+import { callAgent, getConfiguredAgentProvider } from "@/lib/agent";
 import { DEFAULT_AGENT_PROVIDER, isAgentProvider } from "@/lib/agentTypes";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -11,6 +11,13 @@ let tmpRoot: string;
 
 function env(values: Record<string, string> = {}): NodeJS.ProcessEnv {
   return { NODE_ENV: "test", ...values };
+}
+
+async function writeExecutable(name: string, script: string): Promise<string> {
+  const filePath = path.join(tmpRoot, name);
+  await fs.writeFile(filePath, script, "utf-8");
+  await fs.chmod(filePath, 0o755);
+  return filePath;
 }
 
 beforeEach(async () => {
@@ -166,5 +173,59 @@ describe("configured agent provider", () => {
     process.env.SECONDBRAIN_AGENT_PROVIDER = "codex";
 
     expect(await getConfiguredAgentProvider()).toBe("codex");
+  });
+});
+
+describe("agent invocation storage", () => {
+  it("does not write prompt debug logs by default", async () => {
+    const fakeAgent = await writeExecutable("fake-agent", "#!/bin/sh\ncat >/dev/null\nprintf 'agent output'\n");
+    process.env.SECONDBRAIN_AGENT_COMMAND = fakeAgent;
+
+    await expect(callAgent("secret prompt", "unit")).resolves.toBe("agent output");
+    await expect(fs.access(path.join(tmpRoot, ".debug"))).rejects.toThrow();
+  });
+
+  it("writes prompt debug logs only when explicitly enabled", async () => {
+    const fakeAgent = await writeExecutable("fake-agent", "#!/bin/sh\ncat >/dev/null\nprintf 'agent output'\n");
+    process.env.SECONDBRAIN_AGENT_COMMAND = fakeAgent;
+    process.env.SECONDBRAIN_AGENT_DEBUG_LOGS = "1";
+
+    await expect(callAgent("secret prompt", "unit")).resolves.toBe("agent output");
+
+    const debugDir = path.join(tmpRoot, ".debug");
+    const files = await fs.readdir(debugDir);
+    expect(files).toHaveLength(1);
+
+    const log = await fs.readFile(path.join(debugDir, files[0]), "utf-8");
+    expect(log).toContain("=== PROMPT ===");
+    expect(log).toContain("secret prompt");
+    expect(log).toContain("=== RESPONSE ===");
+    expect(log).toContain("agent output");
+  });
+
+  it("keeps Codex last-message output temporary when debug logs are disabled", async () => {
+    const fakeCodex = await writeExecutable("fake-codex", `#!/bin/sh
+output=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then
+    shift
+    output="$1"
+  fi
+  shift
+done
+cat >/dev/null
+printf '%s' "$output" > "$SECONDBRAIN_ROOT/seen-output-path"
+printf 'final from file' > "$output"
+printf 'stdout noise'
+`);
+    process.env.SECONDBRAIN_AGENT_PROVIDER = "codex";
+    process.env.SECONDBRAIN_AGENT_COMMAND = fakeCodex;
+
+    await expect(callAgent("secret prompt", "unit")).resolves.toBe("final from file");
+
+    const outputPath = await fs.readFile(path.join(tmpRoot, "seen-output-path"), "utf-8");
+    expect(outputPath).not.toContain(path.join(tmpRoot, ".debug"));
+    await expect(fs.access(outputPath)).rejects.toThrow();
+    await expect(fs.access(path.join(tmpRoot, ".debug"))).rejects.toThrow();
   });
 });
