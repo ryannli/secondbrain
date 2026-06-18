@@ -279,85 +279,86 @@ export const Dashboard = React.memo(function Dashboard({
     const isExtracting = source.meta.processingStatus === "processing";
     const isFailed = source.meta.processingStatus === "failed";
     const isInProgress = source.meta.processingStage != null && source.meta.processingStage !== "complete";
+    const badge = isInProgress ? (
+      <span
+        className="max-w-full truncate px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+        style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
+      >
+        <ProcessingTimer createdAt={source.meta.createdAt} />
+      </span>
+    ) : isFailed ? (
+      <span
+        className="max-w-full truncate px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+        style={{ backgroundColor: "#ef444415", color: "#ef4444" }}
+      >
+        Failed
+      </span>
+    ) : source.action ? (
+      <span
+        className="max-w-full truncate px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
+        style={
+          source.action === "must_read"
+            ? {
+                backgroundColor: `${palette[600]}30`,
+                color: palette[700],
+                border: `1.5px solid ${palette[600]}`,
+              }
+            : source.action === "worth_reading"
+            ? {
+                backgroundColor: `${palette[500]}20`,
+                color: palette[600],
+                border: `1px solid ${palette[500]}`,
+              }
+            : {
+                backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
+                color: getScoreColor(source.score ?? 50),
+              }
+        }
+      >
+        {ACTION_CONFIG[source.action]?.label ?? source.action}
+      </span>
+    ) : null;
 
     return (
       <button
         key={source.meta.id}
         onClick={() => !isExtracting && onSelect(source.meta.id)}
-        className={`p-4 border rounded-xl transition-all text-left relative overflow-hidden bg-white dark:bg-zinc-900 ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
+        className={`p-4 min-h-[160px] border rounded-xl transition-all text-left overflow-hidden bg-white dark:bg-zinc-900 flex flex-col ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
         data-track="source.card_select"
         style={{ borderColor: theme.border }}
         disabled={isExtracting}
       >
-        {/* Badge - absolute positioned */}
-        {isInProgress ? (
-          <span
-            className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
-            style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
-          >
-            <ProcessingTimer createdAt={source.meta.createdAt} />
-          </span>
-        ) : isFailed ? (
-          <span
-            className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
-            style={{ backgroundColor: "#ef444415", color: "#ef4444" }}
-          >
-            Failed
-          </span>
-        ) : source.action && (
-          <span
-            className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium rounded-md whitespace-nowrap"
-            style={
-              source.action === "must_read"
-                ? {
-                    backgroundColor: `${palette[600]}30`,
-                    color: palette[700],
-                    border: `1.5px solid ${palette[600]}`,
-                  }
-                : source.action === "worth_reading"
-                ? {
-                    backgroundColor: `${palette[500]}20`,
-                    color: palette[600],
-                    border: `1px solid ${palette[500]}`,
-                  }
-                : {
-                    backgroundColor: `${getScoreColor(source.score ?? 50)}15`,
-                    color: getScoreColor(source.score ?? 50),
-                  }
-            }
-          >
-            {ACTION_CONFIG[source.action]?.label ?? source.action}
-          </span>
-        )}
-
-        {/* Header: Icon + Title */}
-        <div className="flex items-start gap-3 mb-2 pr-24">
+        {/* Source marker + status */}
+        <div className="flex items-center justify-between gap-3 mb-3 min-w-0">
           {isExtracting ? (
-            <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
+            <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
           ) : (
-            <SourceIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: iconColor }} />
+            <SourceIcon className="w-5 h-5 flex-shrink-0" style={{ color: iconColor }} />
           )}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium leading-snug line-clamp-2 text-sm" style={{ color: theme.text }}>
-              {source.meta.title}
-            </h3>
-            <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
-              {source.meta.sourceUrl && <>{new URL(source.meta.sourceUrl).hostname}</>}
-              {source.meta.sourceUrl && source.meta.createdAt && " · "}
-              {source.meta.createdAt && formatRelativeTime(source.meta.createdAt)}
-            </p>
-          </div>
+          <span className="min-w-0 flex-shrink">{badge}</span>
+        </div>
+
+        {/* Title */}
+        <div className="min-w-0 mb-3">
+          <h3 className="font-medium leading-snug line-clamp-2 break-words text-sm" style={{ color: theme.text }}>
+            {source.meta.title}
+          </h3>
+          <p className="text-xs mt-1 truncate" style={{ color: theme.textLight }}>
+            {source.meta.sourceUrl && <>{new URL(source.meta.sourceUrl).hostname}</>}
+            {source.meta.sourceUrl && source.meta.createdAt && " · "}
+            {source.meta.createdAt && formatRelativeTime(source.meta.createdAt)}
+          </p>
         </div>
 
         {/* Progress bar or status text */}
         {isInProgress ? (
           <ProcessingProgressBar stage={source.meta.processingStage!} color={palette[500]} mutedColor={theme.textMuted} />
         ) : isFailed ? (
-          <p className="text-xs ml-8" style={{ color: "#ef4444" }}>
+          <p className="text-xs" style={{ color: "#ef4444" }}>
             {source.meta.processingError || "Processing failed"}
           </p>
         ) : source.reason && (
-          <p className="text-xs line-clamp-2 ml-8" style={{ color: theme.textMuted }}>
+          <p className="text-xs line-clamp-2 break-words" style={{ color: theme.textMuted }}>
             {source.reason}
           </p>
         )}
