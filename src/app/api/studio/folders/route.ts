@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-
-function getStudioPath(): string {
-  const rootPath = process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
-  return path.join(rootPath, "studio");
-}
+import { getStudioPath } from "@/lib/storage";
 
 export async function GET(): Promise<NextResponse> {
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Plus, Copy, Check, Sun, Moon, Monitor, Bot, RefreshCw, Terminal, AlertCircle } from "lucide-react";
 import { theme } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
@@ -15,8 +15,9 @@ export interface SettingsModalProps {
   themeMode: ThemeMode;
   onThemeChange: (mode: ThemeMode) => void;
   rootPath: string;
-  debugLoadingMode: "none" | "analysis" | "connections";
-  onDebugModeChange: (mode: "none" | "analysis" | "connections") => void;
+  rootPathSource: "env" | "local" | "default";
+  rootPathLocked: boolean;
+  onRootPathChange?: (path: string) => Promise<{ success: boolean; message: string }>;
   palette: Record<number, string>;
   rssFeeds?: RssFeedSource[];
   onRssFeedsChange?: (feeds: RssFeedSource[]) => void;
@@ -51,15 +52,9 @@ const FONT_OPTIONS = [
   { id: "plus-jakarta-sans", name: "Plus Jakarta Sans" },
 ];
 
-const DEBUG_OPTIONS = [
-  { id: "none", label: "Off" },
-  { id: "analysis", label: "Analysis" },
-  { id: "connections", label: "Connections" },
-] as const;
-
 const RSS_PRESETS: RssFeedSource[] = DEFAULT_RSS_FEEDS;
 
-type Tab = "appearance" | "feed" | "agent" | "advanced";
+type Tab = "appearance" | "feed" | "agent";
 
 const AGENT_OPTIONS: AgentProvider[] = ["claude", "codex"];
 
@@ -71,8 +66,9 @@ export function SettingsModal({
   themeMode,
   onThemeChange,
   rootPath,
-  debugLoadingMode,
-  onDebugModeChange,
+  rootPathSource,
+  rootPathLocked,
+  onRootPathChange,
   palette,
   rssFeeds = [],
   onRssFeedsChange,
@@ -97,12 +93,31 @@ export function SettingsModal({
   const [newInterest, setNewInterest] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editedRootPath, setEditedRootPath] = useState(rootPath);
+  const [pathMessage, setPathMessage] = useState("");
+  const [isSavingPath, setIsSavingPath] = useState(false);
+
+  useEffect(() => {
+    setEditedRootPath(rootPath);
+  }, [rootPath]);
 
   const copyPath = () => {
     if (rootPath) {
       navigator.clipboard.writeText(rootPath);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const saveDataLocation = async () => {
+    if (!onRootPathChange || !editedRootPath.trim() || editedRootPath.trim() === rootPath) return;
+    setIsSavingPath(true);
+    setPathMessage("");
+    try {
+      const result = await onRootPathChange(editedRootPath.trim());
+      setPathMessage(result.message);
+    } finally {
+      setIsSavingPath(false);
     }
   };
 
@@ -197,7 +212,6 @@ export function SettingsModal({
               { id: "appearance" as Tab, label: "Appearance" },
               { id: "feed" as Tab, label: "Feed" },
               { id: "agent" as Tab, label: "Agent" },
-              { id: "advanced" as Tab, label: "Advanced" },
             ]).map((tab) => (
               <button
                 key={tab.id}
@@ -674,21 +688,21 @@ export function SettingsModal({
                 </p>
               </div>
             )}
-          </>
-        )}
 
-        {activeTab === "advanced" && (
-          <>
-            {/* Data Path */}
-            <div className="mb-5">
-              <label className="block text-sm font-medium mb-1">Data Location</label>
-              <div className="flex items-start gap-2">
-                <p className="text-sm break-all flex-1" style={{ color: theme.textMuted }}>{rootPath || "Loading..."}</p>
+            <div className="pt-5 border-t" style={{ borderColor: theme.border }}>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Data Location</label>
+                  <p className="text-xs text-gray-400">
+                    Sources, settings, tracking, and agent history live in this folder.
+                  </p>
+                </div>
                 {rootPath && (
                   <button
                     onClick={copyPath}
-                    className="p-1 rounded transition-colors flex-shrink-0 hover:opacity-70"
+                    className="p-1.5 rounded-lg border transition-colors hover:opacity-70"
                     title="Copy path"
+                    style={{ borderColor: theme.border }}
                   >
                     {copied ? (
                       <Check className="w-4 h-4 text-green-500" />
@@ -698,28 +712,33 @@ export function SettingsModal({
                   </button>
                 )}
               </div>
-            </div>
-
-            {/* Debug Loading Mode */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Debug: Loading UI Preview</label>
               <div className="flex gap-2">
-                {DEBUG_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => onDebugModeChange(option.id)}
-                    className="px-3 py-1.5 rounded-lg border text-sm transition-all"
-                    style={{
-                      borderColor: debugLoadingMode === option.id ? palette[500] : theme.border,
-                      backgroundColor: debugLoadingMode === option.id ? `${palette[500]}10` : "transparent",
-                      color: debugLoadingMode === option.id ? palette[600] : theme.textMuted,
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+                <input
+                  type="text"
+                  value={editedRootPath}
+                  onChange={(e) => setEditedRootPath(e.target.value)}
+                  disabled={rootPathLocked}
+                  className="flex-1 px-3 py-2 text-sm border rounded-lg disabled:opacity-60"
+                  style={{ borderColor: theme.border }}
+                />
+                <button
+                  onClick={saveDataLocation}
+                  disabled={rootPathLocked || isSavingPath || !editedRootPath.trim() || editedRootPath.trim() === rootPath}
+                  className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
+                  style={{ backgroundColor: palette[500] }}
+                >
+                  {isSavingPath ? "Saving..." : "Save"}
+                </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Preview loading states (select a source to see effect)</p>
+              <p className="text-xs mt-2" style={{ color: pathMessage ? palette[600] : theme.textMuted }}>
+                {pathMessage || (
+                  rootPathLocked
+                    ? "Controlled by SECONDBRAIN_ROOT for this process."
+                    : rootPathSource === "local"
+                      ? "Saved in .secondbrain.local.json."
+                      : "Using the default local user_data folder."
+                )}
+              </p>
             </div>
           </>
         )}

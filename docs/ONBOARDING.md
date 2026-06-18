@@ -4,7 +4,7 @@ This guide is intentionally more operational than the README. The README should 
 
 ## Recommended Setup
 
-Use the web app first:
+Use the web app:
 
 ```bash
 npm install
@@ -34,16 +34,6 @@ Currently supported:
 On first launch, Second Brain opens an Agent Mode gate. Choose a provider and confirm the CLI is connected before entering the workspace. The status check only runs `--version`; it does not send source content.
 
 If no provider is connected, the app should not open a reduced workspace. The product experience depends on agent-backed capture analysis, feed ranking, and Ask.
-
-## Choosing A Version
-
-| Version | Use it when | Current status |
-| --- | --- | --- |
-| Web app | You want the reliable contributor/developer path. | Recommended. |
-| Tauri app | You want to test the desktop direction. | Experimental. |
-| Chrome extension | You want one-click capture or logged-in page capture. | Optional companion. |
-
-The web app should be the default public recommendation until the desktop app has signing, update flow, app-data location, and extension communication polished.
 
 ## Chrome Extension
 
@@ -105,4 +95,3 @@ Sample data includes:
 - Do not commit prompt debug logs.
 - Keep `AGENTS.md` as the canonical contributor/agent instruction file.
 - Keep `CLAUDE.md` as a symlink to `AGENTS.md`.
-- Prefer web app onboarding until Tauri distribution is production-ready.

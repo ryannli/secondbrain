@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
-import { loadUserConfig, saveUserConfig, getCurrentRootPath, UserConfig } from "@/lib/storage";
+import {
+  getCurrentRootPath,
+  getRootPathSource,
+  isRootPathLocked,
+  loadUserConfig,
+  saveLocalRootPath,
+  saveUserConfig,
+  UserConfig,
+} from "@/lib/storage";
 import { isAgentProvider } from "@/lib/agentTypes";
 import path from "path";
+
+type ConfigPatch = Partial<UserConfig> & { rootPath?: string };
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -12,6 +22,8 @@ export async function GET(): Promise<NextResponse> {
       success: true,
       config: {
         rootPath,
+        rootPathSource: getRootPathSource(),
+        rootPathLocked: isRootPathLocked(),
         libraryPath: path.join(rootPath, "library"),
         ...userConfig,
       },
@@ -26,7 +38,7 @@ export async function GET(): Promise<NextResponse> {
 
 export async function PATCH(request: Request): Promise<NextResponse> {
   try {
-    const updates: Partial<UserConfig> = await request.json();
+    const updates: ConfigPatch = await request.json();
     if (updates.agentProvider !== undefined && !isAgentProvider(updates.agentProvider)) {
       return NextResponse.json(
         { success: false, error: "Invalid agent provider" },
@@ -35,10 +47,33 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     }
 
     const currentConfig = await loadUserConfig();
-    const newConfig = { ...currentConfig, ...updates };
-    await saveUserConfig(newConfig);
+    const { rootPath, ...configUpdates } = updates;
 
-    return NextResponse.json({ success: true, config: newConfig });
+    if (rootPath !== undefined) {
+      if (isRootPathLocked()) {
+        return NextResponse.json(
+          { success: false, error: "Data location is controlled by SECONDBRAIN_ROOT for this process" },
+          { status: 400 }
+        );
+      }
+
+      await saveLocalRootPath(rootPath);
+    }
+
+    const newConfig = { ...currentConfig, ...configUpdates };
+    await saveUserConfig(newConfig);
+    const currentRootPath = getCurrentRootPath();
+
+    return NextResponse.json({
+      success: true,
+      config: {
+        rootPath: currentRootPath,
+        rootPathSource: getRootPathSource(),
+        rootPathLocked: isRootPathLocked(),
+        libraryPath: path.join(currentRootPath, "library"),
+        ...newConfig,
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to save config" },

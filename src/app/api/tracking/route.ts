@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-
-function getRootPath(): string {
-  return process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
-}
+import { getCurrentRootPath } from "@/lib/storage";
 
 function getTrackingDir(): string {
-  return path.join(getRootPath(), ".tracking");
+  return path.join(getCurrentRootPath(), ".tracking");
 }
 
 function dateKey(date: Date): string {

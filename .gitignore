@@ -44,6 +44,7 @@ next-env.d.ts
 /src-tauri/target/
 
 # user data
+.secondbrain.local.json
 /user_data/
 /library/
 /studio/

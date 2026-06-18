@@ -1,17 +1,10 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
-import path from "path";
+import { getCurrentRootPath } from "@/lib/storage";
 import { getAgentChatCommand, getConfiguredAgentProvider } from "@/lib/agent";
 import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
 import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
 import { createCodexParseState, parseCodexEvent, type AgentStreamEvent } from "@/lib/agentChatEvents";
-
-/**
- * Get the user data root path - Agent's working directory
- */
-function getUserDataPath(): string {
-  return process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
-}
 
 interface ChatContext {
   text: string;
@@ -125,7 +118,7 @@ Be concise but thorough. Use markdown formatting when helpful.
 
     // Create streaming response using stream-json format
     // Agent runs in user_data directory (can read all, write to library/)
-    const userDataPath = getUserDataPath();
+    const userDataPath = getCurrentRootPath();
 
     let proc: ReturnType<typeof spawn> | null = null;
     let agentTimeout: ReturnType<typeof setTimeout> | null = null;

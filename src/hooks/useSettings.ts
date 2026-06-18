@@ -25,8 +25,9 @@ export function useSettings() {
   const [fontFamily, setFontFamily] = useState("outfit");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [rootPath, setRootPath] = useState("");
+  const [rootPathSource, setRootPathSource] = useState<"env" | "local" | "default">("default");
+  const [rootPathLocked, setRootPathLocked] = useState(false);
   const [libraryPath, setLibraryPath] = useState("");
-  const [debugLoadingMode, setDebugLoadingMode] = useState<"none" | "analysis" | "connections">("none");
   const [rssFeeds, setRssFeeds] = useState<RssFeedSource[]>(DEFAULT_RSS_FEEDS);
   const [searchSources, setSearchSources] = useState<string[]>(DEFAULT_SEARCH_SOURCES);
   const [feedInterests, setFeedInterests] = useState<string[]>([]);
@@ -54,6 +55,10 @@ export function useSettings() {
         if (data.config.rootPath) {
           setRootPath(data.config.rootPath);
         }
+        if (data.config.rootPathSource) {
+          setRootPathSource(data.config.rootPathSource);
+        }
+        setRootPathLocked(data.config.rootPathLocked === true);
         if (data.config.rssFeeds) {
           setRssFeeds(data.config.rssFeeds);
         }
@@ -196,6 +201,30 @@ export function useSettings() {
     }
   }, []);
 
+  const saveRootPath = async (nextRootPath: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rootPath: nextRootPath }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save data location");
+      }
+      if (data.config.rootPath) setRootPath(data.config.rootPath);
+      if (data.config.libraryPath) setLibraryPath(data.config.libraryPath);
+      if (data.config.rootPathSource) setRootPathSource(data.config.rootPathSource);
+      setRootPathLocked(data.config.rootPathLocked === true);
+      await loadAgentStatus();
+      return { success: true, message: "Data location saved." };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save data location";
+      console.error("Failed to save data location:", err);
+      return { success: false, message };
+    }
+  };
+
   const saveReadingSetting = async (key: string, value: string, setter: (v: string) => void) => {
     setter(value);
     try {
@@ -253,9 +282,10 @@ export function useSettings() {
     themeMode,
     saveTheme,
     rootPath,
+    rootPathSource,
+    rootPathLocked,
+    saveRootPath,
     libraryPath,
-    debugLoadingMode,
-    setDebugLoadingMode,
     palette,
     rssFeeds,
     saveRssFeeds,

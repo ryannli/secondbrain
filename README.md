@@ -42,17 +42,10 @@ Second Brain has three core surfaces:
 
 ## Recommended Path Today
 
-Use the **web version first**.
+Use the **web app**.
 
-It is the clearest open-source path: easy to run, easy to inspect, and easiest for contributors to debug.
-
-The Tauri desktop app is promising, but it should stay experimental until signing, update flow, app data location, and extension communication are more polished.
-
-| Version | Recommendation |
-| --- | --- |
-| Web app | Recommended for open-source users and contributors. |
-| Tauri app | Experimental local desktop shell. Good for testing packaging direction. |
-| Chrome extension | Optional companion for one-click and logged-in page capture. |
+It is the public open-source entrypoint: easy to run, easy to inspect, and easiest for contributors to debug.
+The Chrome extension is an optional companion for one-click and logged-in page capture, not a requirement for the first run.
 
 ## Chrome Extension
 
@@ -144,6 +137,8 @@ You can point it elsewhere:
 SECONDBRAIN_ROOT=~/SecondBrain npm run dev
 ```
 
+You can also change the data location from Settings when `SECONDBRAIN_ROOT` is not set. The local override is saved in `.secondbrain.local.json`, which should stay out of git.
+
 Do not commit your real `user_data/`. It can contain source text, prompt logs, preferences, reading history, and agent conversations.
 
 ## AI Agent Boundary
@@ -176,7 +171,7 @@ Current contributor guidance lives in [AGENTS.md](AGENTS.md). `CLAUDE.md` is a s
 
 ## Status
 
-Second Brain is an early local-first product. The web app is the recommended open-source entrypoint. Desktop packaging, extension distribution, and richer first-run onboarding are still evolving.
+Second Brain is an early local-first product. The web app is the recommended open-source entrypoint. Extension distribution and richer first-run onboarding are still evolving.
 
 ## License
 

@@ -94,9 +94,10 @@ function HomeContent() {
     themeMode,
     saveTheme,
     rootPath,
+    rootPathSource,
+    rootPathLocked,
+    saveRootPath,
     libraryPath,
-    debugLoadingMode,
-    setDebugLoadingMode,
     palette,
     rssFeeds,
     saveRssFeeds,
@@ -459,8 +460,9 @@ function HomeContent() {
         themeMode={themeMode}
         onThemeChange={saveTheme}
         rootPath={rootPath}
-        debugLoadingMode={debugLoadingMode}
-        onDebugModeChange={setDebugLoadingMode}
+        rootPathSource={rootPathSource}
+        rootPathLocked={rootPathLocked}
+        onRootPathChange={saveRootPath}
         palette={palette}
         rssFeeds={rssFeeds}
         onRssFeedsChange={saveRssFeeds}
@@ -662,7 +664,6 @@ function HomeContent() {
                 theme={theme}
                 getActionConfig={getActionConfig}
                 getScoreColor={getScoreColor}
-                debugLoadingMode={debugLoadingMode}
                 fontSize={fontSize}
                 headingStyle={headingStyle}
 

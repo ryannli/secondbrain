@@ -1,4 +1,6 @@
 import { promises as fs } from "fs";
+import { existsSync, readFileSync } from "fs";
+import os from "os";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
@@ -29,12 +31,78 @@ export interface UserConfig {
   headingStyle?: string;  // "clean" | "colored" | "accented"
 }
 
+export type RootPathSource = "env" | "local" | "default";
+
+interface LocalAppConfig {
+  rootPath?: string;
+}
+
+function getDefaultRootPath(): string {
+  return path.join(process.cwd(), "user_data");
+}
+
+function getLocalConfigPath(): string {
+  return process.env.SECONDBRAIN_LOCAL_CONFIG || path.join(process.cwd(), ".secondbrain.local.json");
+}
+
+export function resolveUserPath(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Data location is required");
+  }
+
+  const expanded = trimmed === "~" || trimmed.startsWith("~/")
+    ? path.join(os.homedir(), trimmed.slice(2))
+    : trimmed;
+
+  return path.resolve(expanded);
+}
+
+function readLocalAppConfig(): LocalAppConfig {
+  try {
+    const configPath = getLocalConfigPath();
+    if (!existsSync(configPath)) return {};
+    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as LocalAppConfig;
+    return raw && typeof raw === "object" ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Get the root path for Second Brain user data
  * Default: ./user_data (inside project, for easy debugging)
  */
 function getRootPath(): string {
-  return process.env.SECONDBRAIN_ROOT || path.join(process.cwd(), "user_data");
+  if (process.env.SECONDBRAIN_ROOT) {
+    return resolveUserPath(process.env.SECONDBRAIN_ROOT);
+  }
+
+  const localRootPath = readLocalAppConfig().rootPath;
+  if (localRootPath) {
+    return resolveUserPath(localRootPath);
+  }
+
+  return getDefaultRootPath();
+}
+
+export function getRootPathSource(): RootPathSource {
+  if (process.env.SECONDBRAIN_ROOT) return "env";
+  if (readLocalAppConfig().rootPath) return "local";
+  return "default";
+}
+
+export function isRootPathLocked(): boolean {
+  return Boolean(process.env.SECONDBRAIN_ROOT);
+}
+
+export async function saveLocalRootPath(rootPath: string): Promise<string> {
+  const resolvedRootPath = resolveUserPath(rootPath);
+  const configPath = getLocalConfigPath();
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  await fs.writeFile(configPath, JSON.stringify({ rootPath: resolvedRootPath }, null, 2), "utf-8");
+  await fs.mkdir(resolvedRootPath, { recursive: true });
+  return resolvedRootPath;
 }
 
 /**
