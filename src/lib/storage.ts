@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, ProcessingStage, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
 import { AnalysisSchema, OriginalDataSchema } from "./schemas";
 import type { AgentProvider } from "./agentTypes";
 
@@ -987,17 +987,9 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
 
       // Check if this directory is a source (has meta.json or original.json)
       if (await isEntryDirectory(fullPath)) {
-        // It's a source directory - load it
-        const source = await loadSourceFromPath(fullPath, entry.name);
-        if (source) {
-          // Set folder path (empty for root level)
-          source.meta.folder = relativePath || undefined;
-          summaries.push({
-            meta: source.meta,
-            score: source.analysis?.triage.score,
-            reason: source.analysis?.triage.reason,
-            action: source.analysis?.triage.action,
-          });
+        const summary = await loadSourceSummaryFromPath(fullPath, relativePath || undefined);
+        if (summary) {
+          summaries.push(summary);
         }
       } else {
         // Not a source directory - recurse into it
@@ -1012,6 +1004,106 @@ export async function listSourceSummaries(libraryPath = getLibraryPath()): Promi
   summaries.sort((a, b) => new Date(b.meta.createdAt).getTime() - new Date(a.meta.createdAt).getTime());
 
   return summaries;
+}
+
+async function loadSourceSummaryFromPath(
+  sourceDir: string,
+  folder?: string
+): Promise<SourceSummary | null> {
+  try {
+    const originalData = await readMetaJson(sourceDir);
+    const { status, error } = await getProcessingStatus(sourceDir);
+
+    let title = originalData.original_title;
+    let readStatus: "unread" | "read" | undefined;
+    let lastReadAt: string | undefined;
+    let totalReadTimeSeconds: number | undefined;
+    try {
+      const contentMd = await fs.readFile(path.join(sourceDir, "content.md"), "utf-8");
+      const parsed = parseContentMd(contentMd);
+      title = parsed.title;
+      readStatus = parsed.readStatus;
+      lastReadAt = parsed.lastReadAt;
+      totalReadTimeSeconds = parsed.totalReadTimeSeconds;
+    } catch {
+      // Content may still be processing.
+    }
+
+    let score: number | undefined;
+    let reason: string | undefined;
+    let action: ActionType | undefined;
+    let hasAnalysis = false;
+    let hasConnections = false;
+    let hasConnectionError = false;
+    let analysisError: string | undefined;
+    try {
+      const analysisJson = await fs.readFile(path.join(sourceDir, "analysis.json"), "utf-8");
+      const raw = JSON.parse(analysisJson) as {
+        triage?: {
+          score?: unknown;
+          reason?: unknown;
+          action?: unknown;
+        };
+        connections?: unknown;
+        connectionError?: unknown;
+      };
+      if (!raw.triage) {
+        analysisError = "Invalid analysis.json schema";
+      } else {
+        hasAnalysis = true;
+        score = typeof raw.triage.score === "number" ? raw.triage.score : undefined;
+        reason = typeof raw.triage.reason === "string" ? raw.triage.reason : undefined;
+        action = typeof raw.triage.action === "string" && raw.triage.action in ACTION_CONFIG
+          ? raw.triage.action as ActionType
+          : undefined;
+        hasConnections = Array.isArray(raw.connections);
+        hasConnectionError = typeof raw.connectionError === "string";
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        analysisError = `Invalid JSON in analysis.json: ${error.message}`;
+      }
+    }
+
+    let processingStage: ProcessingStage | undefined;
+    if (status === "failed") {
+      processingStage = undefined;
+    } else if (status === "processing") {
+      processingStage = "extracting";
+    } else if (!hasAnalysis && !analysisError) {
+      processingStage = "analyzing";
+    } else if (hasAnalysis && !hasConnections && !hasConnectionError) {
+      const ageMs = Date.now() - new Date(originalData.created_at).getTime();
+      processingStage = ageMs > 10 * 60 * 1000 ? "complete" : "connecting";
+    } else {
+      processingStage = "complete";
+    }
+
+    return {
+      meta: {
+        id: originalData.id,
+        title,
+        type: originalData.type,
+        sourceUrl: originalData.source_url,
+        createdAt: originalData.created_at,
+        folder,
+        processingStatus: status,
+        processingStage,
+        processingError: error,
+        analysisError,
+        readStatus,
+        lastReadAt,
+        totalReadTimeSeconds,
+        saved: originalData.saved,
+      },
+      score,
+      reason,
+      action,
+    };
+  } catch (error) {
+    console.error(`Failed to load source summary at ${sourceDir}:`, error);
+    return null;
+  }
 }
 
 /**
