@@ -72,13 +72,12 @@ Chrome does not allow a normal website or local app to silently install an unpac
 
 ```bash
 npm install
-npm run import:sample
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The sample import gives you a small working library with:
+On first launch, Second Brain seeds an empty data folder with a small working library:
 
 - `USER.md` preferences
 - two captured example documents
@@ -87,7 +86,7 @@ The sample import gives you a small working library with:
 - cross-source connections
 - RSS/search defaults
 
-The import is safe by default: it copies missing files into `user_data/` and skips files that already exist.
+The seed is safe by default: it only runs for an empty data folder and never overwrites existing files.
 
 For a guided setup flow, see [docs/ONBOARDING.md](docs/ONBOARDING.md).
 

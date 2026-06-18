@@ -86,6 +86,78 @@ function getRootPath(): string {
   return getDefaultRootPath();
 }
 
+function getSampleDataPath(): string {
+  return path.join(process.cwd(), "sample_data");
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function rootHasUserData(rootPath: string): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(rootPath);
+    return entries.some((entry) => entry !== ".DS_Store" && entry !== "Thumbs.db");
+  } catch {
+    return false;
+  }
+}
+
+async function copyMissingTree(src: string, dest: string): Promise<void> {
+  const stat = await fs.stat(src);
+
+  if (stat.isDirectory()) {
+    await fs.mkdir(dest, { recursive: true });
+    const entries = await fs.readdir(src);
+    await Promise.all(entries.map((entry) => copyMissingTree(path.join(src, entry), path.join(dest, entry))));
+    return;
+  }
+
+  if (await exists(dest)) return;
+
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.copyFile(src, dest);
+}
+
+const initializationPromises = new Map<string, Promise<void>>();
+
+export function clearUserDataInitializationCacheForTests(): void {
+  initializationPromises.clear();
+}
+
+export async function ensureUserDataInitialized(rootPath = getRootPath()): Promise<void> {
+  const resolvedRootPath = path.resolve(rootPath);
+  const existingPromise = initializationPromises.get(resolvedRootPath);
+  if (existingPromise) return existingPromise;
+
+  const promise = (async () => {
+    if (await rootHasUserData(resolvedRootPath)) {
+      return;
+    }
+
+    const samplePath = getSampleDataPath();
+    if (await exists(samplePath)) {
+      await copyMissingTree(samplePath, resolvedRootPath);
+      return;
+    }
+
+    await fs.mkdir(path.join(resolvedRootPath, "library"), { recursive: true });
+  })();
+
+  initializationPromises.set(resolvedRootPath, promise);
+  try {
+    await promise;
+  } catch (error) {
+    initializationPromises.delete(resolvedRootPath);
+    throw error;
+  }
+}
+
 export function getRootPathSource(): RootPathSource {
   if (process.env.SECONDBRAIN_ROOT) return "env";
   if (readLocalAppConfig().rootPath) return "local";
@@ -101,7 +173,7 @@ export async function saveLocalRootPath(rootPath: string): Promise<string> {
   const configPath = getLocalConfigPath();
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, JSON.stringify({ rootPath: resolvedRootPath }, null, 2), "utf-8");
-  await fs.mkdir(resolvedRootPath, { recursive: true });
+  await ensureUserDataInitialized(resolvedRootPath);
   return resolvedRootPath;
 }
 
@@ -130,6 +202,8 @@ function getConfigPath(): string {
  * Load user configuration
  */
 export async function loadUserConfig(): Promise<UserConfig> {
+  await ensureUserDataInitialized();
+
   try {
     const configPath = getConfigPath();
     const content = await fs.readFile(configPath, "utf-8");
@@ -169,6 +243,9 @@ export function getCurrentRootPath(): string {
 }
 
 export async function ensureLibraryExists(libraryPath = getLibraryPath()): Promise<void> {
+  if (path.resolve(libraryPath) === path.resolve(getLibraryPath())) {
+    await ensureUserDataInitialized();
+  }
   await fs.mkdir(libraryPath, { recursive: true });
 }
 
@@ -1732,13 +1809,13 @@ export async function renameFolder(
 }
 
 // =============================================================================
-// Profile Document Functions (USER.md, MEMORY.md)
+// Profile Document Functions (USER.md)
 // =============================================================================
 
 /**
- * Load a profile document (USER.md or MEMORY.md) from root
+ * Load the user-maintained profile document from root
  */
-export async function loadProfileDoc(name: "USER" | "MEMORY"): Promise<string> {
+export async function loadProfileDoc(name: "USER"): Promise<string> {
   try {
     const filePath = path.join(getRootPath(), `${name}.md`);
     return await fs.readFile(filePath, "utf-8");
@@ -1748,9 +1825,9 @@ export async function loadProfileDoc(name: "USER" | "MEMORY"): Promise<string> {
 }
 
 /**
- * Save a profile document (USER.md or MEMORY.md) to root
+ * Save the user-maintained profile document to root
  */
-export async function saveProfileDoc(name: "USER" | "MEMORY", content: string): Promise<void> {
+export async function saveProfileDoc(name: "USER", content: string): Promise<void> {
   const rootPath = getRootPath();
   await fs.mkdir(rootPath, { recursive: true });
   const filePath = path.join(rootPath, `${name}.md`);

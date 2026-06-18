@@ -8,7 +8,6 @@ Use the web app:
 
 ```bash
 npm install
-npm run import:sample
 npm run dev
 ```
 
@@ -18,7 +17,7 @@ Then open:
 http://localhost:3000
 ```
 
-The sample data creates a small ready-made brain under `user_data/` so the first screen is not empty.
+On first launch, Second Brain automatically creates a small ready-made brain under `user_data/` if the data folder is empty, so the first screen is not blank.
 
 ## Choosing An Agent Provider
 
@@ -70,31 +69,9 @@ Restart `npm run dev` after changing `.env.local`. Next.js loads environment var
 
 If the key is missing, the app should keep working and show an RSS-only notice instead of presenting the feed as broken. Never commit `.env.local`; commit `.env.example` only.
 
-## Sample Data
+## User Preferences
 
-Run:
-
-```bash
-npm run import:sample
-```
-
-The script copies missing files from `sample_data/` into `user_data/`. It does not overwrite existing files.
-
-Sample data includes:
-
-- `USER.md`
-- a minimal user-data `CLAUDE.md`
-- default feed config
-- default agent provider setting
-- two processed library entries
-- ready `analysis.json`
-- cross-source connections
-
-## USER.md And MEMORY.md
-
-`USER.md` should carry explicit user preferences and is useful in first-run onboarding.
-
-`MEMORY.md` is currently optional and advanced. It can be used for accumulated user/library memory, but it is not important enough to show during first-run setup yet. If it remains underused, merge its useful role into `USER.md` or hide it from the default UI.
+`USER.md` carries explicit user preferences. It is user-maintained, editable from the app, and included in agent prompts when present.
 
 ## Clean Public Repo Checklist
 

@@ -282,12 +282,12 @@ function HomeContent() {
 
   // Load profile doc from URL param
   useEffect(() => {
-    if (profileParam && (profileParam === "User" || profileParam === "Memory")) {
+    if (profileParam && profileParam === "User") {
       fetch(`/api/profile/${profileParam}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
-            setProfileDoc({ name: data.name === "USER" ? "User" : "Memory", content: data.content });
+            setProfileDoc({ name: "User", content: data.content });
           }
         })
         .catch((err) => console.error("Failed to load profile:", err));

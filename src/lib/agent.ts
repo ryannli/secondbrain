@@ -8,15 +8,12 @@ import { getCurrentRootPath, loadProfileDoc, loadUserConfig } from "./storage";
 const AGENT_TIMEOUT_MS = 10 * 60 * 1000;
 const STATUS_TIMEOUT_MS = 8 * 1000;
 
-let profileCache: { userProfile: string; memoryProfile: string } | null = null;
+let profileCache: { userProfile: string } | null = null;
 
-async function loadUserProfiles(): Promise<{ userProfile: string; memoryProfile: string }> {
+async function loadUserProfiles(): Promise<{ userProfile: string }> {
   if (!profileCache) {
-    const [userProfile, memoryProfile] = await Promise.all([
-      loadProfileDoc("USER").catch(() => ""),
-      loadProfileDoc("MEMORY").catch(() => ""),
-    ]);
-    profileCache = { userProfile, memoryProfile };
+    const userProfile = await loadProfileDoc("USER").catch(() => "");
+    profileCache = { userProfile };
   }
   return profileCache;
 }
@@ -35,10 +32,9 @@ export async function getConfiguredAgentProvider(): Promise<AgentProvider> {
 }
 
 async function buildPromptWithProfiles(prompt: string): Promise<string> {
-  const { userProfile, memoryProfile } = await loadUserProfiles();
+  const { userProfile } = await loadUserProfiles();
   const profileParts: string[] = [];
   if (userProfile) profileParts.push(`<user-preferences file="USER.md">\n${userProfile}\n</user-preferences>`);
-  if (memoryProfile) profileParts.push(`<user-memory file="MEMORY.md">\n${memoryProfile}\n</user-memory>`);
 
   return profileParts.length > 0
     ? `You MUST follow the instructions in <user-preferences>.\n\n${profileParts.join("\n\n")}\n\n${prompt}`
