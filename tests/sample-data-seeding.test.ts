@@ -5,6 +5,7 @@ import path from "path";
 import {
   clearUserDataInitializationCacheForTests,
   listSourceSummaries,
+  listStudioDocuments,
   loadUserConfig,
 } from "@/lib/storage";
 import { GET as getProfile } from "@/app/api/profile/[name]/route";
@@ -29,11 +30,20 @@ describe("sample data seeding", () => {
   it("automatically seeds an empty user data root on first config load", async () => {
     const config = await loadUserConfig();
     const summaries = await listSourceSummaries();
+    const studioDocuments = await listStudioDocuments();
     const userProfile = await fs.readFile(path.join(tmpRoot, "USER.md"), "utf-8");
+    const agentInstructions = await fs.readFile(path.join(tmpRoot, "AGENTS.md"), "utf-8");
+    const claudeStat = await fs.lstat(path.join(tmpRoot, "CLAUDE.md"));
+    const claudeTarget = await fs.readlink(path.join(tmpRoot, "CLAUDE.md"));
 
     expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     expect(userProfile).toContain("I use Second Brain");
+    expect(agentInstructions).toContain("Second Brain data folder");
+    expect(await fs.readFile(path.join(tmpRoot, "DataSchema.md"), "utf-8")).toContain("analysis.json");
+    expect(claudeStat.isSymbolicLink()).toBe(true);
+    expect(claudeTarget).toBe("AGENTS.md");
     expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
+    expect(studioDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
   });
 
   it("does not inject sample data into a non-empty user data root", async () => {

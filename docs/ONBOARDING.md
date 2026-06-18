@@ -17,7 +17,7 @@ Then open:
 http://localhost:3000
 ```
 
-On first launch, Second Brain automatically creates a small ready-made brain under `user_data/` if the data folder is empty, so the first screen is not blank.
+On first launch, Second Brain automatically creates a small ready-made brain under `user_data/` if the data folder is empty, so the first screen is not blank. The starter data includes library examples, one Studio synthesis, `USER.md`, `AGENTS.md`, a `CLAUDE.md` compatibility symlink, and `DataSchema.md`.
 
 ## Choosing An Agent Provider
 
@@ -79,4 +79,4 @@ If the key is missing, the app should keep working and show an RSS-only notice i
 - Keep `.env.local` out of git.
 - Keep agent prompt/response debug logs disabled unless you are actively developing with `SECONDBRAIN_AGENT_DEBUG_LOGS=1`.
 - Keep `AGENTS.md` as the canonical contributor/agent instruction file.
-- Keep `CLAUDE.md` as a symlink to `AGENTS.md`.
+- Keep `CLAUDE.md` as a symlink to `AGENTS.md` in both the repo root and seeded data folders.

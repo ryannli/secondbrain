@@ -93,7 +93,7 @@ function getSampleDataPath(): string {
 
 async function exists(filePath: string): Promise<boolean> {
   try {
-    await fs.access(filePath);
+    await fs.lstat(filePath);
     return true;
   } catch {
     return false;
@@ -110,7 +110,7 @@ async function rootHasUserData(rootPath: string): Promise<boolean> {
 }
 
 async function copyMissingTree(src: string, dest: string): Promise<void> {
-  const stat = await fs.stat(src);
+  const stat = await fs.lstat(src);
 
   if (stat.isDirectory()) {
     await fs.mkdir(dest, { recursive: true });
@@ -122,6 +122,16 @@ async function copyMissingTree(src: string, dest: string): Promise<void> {
   if (await exists(dest)) return;
 
   await fs.mkdir(path.dirname(dest), { recursive: true });
+  if (stat.isSymbolicLink()) {
+    const target = await fs.readlink(src);
+    try {
+      await fs.symlink(target, dest);
+    } catch {
+      await copyMissingTree(path.resolve(path.dirname(src), target), dest);
+    }
+    return;
+  }
+
   await fs.copyFile(src, dest);
 }
 

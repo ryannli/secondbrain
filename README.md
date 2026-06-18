@@ -80,7 +80,10 @@ Open [http://localhost:3000](http://localhost:3000).
 On first launch, Second Brain seeds an empty data folder with a small working library:
 
 - `USER.md` preferences
+- `AGENTS.md` data-folder instructions, with `CLAUDE.md` as a compatibility symlink
+- `DataSchema.md` for safe agent edits
 - two captured example documents
+- one example Studio synthesis document
 - processed `content.md`
 - ready `analysis.json`
 - cross-source connections

@@ -9,7 +9,7 @@ const targetRoot = process.env.SECONDBRAIN_ROOT || path.join(repoRoot, "user_dat
 
 async function exists(filePath) {
   try {
-    await fs.access(filePath);
+    await fs.lstat(filePath);
     return true;
   } catch {
     return false;
@@ -17,7 +17,7 @@ async function exists(filePath) {
 }
 
 async function copyMissing(src, dest, stats) {
-  const stat = await fs.stat(src);
+  const stat = await fs.lstat(src);
 
   if (stat.isDirectory()) {
     await fs.mkdir(dest, { recursive: true });
@@ -34,6 +34,17 @@ async function copyMissing(src, dest, stats) {
   }
 
   await fs.mkdir(path.dirname(dest), { recursive: true });
+  if (stat.isSymbolicLink()) {
+    const target = await fs.readlink(src);
+    try {
+      await fs.symlink(target, dest);
+      stats.copied += 1;
+    } catch {
+      await copyMissing(path.resolve(path.dirname(src), target), dest, stats);
+    }
+    return;
+  }
+
   await fs.copyFile(src, dest);
   stats.copied += 1;
 }
