@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { AGENT_CLI_PROVIDERS, buildAgentCommandSpec } from "@/lib/agentProviders";
+import { AGENT_CLI_PROVIDERS, buildAgentCommandSpec, resolveExecutableCommand } from "@/lib/agentProviders";
 import { getConfiguredAgentProvider } from "@/lib/agent";
 import { DEFAULT_AGENT_PROVIDER, isAgentProvider } from "@/lib/agentTypes";
 
@@ -47,7 +47,7 @@ describe("agent provider registry", () => {
   it("builds Codex text commands with read-only non-interactive execution", () => {
     const spec = buildAgentCommandSpec("codex", "text", { rootPath: "/brain" }, env({ PATH: "/bin" }));
 
-    expect(spec.command).toBe("codex");
+    expect(spec.command.endsWith("codex")).toBe(true);
     expect(spec.args).toEqual([
       "exec",
       "--cd", "/brain",
@@ -99,6 +99,29 @@ describe("agent provider registry", () => {
 
     expect(globalSpec.command).toBe("/custom/agent");
     expect(providerSpec.command).toBe("/custom/codex");
+  });
+
+  it("resolves a fallback executable when the command is not on PATH", async () => {
+    const fallbackPath = path.join(tmpRoot, "Codex.app", "Contents", "Resources", "codex");
+    await fs.mkdir(path.dirname(fallbackPath), { recursive: true });
+    await fs.writeFile(fallbackPath, "#!/bin/sh\nexit 0\n", "utf-8");
+    await fs.chmod(fallbackPath, 0o755);
+
+    expect(resolveExecutableCommand("codex", env({ PATH: "/bin" }), [fallbackPath])).toBe(fallbackPath);
+  });
+
+  it("prefers PATH over fallback executables", async () => {
+    const binDir = path.join(tmpRoot, "bin");
+    const pathCommand = path.join(binDir, "codex");
+    const fallbackPath = path.join(tmpRoot, "Codex.app", "Contents", "Resources", "codex");
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.mkdir(path.dirname(fallbackPath), { recursive: true });
+    await fs.writeFile(pathCommand, "#!/bin/sh\nexit 0\n", "utf-8");
+    await fs.writeFile(fallbackPath, "#!/bin/sh\nexit 0\n", "utf-8");
+    await fs.chmod(pathCommand, 0o755);
+    await fs.chmod(fallbackPath, 0o755);
+
+    expect(resolveExecutableCommand("codex", env({ PATH: binDir }), [fallbackPath])).toBe("codex");
   });
 
   it("classifies status results without spawning a CLI", () => {

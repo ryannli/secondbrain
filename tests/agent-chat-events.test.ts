@@ -24,6 +24,15 @@ describe("Codex chat event parser", () => {
     }, state)).toEqual([{ type: "text", content: " world" }]);
   });
 
+  it("emits final text from current Codex agent_message completions", () => {
+    const state = createCodexParseState();
+
+    expect(parseCodexEvent({
+      type: "item.completed",
+      item: { id: "item_0", type: "agent_message", text: "stream-ok" },
+    }, state)).toEqual([{ type: "text", content: "stream-ok" }]);
+  });
+
   it("maps command begin and end events to tool events", () => {
     const state = createCodexParseState();
 

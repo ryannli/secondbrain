@@ -1,4 +1,5 @@
 import path from "path";
+import { accessSync, constants } from "fs";
 import { AGENT_PROVIDER_DETAILS, AgentProvider, AgentStatus } from "./agentTypes";
 
 export type AgentChatEventFormat = "claude-stream-json" | "codex-jsonl";
@@ -38,6 +39,7 @@ export interface AgentCliProviderDefinition {
 }
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+const CODEX_COMMAND_FALLBACKS = ["/Applications/Codex.app/Contents/Resources/codex"];
 
 function passthroughEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return env;
@@ -49,6 +51,39 @@ function claudeEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return cleanEnv;
 }
 
+function isExecutable(filePath: string): boolean {
+  try {
+    accessSync(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function commandExistsOnPath(command: string, env: NodeJS.ProcessEnv): boolean {
+  if (path.isAbsolute(command) || command.includes(path.sep)) {
+    return isExecutable(command);
+  }
+
+  const pathValue = env.PATH ?? "";
+  return pathValue
+    .split(path.delimiter)
+    .filter(Boolean)
+    .some((dir) => isExecutable(path.join(dir, command)));
+}
+
+export function resolveExecutableCommand(
+  command: string,
+  env: NodeJS.ProcessEnv,
+  fallbacks: string[] = [],
+): string {
+  if (commandExistsOnPath(command, env)) {
+    return command;
+  }
+
+  return fallbacks.find(isExecutable) ?? command;
+}
+
 function resolveAgentCommand(
   provider: AgentProvider,
   env: NodeJS.ProcessEnv,
@@ -56,7 +91,11 @@ function resolveAgentCommand(
   if (env.SECONDBRAIN_AGENT_COMMAND) return env.SECONDBRAIN_AGENT_COMMAND;
   if (provider === "claude" && env.SECONDBRAIN_CLAUDE_COMMAND) return env.SECONDBRAIN_CLAUDE_COMMAND;
   if (provider === "codex" && env.SECONDBRAIN_CODEX_COMMAND) return env.SECONDBRAIN_CODEX_COMMAND;
-  return AGENT_PROVIDER_DETAILS[provider].command;
+  const command = AGENT_PROVIDER_DETAILS[provider].command;
+  if (provider === "codex") {
+    return resolveExecutableCommand(command, env, CODEX_COMMAND_FALLBACKS);
+  }
+  return command;
 }
 
 function classifyStatus(
