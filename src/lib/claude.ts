@@ -1,10 +1,10 @@
-import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import { Analysis, Highlight, Connection, Concept, FeedItem, InsightItem, StructuredBriefing, BriefingNewsItem, BriefingGoDeeper } from "./types";
 import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
-import { getLibraryPath, getCurrentRootPath, loadProfileDoc, listSourcesForConnections, SourceForConnections, findEntryPath } from "./storage";
+import { getLibraryPath, listSourcesForConnections, SourceForConnections, findEntryPath } from "./storage";
+import { callAgent, callAgentWithFileAccess, invalidateAgentProfileCache } from "./agent";
 import {
   promptGenerateTitle,
   promptGenerateBriefing,
@@ -22,111 +22,17 @@ import {
   promptAnalyzeConcepts,
 } from "./prompts";
 
-/**
- * Call Claude via CLI in print mode (async, non-blocking)
- */
-// Cache user profile docs for the lifetime of the process to avoid
-// reading from disk on every single Claude call.
-let _profileCache: { userProfile: string; memoryProfile: string } | null = null;
-
-async function loadUserProfiles(): Promise<{ userProfile: string; memoryProfile: string }> {
-  if (!_profileCache) {
-    const [userProfile, memoryProfile] = await Promise.all([
-      loadProfileDoc("USER").catch(() => ""),
-      loadProfileDoc("MEMORY").catch(() => ""),
-    ]);
-    _profileCache = { userProfile, memoryProfile };
-  }
-  return _profileCache;
-}
-
-// Call this when user edits their profile docs to invalidate the cache
+// Call this when user edits their profile docs to invalidate the agent context cache.
 export function invalidateProfileCache(): void {
-  _profileCache = null;
-}
-
-const CLAUDE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-
-async function callClaude(prompt: string, debugLabel?: string): Promise<string> {
-  // Prepend user profile context so all Claude calls respect user preferences
-  const { userProfile, memoryProfile } = await loadUserProfiles();
-  const profileParts: string[] = [];
-  if (userProfile) profileParts.push(`<user-preferences file="USER.md">\n${userProfile}\n</user-preferences>`);
-  if (memoryProfile) profileParts.push(`<user-memory file="MEMORY.md">\n${memoryProfile}\n</user-memory>`);
-  const fullPrompt = profileParts.length > 0
-    ? `You MUST follow the instructions in <user-preferences>.\n\n${profileParts.join("\n\n")}\n\n${prompt}`
-    : prompt;
-
-  const promptPreview = prompt.slice(0, 80).replace(/\n/g, " ");
-  console.log(`[callClaude] Starting: "${promptPreview}..."`);
-  console.log(`[callClaude] User profile: ${userProfile ? `${userProfile.length} chars` : "none"}, Memory: ${memoryProfile ? `${memoryProfile.length} chars` : "none"}`);
-  const startTime = Date.now();
-
-  // Debug: write full prompt and response to file
-  const debugDir = path.join(getCurrentRootPath(), ".debug");
-  const randomId = Math.random().toString(36).slice(2, 8);
-  const debugFile = path.join(debugDir, `claude-${debugLabel ?? "unknown"}-${randomId}.txt`);
-  await fs.mkdir(debugDir, { recursive: true });
-  await fs.writeFile(debugFile, `=== PROMPT ===\n${fullPrompt}\n`, "utf-8");
-  console.log(`[callClaude] Debug log: ${debugFile}`);
-
-  return new Promise((resolve, reject) => {
-    const { CLAUDECODE, ...cleanEnv } = process.env;
-    const proc = spawn("claude", ["--print", "--tools", "", "--output-format", "text"], {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: getCurrentRootPath(),
-      env: cleanEnv,
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let killed = false;
-
-    const timeout = setTimeout(() => {
-      killed = true;
-      proc.kill();
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      reject(new Error(`Claude timed out after ${elapsed}s: "${promptPreview}..."`));
-    }, CLAUDE_TIMEOUT_MS);
-
-    proc.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on("close", (code) => {
-      clearTimeout(timeout);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      if (killed) return; // already rejected
-      if (code === 0) {
-        console.log(`[callClaude] Done in ${elapsed}s (${stdout.length} chars)`);
-        fs.appendFile(debugFile, `\n=== RESPONSE ===\n${stdout}\n`).catch(() => {});
-        resolve(stdout.trim());
-      } else {
-        console.error(`[callClaude] Failed (code ${code}) in ${elapsed}s: ${stderr.slice(0, 200)}`);
-        reject(new Error(stderr || `Claude exited with code ${code}`));
-      }
-    });
-
-    proc.on("error", (err) => {
-      clearTimeout(timeout);
-      reject(err);
-    });
-
-    proc.stdin.write(fullPrompt);
-    proc.stdin.end();
-  });
+  invalidateAgentProfileCache();
 }
 
 /**
- * Parse JSON from Claude response
+ * Parse JSON from agent response
  * Strips markdown code blocks if present
  */
 function parseJsonResponse(response: string, context: string): Record<string, unknown> | null {
-  // Strip tool call/result XML blocks (Claude sometimes uses tools before answering)
+  // Strip tool call/result XML blocks (some agents use tools before answering)
   let jsonText = response
     .replace(/<tool_calls>[\s\S]*?<\/tool_calls>/g, "")
     .replace(/<tool_results>[\s\S]*?<\/tool_results>/g, "");
@@ -149,7 +55,7 @@ function parseJsonResponse(response: string, context: string): Record<string, un
   } catch (e) {
     const err = e as Error;
     // "Unexpected non-whitespace character after JSON at position N" —
-    // Claude output valid JSON followed by extra text. Truncate and retry.
+    // Agent output valid JSON followed by extra text. Truncate and retry.
     const posMatch = err.message.match(/after JSON at position (\d+)/);
     if (posMatch) {
       try {
@@ -166,7 +72,7 @@ function parseJsonResponse(response: string, context: string): Record<string, un
  */
 export async function generateTitle(content: string, sourceId?: string): Promise<string> {
   const prompt = promptGenerateTitle(content);
-  const title = await callClaude(prompt, `${sourceId ?? "unknown"}-generateTitle`);
+  const title = await callAgent(prompt, `${sourceId ?? "unknown"}-generateTitle`);
   return title.replace(/^["']|["']$/g, "").trim() || "Untitled Note";
 }
 
@@ -182,7 +88,7 @@ export async function extractReadableContent(html: string, sourceId?: string): P
     .replace(/\s{2,}/g, " ");
 
   const prompt = promptExtractContent(cleanedHtml.slice(0, 120000));
-  return await callClaude(prompt, `${sourceId ?? "unknown"}-extractContent`);
+  return await callAgent(prompt, `${sourceId ?? "unknown"}-extractContent`);
 }
 
 /**
@@ -190,11 +96,11 @@ export async function extractReadableContent(html: string, sourceId?: string): P
  */
 export async function formatTextContent(text: string, sourceId?: string): Promise<string> {
   const prompt = promptFormatText(text.slice(0, 30000));
-  return await callClaude(prompt, `${sourceId ?? "unknown"}-formatText`);
+  return await callAgent(prompt, `${sourceId ?? "unknown"}-formatText`);
 }
 
 /**
- * Analyze a file (image or PDF) using Claude's Read tool
+ * Analyze a file (image or PDF) using the configured agent
  * - Images: Uses vision capabilities to extract text (OCR) and understand content
  * - PDFs: Extracts text directly (for text PDFs) or uses vision (for scanned PDFs)
  *
@@ -212,8 +118,7 @@ export async function analyzeFile(
 
   const prompt = promptAnalyzeFile(filePath, isPDF);
 
-  // Call Claude with Read tool to analyze the file
-  const result = await callClaudeWithReadTool(prompt);
+  const result = await callAgentWithFileAccess(prompt, filePath);
 
   // Parse the response
   const titleMatch = result.match(/TITLE:\s*(.+?)(?:\n|$)/i);
@@ -225,49 +130,6 @@ export async function analyzeFile(
   return { title, content };
 }
 
-/**
- * Call Claude CLI with Read tool enabled (for reading local files including images)
- */
-async function callClaudeWithReadTool(prompt: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Use Read tool with permission-mode dontAsk to auto-accept file reads
-    const proc = spawn("claude", [
-      "--print",
-      "--tools", "Read",
-      "--output-format", "text",
-      "--permission-mode", "dontAsk"
-    ], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout.trim());
-      } else {
-        reject(new Error(stderr || `Claude exited with code ${code}`));
-      }
-    });
-
-    proc.on("error", (err) => {
-      reject(err);
-    });
-
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-  });
-}
-
 export async function analyzeContent(
   title: string,
   content: string,
@@ -277,7 +139,7 @@ export async function analyzeContent(
   const truncatedContent = content.slice(0, 20000) + (content.length > 20000 ? "\n\n[Content truncated...]" : "");
   const prompt = promptAnalyzeContent(title, truncatedContent, sourceUrl);
 
-  const responseText = await callClaude(prompt, `${sourceId ?? "unknown"}-analyzeContent`);
+  const responseText = await callAgent(prompt, `${sourceId ?? "unknown"}-analyzeContent`);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analysisData = parseJsonResponse(responseText, "analyzeContent") as any;
@@ -354,9 +216,9 @@ export async function findRelatedSources(
 
   const prompt = promptFindRelatedSources(newSourceSummary, sourcesContext);
 
-  console.log("[findRelatedSources] Calling Claude...");
-  const responseText = await callClaude(prompt, "findRelatedSources");
-  console.log("[findRelatedSources] Claude response:", responseText.slice(0, 300));
+  console.log("[findRelatedSources] Calling agent...");
+  const responseText = await callAgent(prompt, "findRelatedSources");
+  console.log("[findRelatedSources] Agent response:", responseText.slice(0, 300));
 
   try {
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
@@ -409,7 +271,7 @@ ${newSource.concepts.map((c) => `  - ${c.term}: ${c.definition}`).join("\n")}`;
 
   const prompt = promptAnalyzeConnections(newSource.title, newSourceContext, relatedContext, learnedContext);
 
-  const responseText = await callClaude(prompt, "analyzeConnections");
+  const responseText = await callAgent(prompt, "analyzeConnections");
 
   try {
     let jsonText = responseText;
@@ -463,7 +325,7 @@ export async function mergeSourceIntoConnections(
 
   const prompt = promptMergeConnections(targetSourceTitle, connectionsContext, newSource.id, newSource.title, newSource.summary);
 
-  const responseText = await callClaude(prompt, "mergeConnections");
+  const responseText = await callAgent(prompt, "mergeConnections");
 
   try {
     let jsonText = responseText;
@@ -538,7 +400,7 @@ export async function extractUserInterests(
     .join("\n\n");
 
   const prompt = promptExtractInterests(sourcesContext, sources.length, FEED_CONFIG.maxInterests);
-  const responseText = await callClaude(prompt, "extractInterests");
+  const responseText = await callAgent(prompt, "extractInterests");
 
   try {
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
@@ -665,7 +527,7 @@ export async function filterFeedItems(
         .join("\n");
 
       const prompt = promptFilterFeed(libraryContext, resultsContext, FEED_CONFIG.maxFeedItems, preferredSources, interactionContext, interests);
-      const responseText = await callClaude(prompt, "filterFeed");
+      const responseText = await callAgent(prompt, "filterFeed");
 
       const items: FeedItem[] = [];
       try {
@@ -758,7 +620,7 @@ export async function generateBriefing(
   const prompt = promptGenerateBriefing(libraryContext, feedContext, interactionContext, interests);
 
   try {
-    const responseText = await callClaude(prompt, "generateBriefing");
+    const responseText = await callAgent(prompt, "generateBriefing");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = parseJsonResponse(responseText, "generateBriefing") as any;
     if (!parsed) {
@@ -805,7 +667,7 @@ export async function generateInsights(
   const prompt = promptGenerateInsights(interactionContext, libraryContext, interests);
 
   try {
-    const responseText = await callClaude(prompt, "generateInsights");
+    const responseText = await callAgent(prompt, "generateInsights");
 
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
@@ -852,14 +714,14 @@ export async function extractTopicStream(): Promise<InterestStreamData> {
     return { topics: [], colors: [], weeks: [], data: [] };
   }
 
-  // Build context for Claude
+  // Build context for the agent
   const sourcesContext = sources.map((s, i) => {
     const concepts = s.concepts.map(c => c.term).join(", ");
     return `${i + 1}. ID: ${s.id} | Title: "${s.title}" | Summary: ${s.summary.slice(0, 120)} | Concepts: ${concepts || "none"}`;
   }).join("\n");
 
   const prompt = promptExtractTopics(sourcesContext);
-  const responseText = await callClaude(prompt, "extractTopics");
+  const responseText = await callAgent(prompt, "extractTopics");
 
   // Parse response
   const parsed = parseJsonResponse(responseText, "extractTopicStream");
@@ -1039,7 +901,7 @@ const CLUSTER_COLORS = [
 ];
 
 /**
- * Analyze concepts using Claude.
+ * Analyze concepts using the configured agent.
  * Groups concepts into semantic clusters for the word cloud visualization.
  */
 export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
@@ -1113,14 +975,14 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
     return { clusters: [], clusterColors: [], concepts: [] };
   }
 
-  // Build context for Claude
+  // Build context for the agent
   const conceptsContext = sorted.map(([, val], i) => {
     const statusStr = val.status ? ` | Status: ${val.status}` : "";
     return `${i}. ID: c${i} | Term: "${val.term}" | Definition: ${val.definition || "N/A"} | Sources: ${val.count}${statusStr}`;
   }).join("\n");
 
   const prompt = promptAnalyzeConcepts(conceptsContext);
-  const responseText = await callClaude(prompt, "analyzeConcepts");
+  const responseText = await callAgent(prompt, "analyzeConcepts");
 
   const parsed = parseJsonResponse(responseText, "analyzeConceptNetwork");
   if (!parsed || !Array.isArray(parsed.clusters) || !Array.isArray(parsed.concepts)) {
@@ -1142,7 +1004,7 @@ export async function analyzeConceptNetwork(): Promise<ConceptNetworkData> {
   const clusterColors = clusters.map((_, i) => CLUSTER_COLORS[i % CLUSTER_COLORS.length]);
   const clusterColorMap = new Map(clusters.map((c, i) => [c, clusterColors[i]]));
 
-  // Map Claude's assignments back to our concept data
+  // Map the agent's assignments back to our concept data
   const conceptAssignments = parsed.concepts as { id: string; cluster: string }[];
   const assignmentMap = new Map(conceptAssignments.map(c => [c.id, c.cluster]));
 

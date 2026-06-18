@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
+import { getAgentChatCommand, getConfiguredAgentProvider } from "@/lib/agent";
+import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
+import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
+import { createCodexParseState, parseCodexEvent, type AgentStreamEvent } from "@/lib/agentChatEvents";
 
 /**
  * Get the user data root path - Agent's working directory
@@ -17,21 +21,13 @@ interface ChatContext {
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
-  streamEvents?: StreamEvent[];
+  streamEvents?: AgentStreamEvent[];
 }
 
 // Stream event types sent to frontend (NDJSON format)
-type StreamEvent =
-  | { type: "text"; content: string }
-  | { type: "tool"; id: string; name: string; detail?: string }
-  | { type: "subtool"; parentId: string; name: string; detail?: string }
-  | { type: "result"; toolId: string; content: string }
-  | { type: "subtool_done"; parentId: string }
-  | { type: "error"; message: string };
-
 /**
  * POST /api/chat
- * Chat with Claude, with optional context (streaming response)
+ * Chat with the configured local agent, with optional context (streaming response)
  * Returns NDJSON stream of events
  */
 export async function POST(request: NextRequest) {
@@ -52,13 +48,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the prompt - detailed instructions are in user_data/CLAUDE.md
+    const provider = await getConfiguredAgentProvider();
+    const providerDetails = AGENT_PROVIDER_DETAILS[provider];
+    const chatEventFormat = AGENT_CLI_PROVIDERS[provider].chatEventFormat;
+
+    // Build the prompt - detailed instructions are in user_data/AGENTS.md or user_data/CLAUDE.md
     let prompt = `You are an Agent in a knowledge management app called "Second Brain".
 
 Your environment:
 - \`./library/\` - The content library (read and write)
 - \`./config.json\` - User settings (read only)
-- \`./CLAUDE.md\` - Your detailed instructions (read this for schemas and rules)
+- \`./AGENTS.md\` or \`./CLAUDE.md\` - Your detailed instructions if present
 
 Be concise but thorough. Use markdown formatting when helpful.
 `;
@@ -139,23 +139,17 @@ Be concise but thorough. Use markdown formatting when helpful.
         }
       },
       start(controller) {
-        proc = spawn("claude", [
-          "--print",
-          "--output-format", "stream-json",
-          "--verbose",
-          "--include-partial-messages",
-          "--permission-mode", "acceptEdits",
-          "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep,Task,WebSearch,WebFetch",
-          "--max-turns", "30",
-        ], {
+        const chatCommand = getAgentChatCommand(provider, userDataPath);
+        proc = spawn(chatCommand.command, chatCommand.args, {
           stdio: ["pipe", "pipe", "pipe"],
           cwd: userDataPath,
+          env: chatCommand.env,
         });
 
         // Kill process if it runs too long (10 minutes)
         const AGENT_TIMEOUT_MS = 10 * 60 * 1000;
         agentTimeout = setTimeout(() => {
-          console.error("[Claude Agent] Timed out after 10 minutes, killing process");
+          console.error(`[${providerDetails.label}] Timed out after 10 minutes, killing process`);
           sendEvent({ type: "error", message: "Agent timed out after 10 minutes" });
           proc!.kill();
         }, AGENT_TIMEOUT_MS);
@@ -167,8 +161,9 @@ Be concise but thorough. Use markdown formatting when helpful.
         let currentTaskId: string | null = null;
         // Track last tool for attaching results
         let lastToolId: string | null = null;
+        const codexState = createCodexParseState();
 
-        const sendEvent = (event: StreamEvent) => {
+        const sendEvent = (event: AgentStreamEvent) => {
           controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
         };
 
@@ -207,6 +202,13 @@ Be concise but thorough. Use markdown formatting when helpful.
             if (!line.trim()) continue;
             try {
               const event = JSON.parse(line);
+
+              if (chatEventFormat === "codex-jsonl") {
+                for (const parsedEvent of parseCodexEvent(event, codexState)) {
+                  sendEvent(parsedEvent);
+                }
+                continue;
+              }
 
               // Extract text from content_block_delta events
               if (
@@ -283,13 +285,13 @@ Be concise but thorough. Use markdown formatting when helpful.
         });
 
         proc!.stderr!.on("data", (data) => {
-          console.error("[Claude stderr]:", data.toString());
+          console.error(`[${providerDetails.shortLabel} stderr]:`, data.toString());
         });
 
         proc!.on("close", (code) => {
           if (agentTimeout) clearTimeout(agentTimeout);
           if (code !== 0) {
-            sendEvent({ type: "error", message: `Claude exited with code ${code}` });
+            sendEvent({ type: "error", message: `${providerDetails.label} exited with code ${code}` });
           }
           controller.close();
         });

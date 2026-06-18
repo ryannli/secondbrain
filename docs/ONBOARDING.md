@@ -20,6 +20,21 @@ http://localhost:3000
 
 The sample data creates a small ready-made brain under `user_data/` so the first screen is not empty.
 
+## Choosing An Agent Provider
+
+Second Brain does not require Claude Code specifically. It needs one local agent CLI for AI analysis and the Ask panel.
+
+Currently supported:
+
+| Provider | Command | Use it when |
+| --- | --- | --- |
+| Claude Code | `claude` | You already use Claude Code locally. |
+| OpenAI Codex | `codex` | You already use Codex CLI or OpenAI login. |
+
+On first launch, Second Brain opens an Agent Mode gate. Choose a provider and confirm the CLI is connected before entering the workspace. The status check only runs `--version`; it does not send source content.
+
+If no provider is connected, the app should not open a reduced workspace. The product experience depends on agent-backed capture analysis, feed ranking, and Ask.
+
 ## Choosing A Version
 
 | Version | Use it when | Current status |
@@ -72,6 +87,7 @@ Sample data includes:
 - `USER.md`
 - a minimal user-data `CLAUDE.md`
 - default feed config
+- default agent provider setting
 - two processed library entries
 - ready `analysis.json`
 - cross-source connections

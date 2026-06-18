@@ -51,7 +51,7 @@ export async function processSourceInBackground(
     console.log(`[${id}] Saving content (progressive step 1)...`);
     await saveSourceContent(id, content, extractedTitle);
 
-    // Step 2: Analyze with Claude
+    // Step 2: Analyze with the configured agent
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, url, id);
 
@@ -85,7 +85,7 @@ export async function processFileInBackground(
 
     // Step 1: Extract content from file
     if (sourceType === "image" || sourceType === "document") {
-      console.log(`[${id}] Analyzing ${sourceType} with Claude...`);
+      console.log(`[${id}] Analyzing ${sourceType} with agent...`);
       const fileResult = await analyzeFile(id, originalFileName);
       content = fileResult.content;
       extractedTitle = fileResult.title;
@@ -99,7 +99,7 @@ export async function processFileInBackground(
     console.log(`[${id}] Saving content (progressive step 1)...`);
     await saveSourceContent(id, content, extractedTitle);
 
-    // Step 2: Analyze with Claude
+    // Step 2: Analyze with the configured agent
     console.log(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, undefined, id);
 

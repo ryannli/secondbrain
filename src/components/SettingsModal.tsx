@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus, Copy, Check, Sun, Moon, Monitor } from "lucide-react";
+import { X, Plus, Copy, Check, Sun, Moon, Monitor, Bot, RefreshCw, Terminal, AlertCircle } from "lucide-react";
 import { theme } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 import { DEFAULT_RSS_FEEDS, SUGGESTED_SEARCH_SOURCES } from "@/lib/config";
+import { AGENT_PROVIDER_DETAILS, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -23,6 +24,11 @@ export interface SettingsModalProps {
   onSearchSourcesChange?: (sources: string[]) => void;
   feedInterests?: string[];
   onFeedInterestsChange?: (interests: string[]) => void;
+  agentProvider?: AgentProvider;
+  onAgentProviderChange?: (provider: AgentProvider) => void;
+  agentStatuses?: Record<AgentProvider, AgentStatus> | null;
+  agentStatusLoading?: boolean;
+  onRefreshAgentStatus?: () => void;
   // Reading customization
   fontSize?: string;
   onFontSizeChange?: (size: string) => void;
@@ -53,7 +59,9 @@ const DEBUG_OPTIONS = [
 
 const RSS_PRESETS: RssFeedSource[] = DEFAULT_RSS_FEEDS;
 
-type Tab = "appearance" | "feed" | "advanced";
+type Tab = "appearance" | "feed" | "agent" | "advanced";
+
+const AGENT_OPTIONS: AgentProvider[] = ["claude", "codex"];
 
 export function SettingsModal({
   isOpen,
@@ -72,6 +80,11 @@ export function SettingsModal({
   onSearchSourcesChange,
   feedInterests = [],
   onFeedInterestsChange,
+  agentProvider = "claude",
+  onAgentProviderChange,
+  agentStatuses,
+  agentStatusLoading = false,
+  onRefreshAgentStatus,
   fontSize = "sm",
   onFontSizeChange,
   headingStyle = "clean",
@@ -107,6 +120,17 @@ export function SettingsModal({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const selectedAgentStatus = agentStatuses?.[agentProvider];
+  const selectedAgentDetails = AGENT_PROVIDER_DETAILS[agentProvider];
+  const selectedAgentReady = selectedAgentStatus?.state === "ready";
+
+  const agentStateStyle = (status?: AgentStatus) => {
+    if (!status) return { label: "Checking", color: theme.textMuted, background: "rgba(148, 163, 184, 0.12)" };
+    if (status.state === "ready") return { label: "Connected", color: palette[700], background: `${palette[500]}15` };
+    if (status.state === "missing") return { label: "Not installed", color: "#b45309", background: "rgba(245, 158, 11, 0.12)" };
+    return { label: "Needs attention", color: "#b91c1c", background: "rgba(239, 68, 68, 0.12)" };
   };
 
   // RSS feed helpers
@@ -172,6 +196,7 @@ export function SettingsModal({
             {([
               { id: "appearance" as Tab, label: "Appearance" },
               { id: "feed" as Tab, label: "Feed" },
+              { id: "agent" as Tab, label: "Agent" },
               { id: "advanced" as Tab, label: "Advanced" },
             ]).map((tab) => (
               <button
@@ -542,6 +567,111 @@ export function SettingsModal({
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">Subreddit feeds: <code className="text-xs">reddit.com/r/SUBREDDIT/.rss</code></p>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === "agent" && (
+          <>
+            <div className="mb-5">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Agent Provider</label>
+                  <p className="text-xs text-gray-400">Used for capture analysis, feed ranking, and the Ask panel.</p>
+                </div>
+                <button
+                  onClick={onRefreshAgentStatus}
+                  disabled={agentStatusLoading}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50"
+                  style={{ borderColor: theme.border, color: theme.textMuted }}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${agentStatusLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+
+              <div
+                className="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 mb-3"
+                style={{ borderColor: selectedAgentReady ? palette[500] : theme.border, backgroundColor: selectedAgentReady ? `${palette[500]}08` : "transparent" }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: agentStateStyle(selectedAgentStatus).background }}
+                  >
+                    {selectedAgentReady ? (
+                      <Bot className="w-4 h-4" style={{ color: agentStateStyle(selectedAgentStatus).color }} />
+                    ) : (
+                      <AlertCircle className="w-4 h-4" style={{ color: agentStateStyle(selectedAgentStatus).color }} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{selectedAgentDetails.label}</div>
+                    <div className="text-xs truncate" style={{ color: theme.textMuted }}>
+                      {selectedAgentStatus?.message ?? "Checking local CLI status..."}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className="px-2 py-1 rounded-full text-xs font-medium flex-shrink-0"
+                  style={{
+                    color: agentStateStyle(selectedAgentStatus).color,
+                    backgroundColor: agentStateStyle(selectedAgentStatus).background,
+                  }}
+                >
+                  {agentStateStyle(selectedAgentStatus).label}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {AGENT_OPTIONS.map((provider) => {
+                  const details = AGENT_PROVIDER_DETAILS[provider];
+                  const status = agentStatuses?.[provider];
+                  const state = agentStateStyle(status);
+                  const isSelected = agentProvider === provider;
+                  return (
+                    <button
+                      key={provider}
+                      onClick={() => onAgentProviderChange?.(provider)}
+                      className="text-left rounded-lg border px-3 py-3 transition-all"
+                      style={{
+                        borderColor: isSelected ? palette[500] : theme.border,
+                        backgroundColor: isSelected ? `${palette[500]}10` : "transparent",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                          <Terminal className="w-3.5 h-3.5" />
+                          {details.label}
+                        </span>
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: status?.state === "ready" ? palette[500] : state.color }}
+                        />
+                      </div>
+                      <div className="text-xs mb-1" style={{ color: theme.textMuted }}>
+                        Command: <code>{status?.command ?? details.command}</code>
+                      </div>
+                      <div className="text-xs" style={{ color: state.color }}>
+                        {status?.version || state.label}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {!selectedAgentReady && (
+              <div
+                className="rounded-lg border px-3 py-3 text-sm"
+                style={{ borderColor: "rgba(245, 158, 11, 0.35)", backgroundColor: "rgba(245, 158, 11, 0.08)", color: theme.text }}
+              >
+                <div className="font-medium mb-1">Agent is not ready</div>
+                <p className="text-xs leading-relaxed" style={{ color: theme.textMuted }}>
+                  Install and sign in to {selectedAgentDetails.label}, or choose another connected provider above.
+                  RSS reading and manual browsing still work, but AI analysis and Ask need a local CLI provider.
+                </p>
               </div>
             )}
           </>

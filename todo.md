@@ -27,8 +27,9 @@
 ### Compromises (revisit before launch / scaling)
 - **Port auto-detect**: Extension tries 3000 then 41932 sequentially (500ms timeout each). Works for single user but adds up to 500ms latency if first port is down. Replace with Chrome Native Messaging for production.
 - **Port conflict**: 41932 could theoretically be taken. No fallback — user gets an error on Tauri startup.
-- **Claude CLI dependency**: Must be installed separately. Future: replace with a general agent / direct API calls.
+- **Agent CLI dependency**: Claude Code or Codex CLI must be installed separately. Future providers should plug into the agent provider layer.
 
 ### Known Risks
-- `claude` CLI must be installed separately — cannot bundle it
+- A local agent CLI must be installed separately — cannot bundle Claude Code or Codex
+- Agent Mode gate blocks the workspace until a provider is connected
 - Brave Search API key still needed for feed (optional feature)

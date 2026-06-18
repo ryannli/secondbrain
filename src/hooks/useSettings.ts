@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { generatePalette } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 import { DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES } from "@/lib/config";
+import { DEFAULT_AGENT_PROVIDER, isAgentProvider, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
 
 // Apply theme class to <html> element
 function applyTheme(mode: ThemeMode) {
@@ -29,6 +30,10 @@ export function useSettings() {
   const [rssFeeds, setRssFeeds] = useState<RssFeedSource[]>(DEFAULT_RSS_FEEDS);
   const [searchSources, setSearchSources] = useState<string[]>(DEFAULT_SEARCH_SOURCES);
   const [feedInterests, setFeedInterests] = useState<string[]>([]);
+  const [agentModeEnabled, setAgentModeEnabled] = useState(false);
+  const [agentProvider, setAgentProvider] = useState<AgentProvider>(DEFAULT_AGENT_PROVIDER);
+  const [agentStatuses, setAgentStatuses] = useState<Record<AgentProvider, AgentStatus> | null>(null);
+  const [agentStatusLoading, setAgentStatusLoading] = useState(false);
   const [fontSize, setFontSize] = useState("sm");
   const [headingStyle, setHeadingStyle] = useState("clean");
 
@@ -57,6 +62,10 @@ export function useSettings() {
         }
         if (data.config.feedInterests) {
           setFeedInterests(data.config.feedInterests);
+        }
+        setAgentModeEnabled(data.config.agentModeEnabled === true);
+        if (isAgentProvider(data.config.agentProvider)) {
+          setAgentProvider(data.config.agentProvider);
         }
         if (data.config.theme) {
           setThemeModeState(data.config.theme);
@@ -134,6 +143,59 @@ export function useSettings() {
     }
   };
 
+  const saveAgentProvider = async (provider: AgentProvider) => {
+    setAgentProvider(provider);
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentProvider: provider }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save agent provider");
+      }
+      await loadAgentStatus();
+    } catch (err) {
+      console.error("Failed to save agent provider:", err);
+    }
+  };
+
+  const saveAgentModeEnabled = async (enabled: boolean) => {
+    setAgentModeEnabled(enabled);
+    try {
+      const res = await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentModeEnabled: enabled }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save Agent Mode");
+      }
+    } catch (err) {
+      console.error("Failed to save Agent Mode:", err);
+    }
+  };
+
+  const loadAgentStatus = useCallback(async () => {
+    setAgentStatusLoading(true);
+    try {
+      const res = await fetch("/api/agent/status");
+      const data = await res.json();
+      if (data.success) {
+        setAgentStatuses(data.statuses);
+        if (isAgentProvider(data.selectedProvider)) {
+          setAgentProvider(data.selectedProvider);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load agent status:", err);
+    } finally {
+      setAgentStatusLoading(false);
+    }
+  }, []);
+
   const saveReadingSetting = async (key: string, value: string, setter: (v: string) => void) => {
     setter(value);
     try {
@@ -169,7 +231,8 @@ export function useSettings() {
   // Load config on mount
   useEffect(() => {
     loadConfig();
-  }, []);
+    loadAgentStatus();
+  }, [loadAgentStatus]);
 
   // Listen for system theme changes when in "system" mode
   useEffect(() => {
@@ -200,6 +263,13 @@ export function useSettings() {
     saveSearchSources,
     feedInterests,
     saveFeedInterests,
+    agentModeEnabled,
+    saveAgentModeEnabled,
+    agentProvider,
+    saveAgentProvider,
+    agentStatuses,
+    agentStatusLoading,
+    loadAgentStatus,
     fontSize,
     saveFontSize: (v: string) => saveReadingSetting("fontSize", v, setFontSize),
     headingStyle,

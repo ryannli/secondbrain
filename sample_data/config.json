@@ -1,6 +1,7 @@
 {
   "fontFamily": "outfit",
   "theme": "light",
+  "agentProvider": "claude",
   "fontSize": "sm",
   "headingStyle": "clean",
   "feedInterests": ["AI agents", "local-first software", "knowledge workflows"],

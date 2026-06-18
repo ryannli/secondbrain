@@ -146,12 +146,21 @@ SECONDBRAIN_ROOT=~/SecondBrain npm run dev
 
 Do not commit your real `user_data/`. It can contain source text, prompt logs, preferences, reading history, and agent conversations.
 
-## AI Model Boundary
+## AI Agent Boundary
 
-Second Brain currently calls Claude Code CLI through a subprocess. That means:
+Second Brain calls a local agent CLI through a subprocess. The app currently supports:
 
-- content may be sent through your authenticated Claude Code session for analysis
-- no separate Anthropic API key is required for core analysis
+- Claude Code via `claude`
+- OpenAI Codex via `codex`
+
+Claude Code is not required. Choose the provider you already use in Agent Mode setup or Settings.
+
+Agent Mode is required. If no provider is connected, Second Brain shows the setup gate instead of opening a reduced workspace. The first-run experience should reflect the complete product, not a partial reader.
+
+That means:
+
+- content may be sent through your authenticated local agent session for analysis
+- no separate model API key is required for core analysis
 - `BRAVE_SEARCH_API_KEY` is only for optional feed search
 - debug prompt logs may contain sensitive source text if debug logging is enabled
 

@@ -177,10 +177,13 @@ Status is **inferred from file existence**, not stored:
 
 - Next.js + TypeScript + Tailwind CSS
 - File operations server-side only
-- **Agent integration**: Calls Claude Code CLI directly via subprocess
-  - Uses `claude --print --output-format json`-style non-interactive mode
-  - Legitimately uses Claude Code subscription (no API key needed)
-  - Note: OAuth tokens cannot be used directly (Anthropic blocked external use)
+- **Agent integration**: Calls a configured local agent CLI via subprocess
+  - Supported providers: Claude Code (`claude`) and OpenAI Codex (`codex`)
+  - Provider selection lives in `config.json` as `agentProvider`
+  - Agent Mode is mandatory before entering the workspace
+  - Keep provider-specific spawn arguments inside the agent provider layer
+  - Core app code should call the provider abstraction, not `claude` or `codex` directly
+  - If adopting ACP later, add it as a provider adapter; do not make app business logic ACP-dependent
 
 ---
 

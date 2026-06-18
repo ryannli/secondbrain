@@ -11,6 +11,7 @@ import { FeedSection } from "@/components/FeedSection";
 import { HistorySection } from "@/components/HistorySection";
 import { Header } from "@/components/Header";
 import { SettingsModal } from "@/components/SettingsModal";
+import { AgentModeGate } from "@/components/AgentModeGate";
 import { ContextMenu } from "@/components/ContextMenu";
 import { Sidebar } from "@/components/Sidebar";
 import { useSettings } from "@/hooks/useSettings";
@@ -103,6 +104,13 @@ function HomeContent() {
     saveSearchSources,
     feedInterests,
     saveFeedInterests,
+    agentModeEnabled,
+    saveAgentModeEnabled,
+    agentProvider,
+    saveAgentProvider,
+    agentStatuses,
+    agentStatusLoading,
+    loadAgentStatus,
     fontSize,
     saveFontSize,
     headingStyle,
@@ -118,6 +126,9 @@ function HomeContent() {
 
   // History
   const history = useHistory();
+
+  const selectedAgentStatus = agentStatuses?.[agentProvider];
+  const canEnterWorkspace = agentModeEnabled && selectedAgentStatus?.state === "ready";
 
   // Context menu
   const {
@@ -412,13 +423,33 @@ function HomeContent() {
     handleFolderContextMenu(e, folderPath, folderName, "studio");
   };
 
+  if (!canEnterWorkspace) {
+    return (
+      <AgentModeGate
+        palette={palette}
+        agentProvider={agentProvider}
+        onAgentProviderChange={saveAgentProvider}
+        agentStatuses={agentStatuses}
+        agentStatusLoading={agentStatusLoading}
+        onRefreshAgentStatus={loadAgentStatus}
+        onEnableAgentMode={() => saveAgentModeEnabled(true)}
+      />
+    );
+  }
+
   return (
     <div
       className="h-screen overflow-hidden flex flex-col"
       style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: `var(--font-${fontFamily})` }}
     >
       <TrackingProvider />
-      <Header palette={palette} onOpenSettings={() => setIsSettingsOpen(true)} />
+      <Header
+        palette={palette}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        agentProvider={agentProvider}
+        agentStatus={agentStatuses?.[agentProvider]}
+        agentStatusLoading={agentStatusLoading}
+      />
 
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -437,6 +468,11 @@ function HomeContent() {
         onSearchSourcesChange={saveSearchSources}
         feedInterests={feedInterests}
         onFeedInterestsChange={saveFeedInterests}
+        agentProvider={agentProvider}
+        onAgentProviderChange={saveAgentProvider}
+        agentStatuses={agentStatuses}
+        agentStatusLoading={agentStatusLoading}
+        onRefreshAgentStatus={loadAgentStatus}
         fontSize={fontSize}
         onFontSizeChange={saveFontSize}
         headingStyle={headingStyle}

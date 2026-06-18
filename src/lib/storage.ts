@@ -3,6 +3,7 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
 import { AnalysisSchema, OriginalDataSchema } from "./schemas";
+import type { AgentProvider } from "./agentTypes";
 
 /**
  * User configuration stored in config.json
@@ -22,6 +23,8 @@ export interface UserConfig {
   rssFeeds?: RssFeedSource[];   // RSS feeds fetched directly
   searchSources?: string[];     // Domains for Brave Search
   feedInterests?: string[]; // Search terms for feed (e.g., ["AI agents", "startups"])
+  agentModeEnabled?: boolean; // Must be enabled before entering the app
+  agentProvider?: AgentProvider; // Local CLI provider used for AI analysis and chat
   fontSize?: string;      // "sm" | "base" | "lg"
   headingStyle?: string;  // "clean" | "colored" | "accented"
 }
