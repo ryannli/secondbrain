@@ -57,10 +57,18 @@ Second Brain works without Brave Search. In that mode, the feed uses RSS-only de
 To enable broader web search:
 
 ```bash
-BRAVE_SEARCH_API_KEY=... npm run dev
+cp .env.example .env.local
 ```
 
-If the key is missing, the app should keep working and show an RSS-only notice instead of presenting the feed as broken.
+Then paste your Brave Search API key into `.env.local`:
+
+```bash
+BRAVE_SEARCH_API_KEY=your_key_here
+```
+
+Restart `npm run dev` after changing `.env.local`. Next.js loads environment variables at server startup, so running `export BRAVE_SEARCH_API_KEY=...` in a shell is only temporary and easy to lose.
+
+If the key is missing, the app should keep working and show an RSS-only notice instead of presenting the feed as broken. Never commit `.env.local`; commit `.env.example` only.
 
 ## Sample Data
 

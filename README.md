@@ -103,10 +103,11 @@ The feed works in RSS-only mode by default. New installs start with a small set 
 Search is optional. Add a Brave Search API key only when you want broader web coverage:
 
 ```bash
-BRAVE_SEARCH_API_KEY=...
+cp .env.example .env.local
 ```
 
-Without that key, Second Brain still runs the feed from RSS and shows a clear RSS-only notice.
+Then open `.env.local`, paste your key into `BRAVE_SEARCH_API_KEY`, and restart `npm run dev`.
+Do not commit `.env.local`; it is intentionally ignored. Without that key, Second Brain still runs the feed from RSS and shows a clear RSS-only notice.
 
 ## Data Model
 

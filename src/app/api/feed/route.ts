@@ -142,7 +142,7 @@ async function generateFeed() {
   const feedInterests = config.feedInterests ?? [];
   const searchConfigured = Boolean(process.env.BRAVE_SEARCH_API_KEY);
   const rssOnlyMessage = !searchConfigured && feedInterests.length > 0 && searchSources.length > 0
-    ? "Search API key is not configured, so this feed is running in RSS-only mode. Add BRAVE_SEARCH_API_KEY to enable web search."
+    ? "Search API key is not configured, so this feed is running in RSS-only mode. Add BRAVE_SEARCH_API_KEY to .env.local and restart the dev server to enable web search."
     : undefined;
   console.log(`[generateFeed] RSS feeds:`, rssFeeds.map(f => f.label));
   console.log(`[generateFeed] Search sources:`, searchSources);
