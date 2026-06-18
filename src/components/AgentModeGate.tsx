@@ -83,20 +83,20 @@ export function AgentModeGate({
                 <button
                   key={provider}
                   onClick={() => onAgentProviderChange(provider)}
-                  className="text-left rounded-lg border px-4 py-4 transition-all"
+                  className="text-left rounded-lg border px-4 py-4 transition-all min-w-0 overflow-hidden"
                   style={{
                     borderColor: isSelected ? palette[500] : theme.border,
                     backgroundColor: isSelected ? `${palette[500]}0F` : "transparent",
                   }}
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
+                    <div className="min-w-0">
                       <div className="inline-flex items-center gap-2 font-medium">
                         <Terminal className="w-4 h-4" />
                         {details.label}
                       </div>
-                      <div className="text-xs mt-1" style={{ color: theme.textMuted }}>
-                        Command: <code>{status?.command ?? details.command}</code>
+                      <div className="text-xs mt-1 min-w-0 break-words" style={{ color: theme.textMuted }}>
+                        Command: <code className="break-all whitespace-normal">{status?.command ?? details.command}</code>
                       </div>
                     </div>
                     {isReady ? (

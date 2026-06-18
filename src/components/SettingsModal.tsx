@@ -664,14 +664,14 @@ export function SettingsModal({
                     <button
                       key={provider}
                       onClick={() => onAgentProviderChange?.(provider)}
-                      className="text-left rounded-lg border px-3 py-3 transition-all"
+                      className="text-left rounded-lg border px-3 py-3 transition-all min-w-0 overflow-hidden"
                       style={{
                         borderColor: isSelected ? palette[500] : theme.border,
                         backgroundColor: isSelected ? `${palette[500]}10` : "transparent",
                       }}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium min-w-0">
                           <Terminal className="w-3.5 h-3.5" />
                           {details.label}
                         </span>
@@ -680,8 +680,8 @@ export function SettingsModal({
                           style={{ backgroundColor: status?.state === "ready" ? palette[500] : state.color }}
                         />
                       </div>
-                      <div className="text-xs mb-1" style={{ color: theme.textMuted }}>
-                        Command: <code>{status?.command ?? details.command}</code>
+                      <div className="text-xs mb-1 min-w-0 break-words" style={{ color: theme.textMuted }}>
+                        Command: <code className="break-all whitespace-normal">{status?.command ?? details.command}</code>
                       </div>
                       <div className="text-xs" style={{ color: state.color }}>
                         {status?.version || state.label}
