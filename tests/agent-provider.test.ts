@@ -70,12 +70,11 @@ describe("agent provider registry", () => {
     expect(spec.args.at(-1)).toBe("-");
   });
 
-  it("uses workspace-write only for Codex chat agent mode", () => {
+  it("uses the Codex app-server for chat agent mode", () => {
     const spec = buildAgentCommandSpec("codex", "chat", { rootPath: "/brain", cwd: "/brain" }, env());
 
-    expect(spec.args).toContain("--json");
-    expect(spec.args).toContain("workspace-write");
-    expect(spec.args).toContain("--ephemeral");
+    expect(spec.args).toEqual(["app-server", "--stdio"]);
+    expect(AGENT_CLI_PROVIDERS.codex.chatTransport).toBe("codex-app-server");
   });
 
   it("attaches image files to Codex file analysis but passes PDFs by prompt path", () => {

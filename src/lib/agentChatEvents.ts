@@ -43,6 +43,18 @@ function extractText(value: unknown): string {
   return "";
 }
 
+function extractError(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+
+  const record = asRecord(value);
+  if (!record) return undefined;
+
+  return stringValue(record.message)
+    ?? stringValue(record.error)
+    ?? extractError(record.error)
+    ?? extractError(record.params);
+}
+
 function codexToolDetail(item: Record<string, unknown>): string {
   const command = stringValue(item.command);
   if (command) return command;
@@ -54,6 +66,11 @@ function codexToolDetail(item: Record<string, unknown>): string {
   }
 
   return stringValue(item.name) ?? stringValue(item.type) ?? "";
+}
+
+function codexTextDeltaEvent(id: string, text: string, state: CodexParseState): AgentStreamEvent[] {
+  state.textOffsets.set(id, (state.textOffsets.get(id) ?? 0) + text.length);
+  return [{ type: "text", content: text }];
 }
 
 function codexTextEvent(id: string, text: string, state: CodexParseState): AgentStreamEvent[] {
@@ -69,13 +86,26 @@ export function parseCodexEvent(rawEvent: unknown, state: CodexParseState): Agen
   if (!event) return [];
 
   const type = stringValue(event.type) ?? "";
+  const method = stringValue(event.method) ?? "";
+  const eventName = type || method;
+  const eventNameLower = eventName.toLowerCase();
+  const params = asRecord(event.params);
+
+  if (method === "item/agentMessage/delta" && params) {
+    const deltaText = stringValue(params.delta);
+    if (!deltaText) return [];
+
+    const itemId = stringValue(params.itemId) ?? "codex-agent-message";
+    return codexTextDeltaEvent(itemId, deltaText, state);
+  }
+
   const deltaText = stringValue(event.delta) ?? stringValue(event.text_delta);
   if (deltaText && (type.includes("delta") || type.includes("message"))) {
     return [{ type: "text", content: deltaText }];
   }
 
-  if (type.includes("error")) {
-    const message = stringValue(event.message) ?? stringValue(event.error);
+  if (event.error || eventNameLower.includes("error")) {
+    const message = extractError(event.error) ?? extractError(event);
     return message ? [{ type: "error", message }] : [];
   }
 
@@ -95,26 +125,36 @@ export function parseCodexEvent(rawEvent: unknown, state: CodexParseState): Agen
       : [];
   }
 
-  const item = asRecord(event.item) ?? asRecord(event.message) ?? asRecord(event.msg);
+  const item = asRecord(event.item) ?? asRecord(event.message) ?? asRecord(event.msg) ?? asRecord(params?.item);
   if (!item) return [];
 
   const itemType = stringValue(item.type) ?? "";
+  const itemTypeLower = itemType.toLowerCase();
   const role = stringValue(item.role);
   const itemId = stringValue(item.id) ?? stringValue(event.id) ?? `codex-${type}`;
 
-  if (role === "assistant" || itemType.includes("message")) {
+  if (role === "assistant" || itemTypeLower === "agent_message" || itemTypeLower === "agentmessage") {
     const text = extractText(item.content) || extractText(item);
     return text ? codexTextEvent(itemId, text, state) : [];
   }
 
-  const looksLikeTool = itemType.includes("tool") || itemType.includes("call") || itemType.includes("command");
+  if ((eventName === "item.completed" || method === "item/completed") && state.seenTools.has(itemId)) {
+    const output = stringValue(item.aggregatedOutput) ?? stringValue(item.output) ?? stringValue(item.stdout);
+    return output && output.length < 500
+      ? [{ type: "result", toolId: itemId, content: output }]
+      : [];
+  }
+
+  const looksLikeTool = itemTypeLower.includes("tool") || itemTypeLower.includes("call") || itemTypeLower.includes("command");
   if (looksLikeTool && !state.seenTools.has(itemId)) {
     state.seenTools.add(itemId);
     state.lastToolId = itemId;
     return [{
       type: "tool",
       id: itemId,
-      name: stringValue(item.name) ?? (itemType || "Tool"),
+      name: itemTypeLower === "commandexecution"
+        ? "Bash"
+        : (stringValue(item.name) ?? stringValue(item.tool) ?? (itemType || "Tool")),
       detail: codexToolDetail(item),
     }];
   }

@@ -183,7 +183,8 @@ Status is **inferred from file existence**, not stored:
   - Agent Mode is mandatory before entering the workspace
   - Keep provider-specific spawn arguments inside the agent provider layer
   - Core app code should call the provider abstraction, not `claude` or `codex` directly
-  - Codex CLI `exec --json` currently emits assistant text as final `item.completed` / `agent_message` events, not token-level text deltas; the UI should show progress honestly instead of assuming Claude-style text streaming
+  - Codex UI chat should use `codex app-server --stdio`; `codex exec --json` is for non-interactive/batch work and only emits the assistant answer as a final item
+  - Codex app-server emits `item/agentMessage/delta`; keep its initialize/thread/start/turn/start lifecycle in a tested protocol helper rather than special-casing it in UI code
   - If adopting ACP later, add it as a provider adapter; do not make app business logic ACP-dependent
 
 ---

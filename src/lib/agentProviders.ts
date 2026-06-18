@@ -3,6 +3,7 @@ import { accessSync, constants } from "fs";
 import { AGENT_PROVIDER_DETAILS, AgentProvider, AgentStatus } from "./agentTypes";
 
 export type AgentChatEventFormat = "claude-stream-json" | "codex-jsonl";
+export type AgentChatTransport = "prompt-stdin" | "codex-app-server";
 
 export interface AgentCommandContext {
   rootPath: string;
@@ -30,6 +31,7 @@ export interface AgentCliProviderDefinition {
   id: AgentProvider;
   statusArgs: string[];
   chatEventFormat: AgentChatEventFormat;
+  chatTransport: AgentChatTransport;
   buildTextArgs: (context: AgentCommandContext) => string[];
   buildFileArgs: (context: AgentCommandContext) => string[];
   buildChatArgs: (context: AgentCommandContext) => string[];
@@ -153,6 +155,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
     id: "claude",
     statusArgs: ["--version"],
     chatEventFormat: "claude-stream-json",
+    chatTransport: "prompt-stdin",
     buildTextArgs: () => ["--print", "--tools", "", "--output-format", "text"],
     buildFileArgs: () => [
       "--print",
@@ -177,6 +180,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
     id: "codex",
     statusArgs: ["--version"],
     chatEventFormat: "codex-jsonl",
+    chatTransport: "codex-app-server",
     buildTextArgs: ({ rootPath, outputPath }) => [
       "exec",
       "--cd", rootPath,
@@ -208,16 +212,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
       args.push("-");
       return args;
     },
-    buildChatArgs: ({ cwd }) => [
-      "exec",
-      "--json",
-      "--cd", cwd ?? ".",
-      "--sandbox", "workspace-write",
-      "--skip-git-repo-check",
-      "--ephemeral",
-      "--color", "never",
-      "-",
-    ],
+    buildChatArgs: () => ["app-server", "--stdio"],
     resolveCommand: (env) => resolveAgentCommand("codex", env),
     sanitizeEnv: passthroughEnv,
     classifyStatus: (input, command) => classifyStatus("codex", input, command),

@@ -5,6 +5,7 @@ import { getAgentChatCommand, getConfiguredAgentProvider } from "@/lib/agent";
 import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
 import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
 import { createCodexParseState, parseCodexEvent, type AgentStreamEvent } from "@/lib/agentChatEvents";
+import { createCodexAppServerProtocol } from "@/lib/codexAppServerProtocol";
 
 interface ChatContext {
   text: string;
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
 
     const provider = await getConfiguredAgentProvider();
     const providerDetails = AGENT_PROVIDER_DETAILS[provider];
-    const chatEventFormat = AGENT_CLI_PROVIDERS[provider].chatEventFormat;
+    const providerDefinition = AGENT_CLI_PROVIDERS[provider];
+    const chatEventFormat = providerDefinition.chatEventFormat;
 
     // Build the prompt - detailed instructions are in user_data/AGENTS.md or user_data/CLAUDE.md
     let prompt = `You are an Agent in a knowledge management app called "Second Brain".
@@ -122,10 +124,12 @@ Be concise but thorough. Use markdown formatting when helpful.
 
     let proc: ReturnType<typeof spawn> | null = null;
     let agentTimeout: ReturnType<typeof setTimeout> | null = null;
+    let streamClosed = false;
 
     const stream = new ReadableStream({
       cancel() {
         // Client disconnected (e.g. fetch aborted) — kill the subprocess
+        streamClosed = true;
         if (agentTimeout) clearTimeout(agentTimeout);
         if (proc) {
           proc.kill();
@@ -144,7 +148,7 @@ Be concise but thorough. Use markdown formatting when helpful.
         agentTimeout = setTimeout(() => {
           console.error(`[${providerDetails.label}] Timed out after 10 minutes, killing process`);
           sendEvent({ type: "error", message: "Agent timed out after 10 minutes" });
-          proc!.kill();
+          finishStream(true);
         }, AGENT_TIMEOUT_MS);
 
         const encoder = new TextEncoder();
@@ -157,7 +161,16 @@ Be concise but thorough. Use markdown formatting when helpful.
         const codexState = createCodexParseState();
 
         const sendEvent = (event: AgentStreamEvent) => {
+          if (streamClosed) return;
           controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        };
+
+        const finishStream = (killProcess = false) => {
+          if (streamClosed) return;
+          streamClosed = true;
+          if (agentTimeout) clearTimeout(agentTimeout);
+          if (killProcess && proc) proc.kill();
+          controller.close();
         };
 
         const getToolDetail = (toolName: string, input: Record<string, unknown>): string => {
@@ -184,6 +197,18 @@ Be concise but thorough. Use markdown formatting when helpful.
           }
         };
 
+        const codexProtocol = providerDefinition.chatTransport === "codex-app-server"
+          ? createCodexAppServerProtocol({
+            prompt,
+            cwd: userDataPath,
+            sendJson: (message) => {
+              proc!.stdin!.write(`${JSON.stringify(message)}\n`);
+            },
+            sendEvent,
+            finish: () => finishStream(true),
+          })
+          : null;
+
         proc!.stdout!.on("data", (data) => {
           buffer += data.toString();
 
@@ -195,6 +220,11 @@ Be concise but thorough. Use markdown formatting when helpful.
             if (!line.trim()) continue;
             try {
               const event = JSON.parse(line);
+
+              if (codexProtocol) {
+                codexProtocol.handleMessage(event);
+                continue;
+              }
 
               if (chatEventFormat === "codex-jsonl") {
                 for (const parsedEvent of parseCodexEvent(event, codexState)) {
@@ -283,20 +313,23 @@ Be concise but thorough. Use markdown formatting when helpful.
 
         proc!.on("close", (code) => {
           if (agentTimeout) clearTimeout(agentTimeout);
-          if (code !== 0) {
+          if (!streamClosed && code !== 0) {
             sendEvent({ type: "error", message: `${providerDetails.label} exited with code ${code}` });
           }
-          controller.close();
+          finishStream(false);
         });
 
         proc!.on("error", (err) => {
-          if (agentTimeout) clearTimeout(agentTimeout);
           sendEvent({ type: "error", message: err.message });
-          controller.close();
+          finishStream(false);
         });
 
-        proc!.stdin!.write(prompt);
-        proc!.stdin!.end();
+        if (codexProtocol) {
+          codexProtocol.start();
+        } else {
+          proc!.stdin!.write(prompt);
+          proc!.stdin!.end();
+        }
       },
     });
 
