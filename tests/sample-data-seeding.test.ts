@@ -31,7 +31,7 @@ describe("sample data seeding", () => {
     const summaries = await listSourceSummaries();
     const userProfile = await fs.readFile(path.join(tmpRoot, "USER.md"), "utf-8");
 
-    expect(config.rssFeeds?.map(feed => feed.label)).toContain("Hacker News");
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     expect(userProfile).toContain("I use Second Brain");
     expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
   });
@@ -50,8 +50,23 @@ describe("sample data seeding", () => {
 
     const config = await loadUserConfig();
 
-    expect(config.rssFeeds?.map(feed => feed.label)).toContain("Hacker News");
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     await expect(fs.access(path.join(tmpRoot, "library", "demo001a", "meta.json"))).resolves.toBeUndefined();
+  });
+
+  it("migrates legacy Hacker News feed sources to the current default RSS feeds", async () => {
+    await fs.writeFile(
+      path.join(tmpRoot, "config.json"),
+      JSON.stringify({ feedSources: ["news.ycombinator.com", "example.com"] }),
+      "utf-8",
+    );
+
+    const config = await loadUserConfig();
+    const savedConfig = JSON.parse(await fs.readFile(path.join(tmpRoot, "config.json"), "utf-8"));
+
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
+    expect(config.searchSources).toEqual(["example.com"]);
+    expect(savedConfig.feedSources).toBeUndefined();
   });
 
   it("keeps MEMORY.md out of the default profile API surface", async () => {

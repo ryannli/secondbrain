@@ -17,10 +17,9 @@ export const API_CONFIG = {
 };
 
 export const DEFAULT_RSS_FEEDS: RssFeedSource[] = [
-  { url: "https://hnrss.org/frontpage", label: "Hacker News" },
+  { url: "https://www.reddit.com/r/singularity/.rss", label: "r/singularity" },
   { url: "https://www.reddit.com/r/LocalLLaMA/.rss", label: "r/LocalLLaMA" },
-  { url: "https://www.reddit.com/r/MachineLearning/.rss", label: "r/MachineLearning" },
-  { url: "https://www.reddit.com/r/startups/.rss", label: "r/startups" },
+  { url: "https://www.reddit.com/r/ClaudeAI/.rss", label: "r/ClaudeAI" },
 ];
 
 export const DEFAULT_SEARCH_SOURCES = ["reddit.com"];

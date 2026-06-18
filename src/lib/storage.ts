@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, ProcessingStage, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
 import { AnalysisSchema, OriginalDataSchema } from "./schemas";
 import type { AgentProvider } from "./agentTypes";
+import { DEFAULT_RSS_FEEDS } from "./config";
 
 /**
  * User configuration stored in config.json
@@ -13,8 +14,8 @@ import type { AgentProvider } from "./agentTypes";
 export type ThemeMode = "light" | "dark" | "system";
 
 export interface RssFeedSource {
-  url: string;    // e.g. "https://hnrss.org/frontpage"
-  label: string;  // e.g. "Hacker News"
+  url: string;    // e.g. "https://www.reddit.com/r/LocalLLaMA/.rss"
+  label: string;  // e.g. "r/LocalLLaMA"
 }
 
 export interface UserConfig {
@@ -212,7 +213,7 @@ export async function loadUserConfig(): Promise<UserConfig> {
     // Migrate legacy feedSources → rssFeeds + searchSources
     if (config.feedSources && !config.rssFeeds && !config.searchSources) {
       config.rssFeeds = config.feedSources.includes("news.ycombinator.com")
-        ? [{ url: "https://hnrss.org/frontpage", label: "Hacker News" }]
+        ? DEFAULT_RSS_FEEDS
         : [];
       config.searchSources = config.feedSources.filter(s => s !== "news.ycombinator.com");
       delete config.feedSources;

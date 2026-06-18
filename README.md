@@ -94,10 +94,9 @@ For a guided setup flow, see [docs/ONBOARDING.md](docs/ONBOARDING.md).
 
 The feed works in RSS-only mode by default. New installs start with a small set of high-signal RSS feeds:
 
-- Hacker News
+- r/singularity
 - r/LocalLLaMA
-- r/MachineLearning
-- r/startups
+- r/ClaudeAI
 
 Search is optional. Add a Brave Search API key only when you want broader web coverage:
 

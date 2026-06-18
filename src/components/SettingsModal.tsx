@@ -58,6 +58,30 @@ type Tab = "appearance" | "feed" | "agent";
 
 const AGENT_OPTIONS: AgentProvider[] = ["claude", "codex"];
 
+function canonicalRssUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withProtocol);
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = hostname === "reddit.com"
+      ? parsed.pathname.toLowerCase()
+      : parsed.pathname;
+
+    return `${parsed.protocol}//${hostname}${pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return trimmed.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+  }
+}
+
+function normalizeRssInputUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed || /^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 export function SettingsModal({
   isOpen,
   onClose,
@@ -149,32 +173,33 @@ export function SettingsModal({
   };
 
   // RSS feed helpers
-  const isRssPresetEnabled = (preset: RssFeedSource) =>
-    rssFeeds.some(f => f.url === preset.url);
+  const sameRssFeed = (a: RssFeedSource, b: RssFeedSource) =>
+    canonicalRssUrl(a.url) === canonicalRssUrl(b.url);
+  const customRssFeeds = rssFeeds
+    .filter(feed => !RSS_PRESETS.some(preset => sameRssFeed(preset, feed)))
+    .filter((feed, index, feeds) => feeds.findIndex(other => sameRssFeed(other, feed)) === index);
+  const visibleRssFeeds = [...RSS_PRESETS, ...customRssFeeds];
+  const isRssFeedEnabled = (feed: RssFeedSource) =>
+    rssFeeds.some(f => sameRssFeed(f, feed));
 
-  const toggleRssPreset = (preset: RssFeedSource) => {
+  const toggleRssFeed = (feed: RssFeedSource) => {
     if (!onRssFeedsChange) return;
-    if (isRssPresetEnabled(preset)) {
-      onRssFeedsChange(rssFeeds.filter(f => f.url !== preset.url));
+    if (isRssFeedEnabled(feed)) {
+      onRssFeedsChange(rssFeeds.filter(f => !sameRssFeed(f, feed)));
     } else {
-      onRssFeedsChange([...rssFeeds, preset]);
+      onRssFeedsChange([...rssFeeds, feed]);
     }
   };
 
   const addCustomRss = () => {
     if (!onRssFeedsChange || !newRssUrl.trim()) return;
-    const url = newRssUrl.trim();
-    if (rssFeeds.some(f => f.url === url)) return;
+    const url = normalizeRssInputUrl(newRssUrl);
     const label = newRssLabel.trim() || url;
+    const feed = { url, label };
+    if (rssFeeds.some(f => sameRssFeed(f, feed))) return;
     onRssFeedsChange([...rssFeeds, { url, label }]);
     setNewRssUrl("");
     setNewRssLabel("");
-  };
-
-  const removeRssFeed = (url: string) => {
-    if (onRssFeedsChange) {
-      onRssFeedsChange(rssFeeds.filter(f => f.url !== url));
-    }
   };
 
   // Search source helpers
@@ -508,49 +533,40 @@ export function SettingsModal({
                 <label className="block text-sm font-medium mb-2">RSS Feeds</label>
                 <p className="text-xs text-gray-400 mb-3">Subscribe to blogs, newsletters, and feeds you follow</p>
 
-                {/* Preset RSS feeds */}
+                {/* RSS feeds */}
                 <div className="space-y-2 mb-3">
-                  {RSS_PRESETS.map((preset) => (
-                    <label
-                      key={preset.url}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
-                      style={{
-                        borderColor: isRssPresetEnabled(preset) ? palette[500] : theme.border,
-                        backgroundColor: isRssPresetEnabled(preset) ? `${palette[500]}08` : "transparent",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isRssPresetEnabled(preset)}
-                        onChange={() => toggleRssPreset(preset)}
-                        className="w-4 h-4 rounded"
-                        style={{ accentColor: palette[500] }}
-                      />
-                      <span className="text-sm">{preset.label}</span>
-                    </label>
-                  ))}
-                </div>
+                  {visibleRssFeeds.map((feed) => {
+                    const isEnabled = isRssFeedEnabled(feed);
+                    const isPreset = RSS_PRESETS.some(preset => preset.url === feed.url);
 
-                {/* Custom RSS feeds (non-preset) */}
-                {rssFeeds.filter(f => !RSS_PRESETS.some(p => p.url === f.url)).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {rssFeeds.filter(f => !RSS_PRESETS.some(p => p.url === f.url)).map((feed) => (
-                      <span
+                    return (
+                      <label
                         key={feed.url}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs"
-                        style={{ backgroundColor: `${palette[500]}15`, color: palette[600] }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                        style={{
+                          borderColor: isEnabled ? palette[500] : theme.border,
+                          backgroundColor: isEnabled ? `${palette[500]}08` : "transparent",
+                        }}
                       >
-                        {feed.label}
-                        <button
-                          onClick={() => removeRssFeed(feed.url)}
-                          className="hover:opacity-70"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={() => toggleRssFeed(feed)}
+                          className="w-4 h-4 rounded"
+                          style={{ accentColor: palette[500] }}
+                        />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium">{feed.label}</span>
+                          {!isPreset && (
+                            <span className="block text-xs truncate" style={{ color: theme.textMuted }}>
+                              {feed.url}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
 
                 {/* Add custom RSS */}
                 <div className="flex gap-2">
