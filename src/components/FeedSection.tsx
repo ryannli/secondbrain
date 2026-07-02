@@ -189,8 +189,9 @@ export const FeedSection = React.memo(function FeedSection({
         </div>
       )}
 
-      {/* Loading state */}
-      {loading && items.length === 0 && (
+      {/* Loading state — replaces stale content entirely; the date pills
+          above stay available for jumping back to a previous snapshot */}
+      {loading && (
         <FeedLoadingState
           searchConfigured={searchConfigured}
           onOpenSettings={onOpenSettings}
@@ -236,7 +237,7 @@ export const FeedSection = React.memo(function FeedSection({
       )}
 
       {/* Pinterest-style Grid */}
-      {recommendedItems.length > 0 && (
+      {!loading && recommendedItems.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {recommendedItems.map((item) => {
             const originalIndex = items.findIndex(i => i.id === item.id);
@@ -256,7 +257,7 @@ export const FeedSection = React.memo(function FeedSection({
       )}
 
       {/* Filtered items (shown when toggled) */}
-      {showFiltered && filteredItems.length > 0 && (
+      {!loading && showFiltered && filteredItems.length > 0 && (
         <div className="mt-6 pt-4 border-t" style={{ borderColor: theme.border }}>
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-4 h-4" style={{ color: theme.textMuted }} />
@@ -297,7 +298,7 @@ export const FeedSection = React.memo(function FeedSection({
       )}
 
       {/* Interests (debugging/transparency) */}
-      {interests.length > 0 && (
+      {!loading && interests.length > 0 && (
         <div className="mt-6 pt-4 border-t" style={{ borderColor: theme.border }}>
           <p className="text-xs mb-2" style={{ color: theme.textMuted }}>
             Searching for:

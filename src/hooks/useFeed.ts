@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { FeedItem, FeedSignals, InsightItem, StructuredBriefing } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -30,6 +30,13 @@ export function useFeed() {
   const [readBriefingTexts, setReadBriefingTexts] = useState<Set<string>>(new Set());
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Mirrors selectedDate so an in-flight refresh can tell whether the user
+  // navigated to a past snapshot while it was generating.
+  const selectedDateRef = useRef<string | null>(null);
+  const selectDate = useCallback((date: string | null) => {
+    selectedDateRef.current = date;
+    setSelectedDate(date);
+  }, []);
 
   // Filter out dismissed items
   const visibleItems = feed.items.filter((item) => !dismissedSet.has(item.id));
@@ -124,13 +131,22 @@ export function useFeed() {
   const refreshFeed = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setSelectedDate(null);
+    selectDate(null);
 
     try {
       const res = await fetch("/api/feed", { method: "POST" });
       const data = await res.json();
 
       if (data.success && data.feed) {
+        if (data.availableDates) {
+          setAvailableDates(data.availableDates);
+        }
+        // The user switched to a past snapshot while this refresh was
+        // generating — don't yank their view; the new feed is cached and
+        // shows when they return to the latest view.
+        if (selectedDateRef.current !== null) {
+          return;
+        }
         const feedItems = data.feed.items ?? [];
         setFeed({
           items: feedItems,
@@ -148,9 +164,6 @@ export function useFeed() {
         if (data.feed.readBriefingTexts) {
           setReadBriefingTexts(new Set(data.feed.readBriefingTexts));
         }
-        if (data.availableDates) {
-          setAvailableDates(data.availableDates);
-        }
       } else {
         setError(data.error || "Failed to refresh feed");
       }
@@ -159,19 +172,19 @@ export function useFeed() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectDate]);
 
   const loadFeedForDate = useCallback(async (date: string | null) => {
     if (!date) {
       // Go back to current/latest feed
-      setSelectedDate(null);
+      selectDate(null);
       await loadFeed();
       return;
     }
 
     setLoading(true);
     setError(null);
-    setSelectedDate(date);
+    selectDate(date);
 
     try {
       const res = await fetch(`/api/feed?date=${date}`);
@@ -205,7 +218,7 @@ export function useFeed() {
     } finally {
       setLoading(false);
     }
-  }, [loadFeed]);
+  }, [loadFeed, selectDate]);
 
   const dismissItem = useCallback((id: string) => {
     setDismissedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
