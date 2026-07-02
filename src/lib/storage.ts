@@ -101,13 +101,27 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * A root counts as having user data only if it contains at least one real file.
+ * Empty directories don't count: API routes may mkdir library/, .tracking/, etc.
+ * before first-run seeding gets a chance to check, and that must not block it.
+ */
 async function rootHasUserData(rootPath: string): Promise<boolean> {
+  let entries;
   try {
-    const entries = await fs.readdir(rootPath);
-    return entries.some((entry) => entry !== ".DS_Store" && entry !== "Thumbs.db");
+    entries = await fs.readdir(rootPath, { withFileTypes: true });
   } catch {
     return false;
   }
+  for (const entry of entries) {
+    if (entry.name === ".DS_Store" || entry.name === "Thumbs.db") continue;
+    if (entry.isDirectory()) {
+      if (await rootHasUserData(path.join(rootPath, entry.name))) return true;
+    } else {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function copyMissingTree(src: string, dest: string): Promise<void> {
@@ -1821,13 +1835,16 @@ export async function renameFolder(
 }
 
 // =============================================================================
-// Profile Document Functions (USER.md)
+// Profile Document Functions (USER.md, MEMORY.md)
 // =============================================================================
 
+// USER.md is user-written (agent read-only); MEMORY.md is agent-maintained
+type ProfileDocName = "USER" | "MEMORY";
+
 /**
- * Load the user-maintained profile document from root
+ * Load a profile document from root
  */
-export async function loadProfileDoc(name: "USER"): Promise<string> {
+export async function loadProfileDoc(name: ProfileDocName): Promise<string> {
   try {
     const filePath = path.join(getRootPath(), `${name}.md`);
     return await fs.readFile(filePath, "utf-8");
@@ -1837,9 +1854,9 @@ export async function loadProfileDoc(name: "USER"): Promise<string> {
 }
 
 /**
- * Save the user-maintained profile document to root
+ * Save a profile document to root
  */
-export async function saveProfileDoc(name: "USER", content: string): Promise<void> {
+export async function saveProfileDoc(name: ProfileDocName, content: string): Promise<void> {
   const rootPath = getRootPath();
   await fs.mkdir(rootPath, { recursive: true });
   const filePath = path.join(rootPath, `${name}.md`);

@@ -46,6 +46,20 @@ describe("sample data seeding", () => {
     expect(studioDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
   });
 
+  it("still seeds when API routes created empty directories before the seeding check", async () => {
+    // Regression: routes can mkdir library/, studio/, .tracking/ before the
+    // first loadUserConfig runs; empty dirs must not count as user data.
+    await fs.mkdir(path.join(tmpRoot, "library"), { recursive: true });
+    await fs.mkdir(path.join(tmpRoot, "studio"), { recursive: true });
+    await fs.mkdir(path.join(tmpRoot, ".tracking", "events"), { recursive: true });
+
+    const config = await loadUserConfig();
+    const summaries = await listSourceSummaries();
+
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
+    expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
+  });
+
   it("does not inject sample data into a non-empty user data root", async () => {
     await fs.writeFile(path.join(tmpRoot, "USER.md"), "# My Preferences\n", "utf-8");
 
