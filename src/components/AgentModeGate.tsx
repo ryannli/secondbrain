@@ -134,6 +134,37 @@ export function AgentModeGate({
                 {stateLabel(selectedStatus)}
               </span>
             </div>
+
+            {selectedStatus && !selectedReady && (
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: theme.border }}>
+                <p className="text-xs font-medium mb-2">Get connected:</p>
+                <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: theme.textMuted }}>
+                  <li>
+                    Install:{" "}
+                    <code className="px-1.5 py-0.5 rounded" style={{ backgroundColor: `${palette[500]}0F` }}>
+                      {selectedDetails.installCommand}
+                    </code>
+                  </li>
+                  <li>
+                    Sign in: run{" "}
+                    <code className="px-1.5 py-0.5 rounded" style={{ backgroundColor: `${palette[500]}0F` }}>
+                      {selectedDetails.command}
+                    </code>{" "}
+                    once in your terminal and follow the login prompts
+                  </li>
+                  <li>Come back and hit Refresh status</li>
+                </ol>
+                <a
+                  href={selectedDetails.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-xs hover:underline"
+                  style={{ color: palette[600] }}
+                >
+                  {selectedDetails.label} setup guide →
+                </a>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">

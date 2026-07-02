@@ -8,6 +8,8 @@ export interface AgentProviderDetails {
   shortLabel: string;
   command: string;
   installHint: string;
+  installCommand: string;
+  docsUrl: string;
 }
 
 export interface AgentStatus {
@@ -28,6 +30,8 @@ export const AGENT_PROVIDER_DETAILS: Record<AgentProvider, AgentProviderDetails>
     shortLabel: "Claude",
     command: "claude",
     installHint: "Install Claude Code and sign in, or switch to Codex CLI.",
+    installCommand: "npm install -g @anthropic-ai/claude-code",
+    docsUrl: "https://docs.claude.com/en/docs/claude-code/setup",
   },
   codex: {
     id: "codex",
@@ -35,6 +39,8 @@ export const AGENT_PROVIDER_DETAILS: Record<AgentProvider, AgentProviderDetails>
     shortLabel: "Codex",
     command: "codex",
     installHint: "Install Codex CLI and sign in with your OpenAI account, or switch to Claude Code.",
+    installCommand: "npm install -g @openai/codex",
+    docsUrl: "https://github.com/openai/codex",
   },
 };
 
