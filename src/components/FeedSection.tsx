@@ -393,8 +393,16 @@ function FeedLoadingState({
         <div className="mt-4 pt-3 border-t space-y-1 text-xs" style={{ borderColor: theme.border }}>
           {!searchConfigured && (
             <p style={{ color: theme.textMuted }}>
-              Web search off — using RSS feeds only.{" "}
-              <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
+              Web search off — using RSS feeds only. A free{" "}
+              <a
+                href="https://brave.com/search/api/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:opacity-80"
+                style={{ color: palette[600] }}
+              >
+                Brave Search key
+              </a>{" "}
               in <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> enables it.
             </p>
           )}

@@ -23,6 +23,7 @@ export interface SettingsModalProps {
   onRssFeedsChange?: (feeds: RssFeedSource[]) => void;
   searchSources?: string[];
   onSearchSourcesChange?: (sources: string[]) => void;
+  searchConfigured?: boolean;
   feedInterests?: string[];
   onFeedInterestsChange?: (interests: string[]) => void;
   agentProvider?: AgentProvider;
@@ -98,6 +99,7 @@ export function SettingsModal({
   onRssFeedsChange,
   searchSources = [],
   onSearchSourcesChange,
+  searchConfigured = false,
   feedInterests = [],
   onFeedInterestsChange,
   agentProvider = "claude",
@@ -369,11 +371,18 @@ export function SettingsModal({
 
         {activeTab === "feed" && (
           <>
-            {/* Your Radar */}
+            <h3
+              className="text-xs font-semibold uppercase tracking-wider mb-3"
+              style={{ color: theme.textMuted }}
+            >
+              What your agent picks for you
+            </h3>
+
+            {/* Radar Topics */}
             {onFeedInterestsChange && (
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium">Your Radar</label>
+                  <label className="block text-sm font-medium">Radar Topics</label>
                   <button
                     onClick={generateFromLibrary}
                     disabled={isGenerating}
@@ -384,7 +393,9 @@ export function SettingsModal({
                     {isGenerating ? "Generating..." : "Generate from library"}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mb-3">We&apos;ll keep you updated on these topics</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  The agent ranks every story against these topics — they also become web search queries
+                </p>
 
                 {/* Interest tags */}
                 <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
@@ -445,12 +456,122 @@ export function SettingsModal({
               </div>
             )}
 
-            {/* Search Sources */}
+            <h3
+              className="text-xs font-semibold uppercase tracking-wider mb-3 mt-8"
+              style={{ color: theme.textMuted }}
+            >
+              Where stories come from
+            </h3>
+
+            {/* RSS Feeds */}
+            {onRssFeedsChange && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">RSS Feeds</label>
+                <p className="text-xs text-gray-400 mb-3">Blogs, newsletters, and subreddits — every new post is fetched</p>
+
+                {/* RSS feeds */}
+                <div className="space-y-2 mb-3">
+                  {visibleRssFeeds.map((feed) => {
+                    const isEnabled = isRssFeedEnabled(feed);
+                    const isPreset = RSS_PRESETS.some(preset => preset.url === feed.url);
+
+                    return (
+                      <label
+                        key={feed.url}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                        style={{
+                          borderColor: isEnabled ? palette[500] : theme.border,
+                          backgroundColor: isEnabled ? `${palette[500]}08` : "transparent",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={() => toggleRssFeed(feed)}
+                          className="w-4 h-4 rounded"
+                          style={{ accentColor: palette[500] }}
+                        />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium">{feed.label}</span>
+                          {!isPreset && (
+                            <span className="block text-xs truncate" style={{ color: theme.textMuted }}>
+                              {feed.url}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Add custom RSS */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newRssLabel}
+                    onChange={(e) => setNewRssLabel(e.target.value)}
+                    placeholder="Label"
+                    className="w-24 px-3 py-2 text-sm border rounded-lg"
+                    style={{ borderColor: theme.border }}
+                  />
+                  <input
+                    type="text"
+                    value={newRssUrl}
+                    onChange={(e) => setNewRssUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addCustomRss()}
+                    placeholder="https://example.com/feed.rss"
+                    className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                    style={{ borderColor: theme.border }}
+                  />
+                  <button
+                    onClick={addCustomRss}
+                    disabled={!newRssUrl.trim()}
+                    className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
+                    style={{ backgroundColor: palette[500] }}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">Subreddit feeds: <code className="text-xs">reddit.com/r/SUBREDDIT/.rss</code></p>
+              </div>
+            )}
+
+            {/* Web Search */}
             {onSearchSourcesChange && (
               <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Search Sources</label>
-                <p className="text-xs text-gray-400 mb-3">Combined with your Radar topics above</p>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium">Web Search</label>
+                  {!searchConfigured && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: "rgba(245, 158, 11, 0.12)", color: "#b45309" }}
+                    >
+                      Needs API key
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mb-3">
+                  {searchConfigured ? (
+                    "Your radar topics above are searched across these sites"
+                  ) : (
+                    <>
+                      Searches your radar topics across news sites. To enable: get a free key at{" "}
+                      <a
+                        href="https://brave.com/search/api/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:opacity-80"
+                        style={{ color: palette[600] }}
+                      >
+                        brave.com/search/api
+                      </a>
+                      , add it as <code className="text-xs">BRAVE_SEARCH_API_KEY</code> in{" "}
+                      <code className="text-xs">.env.local</code>, then restart the app.
+                    </>
+                  )}
+                </p>
 
+                <div className={searchConfigured ? "" : "opacity-50 pointer-events-none select-none"} aria-disabled={!searchConfigured}>
                 {/* Suggested search sources with checkboxes */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {SUGGESTED_SEARCH_SOURCES.map((source) => {
@@ -524,79 +645,7 @@ export function SettingsModal({
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* RSS Feeds */}
-            {onRssFeedsChange && (
-              <div>
-                <label className="block text-sm font-medium mb-2">RSS Feeds</label>
-                <p className="text-xs text-gray-400 mb-3">Subscribe to blogs, newsletters, and feeds you follow</p>
-
-                {/* RSS feeds */}
-                <div className="space-y-2 mb-3">
-                  {visibleRssFeeds.map((feed) => {
-                    const isEnabled = isRssFeedEnabled(feed);
-                    const isPreset = RSS_PRESETS.some(preset => preset.url === feed.url);
-
-                    return (
-                      <label
-                        key={feed.url}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
-                        style={{
-                          borderColor: isEnabled ? palette[500] : theme.border,
-                          backgroundColor: isEnabled ? `${palette[500]}08` : "transparent",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={() => toggleRssFeed(feed)}
-                          className="w-4 h-4 rounded"
-                          style={{ accentColor: palette[500] }}
-                        />
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-sm font-medium">{feed.label}</span>
-                          {!isPreset && (
-                            <span className="block text-xs truncate" style={{ color: theme.textMuted }}>
-                              {feed.url}
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                    );
-                  })}
                 </div>
-
-                {/* Add custom RSS */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newRssLabel}
-                    onChange={(e) => setNewRssLabel(e.target.value)}
-                    placeholder="Label"
-                    className="w-24 px-3 py-2 text-sm border rounded-lg"
-                    style={{ borderColor: theme.border }}
-                  />
-                  <input
-                    type="text"
-                    value={newRssUrl}
-                    onChange={(e) => setNewRssUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addCustomRss()}
-                    placeholder="https://example.com/feed.rss"
-                    className="flex-1 px-3 py-2 text-sm border rounded-lg"
-                    style={{ borderColor: theme.border }}
-                  />
-                  <button
-                    onClick={addCustomRss}
-                    disabled={!newRssUrl.trim()}
-                    className="px-3 py-2 rounded-lg text-white text-sm disabled:opacity-50"
-                    style={{ backgroundColor: palette[500] }}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">Subreddit feeds: <code className="text-xs">reddit.com/r/SUBREDDIT/.rss</code></p>
               </div>
             )}
           </>

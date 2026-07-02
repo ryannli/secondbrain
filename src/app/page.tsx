@@ -475,6 +475,7 @@ function HomeContent() {
         onRssFeedsChange={saveRssFeeds}
         searchSources={searchSources}
         onSearchSourcesChange={saveSearchSources}
+        searchConfigured={searchConfigured}
         feedInterests={feedInterests}
         onFeedInterestsChange={saveFeedInterests}
         agentProvider={agentProvider}
