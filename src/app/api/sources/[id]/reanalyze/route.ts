@@ -1,3 +1,4 @@
+import { debugLog } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { loadSource, findEntryPath, listSourcesForConnections, setSourceConnections } from "@/lib/storage";
 import { analyzeContent, formatTextContent, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
@@ -43,17 +44,17 @@ export async function POST(
     const hasRenderedTwitterContent = isTwitter && source.originalContent?.includes('data-testid="tweetText"');
     const shouldUseStoredHtml = hasStoredHtml && (!isTwitter || hasRenderedTwitterContent);
 
-    console.log(`Original content length: ${source.originalContent?.length || 0}, hasStoredHtml: ${hasStoredHtml}, isTwitter: ${isTwitter}, hasRenderedTwitterContent: ${hasRenderedTwitterContent}`);
+    debugLog(`Original content length: ${source.originalContent?.length || 0}, hasStoredHtml: ${hasStoredHtml}, isTwitter: ${isTwitter}, hasRenderedTwitterContent: ${hasRenderedTwitterContent}`);
 
     if (shouldUseStoredHtml) {
       // Use stored HTML to reprocess - don't pass providedTitle so it extracts fresh
-      console.log("Re-processing from stored HTML...");
+      debugLog("Re-processing from stored HTML...");
       const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl, undefined, id);
       newContent = extracted.content;
       newTitle = extracted.title;
     } else if (source.meta.sourceUrl) {
       // URL without usable stored HTML: re-fetch
-      console.log(`Re-fetching content from: ${source.meta.sourceUrl}`);
+      debugLog(`Re-fetching content from: ${source.meta.sourceUrl}`);
       const extracted = await extractFromUrl(source.meta.sourceUrl, undefined, id);
       newOriginalContent = extracted.originalContent;
       newContent = extracted.content;
@@ -65,12 +66,12 @@ export async function POST(
       }
     } else {
       // Plain text: re-format (title stays the same for plain text)
-      console.log("Re-formatting text content...");
+      debugLog("Re-formatting text content...");
       newContent = await formatTextContent(source.originalContent, id);
     }
 
     // Re-analyze the content with new title
-    console.log("Re-analyzing content...");
+    debugLog("Re-analyzing content...");
     const analysis = await analyzeContent(
       newTitle,
       newContent,
@@ -79,7 +80,7 @@ export async function POST(
     );
 
     // Find connections with existing sources
-    console.log("Finding connections...");
+    debugLog("Finding connections...");
     let connectionError: string | undefined;
     const { connections, error: connError } = await findConnectionsForSource(id, newTitle, analysis);
     if (connError) {
@@ -87,9 +88,9 @@ export async function POST(
       console.error(`Connection error: ${connError}`);
     } else if (connections.length > 0) {
       analysis.connections = connections;
-      console.log(`Found ${connections.length} connections`);
+      debugLog(`Found ${connections.length} connections`);
     } else {
-      console.log("No connections found");
+      debugLog("No connections found");
     }
 
     // Write content.md (derived content, can be regenerated)
@@ -154,29 +155,29 @@ async function findConnectionsForSource(
 ): Promise<{ connections: Connection[]; error?: string }> {
   try {
     // Load all existing sources with their analysis
-    console.log(`[${sourceId}] Loading existing sources for connections...`);
+    debugLog(`[${sourceId}] Loading existing sources for connections...`);
     const existingSources = await listSourcesForConnections(sourceId);
-    console.log(`[${sourceId}] Found ${existingSources.length} existing sources`);
+    debugLog(`[${sourceId}] Found ${existingSources.length} existing sources`);
 
     if (existingSources.length === 0) {
-      console.log(`[${sourceId}] No existing sources to compare`);
+      debugLog(`[${sourceId}] No existing sources to compare`);
       return { connections: [] };
     }
 
     // Phase 1: Find potentially related sources using summaries only
-    console.log(`[${sourceId}] Calling findRelatedSources with summary: "${analysis.digest.summary.slice(0, 100)}..."`);
+    debugLog(`[${sourceId}] Calling findRelatedSources with summary: "${analysis.digest.summary.slice(0, 100)}..."`);
     const relatedIds = await findRelatedSources(
       analysis.digest.summary,
       existingSources.map((s) => ({ id: s.id, title: s.title, summary: s.summary }))
     );
-    console.log(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
+    debugLog(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
 
     if (relatedIds.length === 0) {
-      console.log(`[${sourceId}] No related sources found`);
+      debugLog(`[${sourceId}] No related sources found`);
       return { connections: [] };
     }
 
-    console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
+    debugLog(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
 
     // Phase 2: Get detailed analysis of related sources
     const relatedSources = existingSources.filter((s) => relatedIds.includes(s.id));
@@ -216,7 +217,7 @@ async function findConnectionsForSource(
 
     // Smart merge into related sources' connections
     if (connections.length > 0) {
-      console.log("Smart merging into related sources...");
+      debugLog("Smart merging into related sources...");
       await smartMergeIntoRelatedSources(
         sourceId,
         title,
@@ -256,14 +257,14 @@ async function smartMergeIntoRelatedSources(
       // Load the related source's current connections
       const relatedSource = await loadSourceForMerge(relatedSourceId);
       if (!relatedSource) {
-        console.log(`Could not load related source ${relatedSourceId} for merge`);
+        debugLog(`Could not load related source ${relatedSourceId} for merge`);
         continue;
       }
 
       const existingConnections = relatedSource.connections || [];
 
       // Ask AI to merge the new source into existing connections
-      console.log(`Merging into ${relatedSourceId}'s connections...`);
+      debugLog(`Merging into ${relatedSourceId}'s connections...`);
       const mergedConnections = await mergeSourceIntoConnections(
         existingConnections,
         { id: newSourceId, title: newSourceTitle, summary: newSourceSummary },
@@ -272,7 +273,7 @@ async function smartMergeIntoRelatedSources(
 
       // Save the merged connections
       await setSourceConnections(relatedSourceId, mergedConnections);
-      console.log(`Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
+      debugLog(`Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
     } catch (error) {
       console.error(`Failed to merge into ${relatedSourceId}:`, error);
     }

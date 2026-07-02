@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 import { SourceType } from "./types";
 import { extractReadableContent, generateTitle } from "./claude";
 import { Readability } from "@mozilla/readability";
@@ -84,13 +85,13 @@ export async function extractFromUrl(url: string, userAgent?: string, sourceId?:
 
   // Sites that require authentication should use Chrome Extension
   if (requiresAuthentication(url)) {
-    console.log(`[Content] ${siteName} requires authentication, please use Chrome Extension`);
+    debugLog(`[Content] ${siteName} requires authentication, please use Chrome Extension`);
     throw new Error(
       `${siteName} requires login to view content. Please use the Chrome Extension to capture this page while logged in.`
     );
   }
 
-  console.log(`[Content] Fetching: ${url}`);
+  debugLog(`[Content] Fetching: ${url}`);
 
   const response = await fetch(url, {
     headers: {
@@ -113,7 +114,7 @@ export async function extractFromUrl(url: string, userAgent?: string, sourceId?:
 
   const html = await response.text();
 
-  console.log(`[Content] Got ${html.length} chars, processing...`);
+  debugLog(`[Content] Got ${html.length} chars, processing...`);
 
   // Use Readability to extract article content (same library as Firefox Reader View)
   const dom = new JSDOM(html, { url });
@@ -128,10 +129,10 @@ export async function extractFromUrl(url: string, userAgent?: string, sourceId?:
   const cleanedContent = articleText.replace(/\s+/g, " ").trim();
 
   if (cleanedContent.length > 500 && articleHtml) {
-    console.log(`[Content] Readability extracted ${cleanedContent.length} chars`);
+    debugLog(`[Content] Readability extracted ${cleanedContent.length} chars`);
     content = await extractReadableContent(articleHtml, sourceId);
   } else {
-    console.log(`[Content] Readability got ${cleanedContent.length} chars, using AI extraction`);
+    debugLog(`[Content] Readability got ${cleanedContent.length} chars, using AI extraction`);
     content = await extractReadableContent(html, sourceId);
   }
 
@@ -170,16 +171,16 @@ export async function extractFromHtml(
   let content: string;
   const cleanedContent = articleText.replace(/\s+/g, " ").trim();
   if (cleanedContent.length > 500 && articleHtml) {
-    console.log(`Converting Readability HTML to Markdown (${cleanedContent.length} chars)...`);
+    debugLog(`Converting Readability HTML to Markdown (${cleanedContent.length} chars)...`);
     content = await extractReadableContent(articleHtml, sourceId);
   } else {
-    console.log(`Readability extracted only ${cleanedContent.length} chars, falling back to AI extraction...`);
+    debugLog(`Readability extracted only ${cleanedContent.length} chars, falling back to AI extraction...`);
     content = await extractReadableContent(html, sourceId);
   }
 
   // If title is too long, use AI to generate a concise one
   if (title.length > 60) {
-    console.log(`Title too long (${title.length} chars), using AI to generate concise title...`);
+    debugLog(`Title too long (${title.length} chars), using AI to generate concise title...`);
     title = await generateTitle(content, sourceId);
   }
 

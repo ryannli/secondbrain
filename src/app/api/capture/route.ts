@@ -1,3 +1,4 @@
+import { debugLog } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { getSourceType, getTypeFromExtension } from "@/lib/content";
 import { createPendingSource, ensureLibraryExists } from "@/lib/storage";
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Check if URL is a direct PDF link (like arXiv)
     if (url && isPdfUrl(url)) {
-      console.log(`Detected PDF URL: ${url}`);
+      debugLog(`Detected PDF URL: ${url}`);
       return handlePdfUrl(url, title);
     }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Phase 1: Create pending source immediately
-    console.log(`Creating pending source: ${initialTitle}`);
+    debugLog(`Creating pending source: ${initialTitle}`);
     const { id, meta } = await createPendingSource(
       {
         title: initialTitle,
@@ -136,7 +137,7 @@ async function handleFileUpload(request: NextRequest): Promise<NextResponse> {
     // Initial title from filename
     const initialTitle = filename.replace(/\.[^.]+$/, "") || "Uploaded file";
 
-    console.log(`Creating pending source for file: ${filename} (${sourceType})`);
+    debugLog(`Creating pending source for file: ${filename} (${sourceType})`);
     const { id, meta } = await createPendingSource(
       {
         title: initialTitle,
@@ -204,7 +205,7 @@ function isPdfUrl(url: string): boolean {
  */
 async function handlePdfUrl(url: string, title?: string): Promise<NextResponse> {
   try {
-    console.log(`Downloading PDF from: ${url}`);
+    debugLog(`Downloading PDF from: ${url}`);
 
     // Download the PDF
     const response = await fetch(url);
@@ -238,7 +239,7 @@ async function handlePdfUrl(url: string, title?: string): Promise<NextResponse> 
     const initialTitle = title || filename.replace(/\.pdf$/i, "");
     const originalFileName = "original.pdf";
 
-    console.log(`Creating pending source for PDF: ${filename}`);
+    debugLog(`Creating pending source for PDF: ${filename}`);
     const { id, meta } = await createPendingSource(
       {
         title: initialTitle,

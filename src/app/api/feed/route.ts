@@ -1,3 +1,4 @@
+import { debugLog } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings, listFeedSnapshots, loadFeedSnapshot } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
@@ -133,7 +134,7 @@ export async function POST() {
  * Generate feed from user's library
  */
 async function generateFeed() {
-  console.log("[generateFeed] Starting feed generation...");
+  debugLog("[generateFeed] Starting feed generation...");
 
   // 0. Load user config
   const config = await loadUserConfig();
@@ -144,9 +145,9 @@ async function generateFeed() {
   const rssOnlyMessage = !searchConfigured && feedInterests.length > 0 && searchSources.length > 0
     ? "Search API key is not configured, so this feed is running in RSS-only mode. Add BRAVE_SEARCH_API_KEY to .env.local and restart the dev server to enable web search."
     : undefined;
-  console.log(`[generateFeed] RSS feeds:`, rssFeeds.map(f => f.label));
-  console.log(`[generateFeed] Search sources:`, searchSources);
-  console.log(`[generateFeed] Feed interests:`, feedInterests);
+  debugLog(`[generateFeed] RSS feeds:`, rssFeeds.map(f => f.label));
+  debugLog(`[generateFeed] Search sources:`, searchSources);
+  debugLog(`[generateFeed] Feed interests:`, feedInterests);
 
   // 1. Allow RSS-only mode (no interests needed for RSS feeds)
   if (feedInterests.length === 0 && rssFeeds.length === 0) {
@@ -163,17 +164,17 @@ async function generateFeed() {
 
   // 2. Load user's sources for filtering (to avoid showing what they already have)
   const sources = await listSourcesForConnections();
-  console.log(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
+  debugLog(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
 
   // 3. Search for news (RSS feeds + search sources)
   const { results: allSearchResults, rssFeedCount, searchCallCount } = await searchNews(interests, searchSources, rssFeeds);
-  console.log(`[generateFeed] Found ${allSearchResults.length} search results`);
+  debugLog(`[generateFeed] Found ${allSearchResults.length} search results`);
 
   // 3.5 Filter out previously seen URLs
   const history = await loadFeedHistory();
   const seenUrls = new Set(history.seen.map((e) => e.url));
   const searchResults = allSearchResults.filter((r) => !seenUrls.has(r.url));
-  console.log(`[generateFeed] After dedup: ${searchResults.length} results (${allSearchResults.length - searchResults.length} seen before)`);
+  debugLog(`[generateFeed] After dedup: ${searchResults.length} results (${allSearchResults.length - searchResults.length} seen before)`);
 
   if (searchResults.length === 0) {
     return {
@@ -222,7 +223,7 @@ async function generateFeed() {
   const totalInteractions = interactionSignals.starredHighlights.length + interactionSignals.dismissedHighlights.length
     + interactionSignals.learnedConcepts.length + interactionSignals.knewConcepts.length;
   const interactionContext = buildInteractionContext(interactionSignals);
-  console.log(`[generateFeed] Interaction signals: ${totalInteractions} total (${interactionSignals.starredHighlights.length} starred, ${interactionSignals.dismissedHighlights.length} dismissed, ${interactionSignals.learnedConcepts.length} learned, ${interactionSignals.knewConcepts.length} knew)`);
+  debugLog(`[generateFeed] Interaction signals: ${totalInteractions} total (${interactionSignals.starredHighlights.length} starred, ${interactionSignals.dismissedHighlights.length} dismissed, ${interactionSignals.learnedConcepts.length} learned, ${interactionSignals.knewConcepts.length} knew)`);
 
   // 4. Filter and score results
   const sourcesForFilter = sources.map((s) => ({
@@ -236,7 +237,7 @@ async function generateFeed() {
     ...searchSources,
   ];
   const feedItems = await filterFeedItems(searchResults, sourcesForFilter, allPreferredDomains, interactionContext, interests);
-  console.log(`[generateFeed] Filtered to ${feedItems.length} feed items`);
+  debugLog(`[generateFeed] Filtered to ${feedItems.length} feed items`);
 
   // 5. Generate briefing
   const sourcesForBriefing = sources.map((s) => ({
@@ -245,13 +246,13 @@ async function generateFeed() {
     concepts: s.concepts.map((c) => c.term),
   }));
   const briefing = await generateBriefing(feedItems, sourcesForBriefing, interactionContext, interests);
-  console.log(`[generateFeed] Generated briefing: ${briefing ? briefing.news.length + " news items" : "none"}`);
+  debugLog(`[generateFeed] Generated briefing: ${briefing ? briefing.news.length + " news items" : "none"}`);
 
   // 5.5 Generate insights from reading behavior (only if enough interactions)
   let insights: InsightItem[] = [];
   if (totalInteractions >= 3) {
     insights = await generateInsights(interactionSignals, sourcesForBriefing, interests);
-    console.log(`[generateFeed] Generated ${insights.length} insights`);
+    debugLog(`[generateFeed] Generated ${insights.length} insights`);
   }
 
   // 6. Save cache

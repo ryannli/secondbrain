@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { analyzeContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections, formatTextContent, generateTitle } from "@/lib/claude";
 import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource } from "@/lib/storage";
@@ -26,43 +27,43 @@ export async function processSourceInBackground(
 
     // Step 1: Extract content
     if (html) {
-      console.log(`[${id}] Extracting content from HTML (${html.length} chars)...`);
+      debugLog(`[${id}] Extracting content from HTML (${html.length} chars)...`);
       const extracted = await extractFromHtml(html, url, undefined, id);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else if (url) {
-      console.log(`[${id}] Fetching and extracting content from: ${url}`);
+      debugLog(`[${id}] Fetching and extracting content from: ${url}`);
       const extracted = await extractFromUrl(url, userAgent, id);
       extractedTitle = extracted.title;
       content = extracted.content;
     } else {
-      console.log(`[${id}] Formatting text content...`);
+      debugLog(`[${id}] Formatting text content...`);
       content = await formatTextContent(text!, id);
       if (title) {
         extractedTitle = title;
       } else {
-        console.log(`[${id}] Generating title for text content...`);
+        debugLog(`[${id}] Generating title for text content...`);
         extractedTitle = await generateTitle(text!, id);
-        console.log(`[${id}] Generated title: ${extractedTitle}`);
+        debugLog(`[${id}] Generated title: ${extractedTitle}`);
       }
     }
 
     // Progressive save: content is now visible to user
-    console.log(`[${id}] Saving content (progressive step 1)...`);
+    debugLog(`[${id}] Saving content (progressive step 1)...`);
     await saveSourceContent(id, content, extractedTitle);
 
     // Step 2: Analyze with the configured agent
-    console.log(`[${id}] Analyzing content: ${extractedTitle}`);
+    debugLog(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, url, id);
 
     // Progressive save: analysis is now visible to user
-    console.log(`[${id}] Saving analysis (progressive step 2)...`);
+    debugLog(`[${id}] Saving analysis (progressive step 2)...`);
     await saveSourceAnalysis(id, analysis);
 
     // Step 3: Find connections (isolated — failure here never marks source as failed)
     await findAndSaveConnections(id, extractedTitle, analysis);
 
-    console.log(`[${id}] Source processing complete`);
+    debugLog(`[${id}] Source processing complete`);
   } catch (error) {
     console.error(`[${id}] Processing failed:`, error);
     await failSource(id, error instanceof Error ? error.message : "Unknown error");
@@ -85,32 +86,32 @@ export async function processFileInBackground(
 
     // Step 1: Extract content from file
     if (sourceType === "image" || sourceType === "document") {
-      console.log(`[${id}] Analyzing ${sourceType} with agent...`);
+      debugLog(`[${id}] Analyzing ${sourceType} with agent...`);
       const fileResult = await analyzeFile(id, originalFileName);
       content = fileResult.content;
       extractedTitle = fileResult.title;
     } else {
-      console.log(`[${id}] Unsupported file type: ${sourceType}`);
+      debugLog(`[${id}] Unsupported file type: ${sourceType}`);
       content = `File: ${displayName}\n\n[Content extraction for this file type is not yet supported]`;
       extractedTitle = displayName.replace(/\.[^.]+$/, "");
     }
 
     // Progressive save: content is now visible to user
-    console.log(`[${id}] Saving content (progressive step 1)...`);
+    debugLog(`[${id}] Saving content (progressive step 1)...`);
     await saveSourceContent(id, content, extractedTitle);
 
     // Step 2: Analyze with the configured agent
-    console.log(`[${id}] Analyzing content: ${extractedTitle}`);
+    debugLog(`[${id}] Analyzing content: ${extractedTitle}`);
     const analysis = await analyzeContent(extractedTitle, content, undefined, id);
 
     // Progressive save: analysis is now visible to user
-    console.log(`[${id}] Saving analysis (progressive step 2)...`);
+    debugLog(`[${id}] Saving analysis (progressive step 2)...`);
     await saveSourceAnalysis(id, analysis);
 
     // Step 3: Find connections (isolated — failure here never marks source as failed)
     await findAndSaveConnections(id, extractedTitle, analysis);
 
-    console.log(`[${id}] File processing complete`);
+    debugLog(`[${id}] File processing complete`);
   } catch (error) {
     console.error(`[${id}] File processing failed:`, error);
     await failSource(id, error instanceof Error ? error.message : "Unknown error");
@@ -128,14 +129,14 @@ async function findAndSaveConnections(
   analysis: { digest: { summary: string; highlights: { text: string }[]; concepts: { term: string; definition: string; status?: "knew" | "learned" }[] } }
 ): Promise<void> {
   try {
-    console.log(`[${id}] Finding connections...`);
+    debugLog(`[${id}] Finding connections...`);
     const { connections, error } = await findConnectionsForSource(id, title, analysis);
     if (error) {
       console.error(`[${id}] Connection error: ${error}`);
       await saveConnectionError(id, error);
     } else {
-      console.log(`[${id}] Found ${connections.length} connections`);
-      console.log(`[${id}] Saving connections (progressive step 3)...`);
+      debugLog(`[${id}] Found ${connections.length} connections`);
+      debugLog(`[${id}] Saving connections (progressive step 3)...`);
       await setSourceConnections(id, connections);
     }
   } catch (error) {
@@ -159,29 +160,29 @@ async function findConnectionsForSource(
 ): Promise<{ connections: Connection[]; error?: string }> {
   try {
     // Load all existing sources with their analysis
-    console.log(`[${sourceId}] Loading existing sources for connections...`);
+    debugLog(`[${sourceId}] Loading existing sources for connections...`);
     const existingSources = await listSourcesForConnections(sourceId);
-    console.log(`[${sourceId}] Loaded ${existingSources.length} existing sources`);
+    debugLog(`[${sourceId}] Loaded ${existingSources.length} existing sources`);
 
     if (existingSources.length === 0) {
-      console.log(`[${sourceId}] No existing sources to compare`);
+      debugLog(`[${sourceId}] No existing sources to compare`);
       return { connections: [] };
     }
 
     // Phase 1: Find potentially related sources using summaries only
-    console.log(`[${sourceId}] Calling findRelatedSources...`);
+    debugLog(`[${sourceId}] Calling findRelatedSources...`);
     const relatedIds = await findRelatedSources(
       analysis.digest.summary,
       existingSources.map((s) => ({ id: s.id, title: s.title, summary: s.summary }))
     );
-    console.log(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
+    debugLog(`[${sourceId}] findRelatedSources returned: ${JSON.stringify(relatedIds)}`);
 
     if (relatedIds.length === 0) {
-      console.log(`[${sourceId}] No related sources found`);
+      debugLog(`[${sourceId}] No related sources found`);
       return { connections: [] };
     }
 
-    console.log(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
+    debugLog(`[${sourceId}] Found ${relatedIds.length} potentially related sources`);
 
     // Phase 2: Get detailed analysis of related sources
     const relatedSources = existingSources.filter((s) => relatedIds.includes(s.id));
@@ -221,7 +222,7 @@ async function findConnectionsForSource(
 
     // Smart merge into related sources' connections
     if (connections.length > 0) {
-      console.log(`[${sourceId}] Smart merging into related sources...`);
+      debugLog(`[${sourceId}] Smart merging into related sources...`);
       await smartMergeIntoRelatedSources(
         sourceId,
         title,
@@ -263,14 +264,14 @@ async function smartMergeIntoRelatedSources(
     try {
       const relatedSource = await loadSource(relatedSourceId);
       if (!relatedSource) {
-        console.log(`[${newSourceId}] Could not load related source ${relatedSourceId} for merge`);
+        debugLog(`[${newSourceId}] Could not load related source ${relatedSourceId} for merge`);
         continue;
       }
 
       const existingConnections = relatedSource.analysis?.connections || [];
 
       // Ask AI to merge the new source into existing connections
-      console.log(`[${newSourceId}] Merging into ${relatedSourceId}'s connections...`);
+      debugLog(`[${newSourceId}] Merging into ${relatedSourceId}'s connections...`);
       const mergedConnections = await mergeSourceIntoConnections(
         existingConnections,
         { id: newSourceId, title: newSourceTitle, summary: newSourceSummary },
@@ -279,7 +280,7 @@ async function smartMergeIntoRelatedSources(
 
       // Save the merged connections
       await setSourceConnections(relatedSourceId, mergedConnections);
-      console.log(`[${newSourceId}] Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
+      debugLog(`[${newSourceId}] Merged into ${relatedSourceId} (${existingConnections.length} → ${mergedConnections.length} connections)`);
     } catch (error) {
       console.error(`[${newSourceId}] Failed to merge into ${relatedSourceId}:`, error);
       // Continue with other sources even if one fails

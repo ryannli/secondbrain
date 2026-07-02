@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import os from "os";
@@ -80,7 +81,7 @@ export async function callAgent(prompt: string, debugLabel?: string): Promise<st
   const debugDir = shouldWriteAgentDebugLogs() ? path.join(rootPath, ".debug") : undefined;
   const debugFile = debugDir ? path.join(debugDir, `${provider}-${label}-${runId}.txt`) : undefined;
 
-  console.log(`[callAgent:${provider}] Starting: "${promptPreview}..."`);
+  debugLog(`[callAgent:${provider}] Starting: "${promptPreview}..."`);
 
   if (debugFile && debugDir) {
     await fs.mkdir(debugDir, { recursive: true });
@@ -172,7 +173,7 @@ function spawnAgentForText(
 
       if (code === 0) {
         try {
-          console.log(`[callAgent:${provider}] Done in ${elapsed}s (${stdout.length} chars)`);
+          debugLog(`[callAgent:${provider}] Done in ${elapsed}s (${stdout.length} chars)`);
           const finalOutput = options.outputPath
             ? await fs.readFile(options.outputPath, "utf-8").then((content) => content.trim()).catch(() => stdout.trim())
             : stdout.trim();

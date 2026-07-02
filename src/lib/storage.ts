@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 import { promises as fs } from "fs";
 import { existsSync, readFileSync } from "fs";
 import os from "os";
@@ -1678,7 +1679,7 @@ async function removeConnectionsToSource(
             if (filteredConnections.length < analysis.connections.length) {
               analysis.connections = filteredConnections;
               await fs.writeFile(analysisPath, JSON.stringify(analysis, null, 2), "utf-8");
-              console.log(`Cleaned up connections in source ${entry.name}`);
+              debugLog(`Cleaned up connections in source ${entry.name}`);
             }
           }
         } catch {

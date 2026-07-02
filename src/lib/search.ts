@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 /**
  * Brave Search API integration for Feed feature
  */
@@ -128,7 +129,7 @@ async function fetchRSS(feedUrl: string, label: string): Promise<BraveSearchResu
       });
     }
 
-    console.log(`[fetchRSS] ${label}: ${results.length} items`);
+    debugLog(`[fetchRSS] ${label}: ${results.length} items`);
     return results;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -203,13 +204,13 @@ export async function searchNews(
       }
     }
 
-    console.log(`[searchNews] Running ${searchTasks.length} searches:`);
+    debugLog(`[searchNews] Running ${searchTasks.length} searches:`);
     const baseTasks = searchTasks.filter(t => t.tier === "base");
     const additionalTasks = searchTasks.filter(t => t.tier === "additional");
-    console.log(`  Base layer (${baseTasks.length} searches - diverse sources):`);
-    baseTasks.forEach((t, i) => console.log(`    ${i + 1}. [${t.type}] ${t.query}`));
-    console.log(`  Additional layer (${additionalTasks.length} searches - user's preferred sources):`);
-    additionalTasks.forEach((t, i) => console.log(`    ${i + 1}. [${t.type}] ${t.query}`));
+    debugLog(`  Base layer (${baseTasks.length} searches - diverse sources):`);
+    baseTasks.forEach((t, i) => debugLog(`    ${i + 1}. [${t.type}] ${t.query}`));
+    debugLog(`  Additional layer (${additionalTasks.length} searches - user's preferred sources):`);
+    additionalTasks.forEach((t, i) => debugLog(`    ${i + 1}. [${t.type}] ${t.query}`));
 
     for (let i = 0; i < searchTasks.length; i++) {
       const task = searchTasks[i];
@@ -244,7 +245,7 @@ export async function searchNews(
         const results = task.type === "news"
           ? (data.results ?? [])
           : (data.web?.results ?? []);
-        console.log(`[searchNews] [${task.type}] "${task.query}" returned ${results.length} results`);
+        debugLog(`[searchNews] [${task.type}] "${task.query}" returned ${results.length} results`);
 
         for (const result of results) {
           if (seenUrls.has(result.url)) continue;
@@ -274,11 +275,11 @@ export async function searchNews(
     const host = r.meta_url?.hostname || new URL(r.url).hostname;
     sourceCounts.set(host, (sourceCounts.get(host) || 0) + 1);
   }
-  console.log(`[searchNews] Total ${allResults.length} results from ${sourceCounts.size} sources:`);
+  debugLog(`[searchNews] Total ${allResults.length} results from ${sourceCounts.size} sources:`);
   [...sourceCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .forEach(([host, count]) => console.log(`  - ${host}: ${count}`));
+    .forEach(([host, count]) => debugLog(`  - ${host}: ${count}`));
 
   return { results: allResults, rssFeedCount: rssFeeds.length, searchCallCount };
 }

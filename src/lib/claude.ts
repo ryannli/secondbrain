@@ -1,3 +1,4 @@
+import { debugLog } from "./log";
 import { promises as fs } from "fs";
 import { Analysis, Highlight, Connection, FeedItem, InsightItem, StructuredBriefing, BriefingNewsItem, BriefingGoDeeper } from "./types";
 import { BraveSearchResult } from "./search";
@@ -216,18 +217,18 @@ export async function findRelatedSources(
 
   const prompt = promptFindRelatedSources(newSourceSummary, sourcesContext);
 
-  console.log("[findRelatedSources] Calling agent...");
+  debugLog("[findRelatedSources] Calling agent...");
   const responseText = await callAgent(prompt, "findRelatedSources");
-  console.log("[findRelatedSources] Agent response:", responseText.slice(0, 300));
+  debugLog("[findRelatedSources] Agent response:", responseText.slice(0, 300));
 
   try {
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.log("[findRelatedSources] No JSON array found in response");
+      debugLog("[findRelatedSources] No JSON array found in response");
       return [];
     }
     const ids = JSON.parse(jsonMatch[0]);
-    console.log("[findRelatedSources] Parsed IDs:", ids);
+    debugLog("[findRelatedSources] Parsed IDs:", ids);
     return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === "string").slice(0, 5) : [];
   } catch (err) {
     console.error("[findRelatedSources] Failed to parse:", responseText.slice(0, 200), err);
