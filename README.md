@@ -2,6 +2,9 @@
 
 **AI triage for people who read more than they can reasonably process.**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Node 20+](https://img.shields.io/badge/Node-20%2B-blue.svg)](#quick-start)
+
 Second Brain turns links, notes, PDFs, images, and feeds into a local-first reading workspace. It preserves the original source, creates an editable analysis layer, and helps you decide what deserves real attention.
 
 ![Second Brain product preview](docs/assets/second-brain-preview.svg)
@@ -68,14 +71,25 @@ Use the extension when you want:
 
 Chrome does not allow a normal website or local app to silently install an unpacked extension for a user. For development, users must load it manually through `chrome://extensions`. Later, a Chrome Web Store release can make installation one click. Enterprise force-install policies exist, but they are not appropriate for normal open-source onboarding.
 
-## First Run
+## Quick Start
+
+### Prerequisites
+
+- **Node.js 20+**
+- **One local agent CLI, installed and signed in.** Second Brain runs all analysis through the coding agent you already use — no separate model API key needed:
+  - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) — `npm install -g @anthropic-ai/claude-code`, then run `claude` once to sign in
+  - or [OpenAI Codex CLI](https://github.com/openai/codex) — `npm install -g @openai/codex`, then run `codex` once to sign in
+
+### Run it
 
 ```bash
+git clone https://github.com/ryannli/secondbrain.git
+cd secondbrain
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000), confirm your agent shows **Connected**, and hit **Enable Agent Mode**.
 
 On first launch, Second Brain seeds an empty data folder with a small working library:
 
@@ -97,9 +111,12 @@ For a guided setup flow, see [docs/ONBOARDING.md](docs/ONBOARDING.md).
 
 The feed works in RSS-only mode by default. New installs start with a small set of high-signal RSS feeds:
 
+- Hacker News
 - r/singularity
 - r/LocalLLaMA
 - r/ClaudeAI
+
+Add your own blogs, newsletters, and subreddits in **Settings → Feed**.
 
 Search is optional. Add a Brave Search API key only when you want broader web coverage:
 
@@ -169,6 +186,12 @@ npm run lint
 npm run build
 ```
 
+Server-side pipeline tracing is quiet by default. To see capture/feed/agent traces in the terminal:
+
+```bash
+SECONDBRAIN_DEBUG=1 npm run dev
+```
+
 For local agent debugging, you can temporarily run:
 
 ```bash
@@ -177,7 +200,7 @@ SECONDBRAIN_AGENT_DEBUG_LOGS=1 npm run dev
 
 This writes full agent prompts and raw responses under your data folder's `.debug/` directory. Keep it off for normal use.
 
-Current contributor guidance lives in [AGENTS.md](AGENTS.md). `CLAUDE.md` is a symlink to the same file so Claude Code and Codex share one project context.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide. Agent-facing project context lives in [AGENTS.md](AGENTS.md); `CLAUDE.md` is a symlink to the same file so Claude Code and Codex share one project context.
 
 ## Status
 
@@ -185,4 +208,4 @@ Second Brain is an early local-first product. The web app is the recommended ope
 
 ## License
 
-MIT
+[MIT](LICENSE)
