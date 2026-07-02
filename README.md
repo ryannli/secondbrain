@@ -118,7 +118,7 @@ The feed works in RSS-only mode by default. New installs start with a small set 
 
 Add your own blogs, newsletters, and subreddits in **Settings → Feed**.
 
-Search is optional. Add a Brave Search API key only when you want broader web coverage:
+Search is optional. Add a [Brave Search API key](https://brave.com/search/api/) (free tier available) only when you want broader web coverage:
 
 ```bash
 cp .env.example .env.local
