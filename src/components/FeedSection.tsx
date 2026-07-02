@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Check, Star } from "lucide-react";
 import { FeedItem, FeedSignals, InsightItem, StructuredBriefing as StructuredBriefingType } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
@@ -191,37 +191,12 @@ export const FeedSection = React.memo(function FeedSection({
 
       {/* Loading state */}
       {loading && items.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="flex items-center gap-3 mb-3">
-            <RefreshCw className="w-5 h-5 animate-spin" style={{ color: palette[500] }} />
-            <span className="text-sm font-medium" style={{ color: theme.text }}>
-              Curating your feed...
-            </span>
-          </div>
-          <p className="text-xs max-w-md" style={{ color: theme.textMuted }}>
-            {searchConfigured
-              ? "Reading your RSS feeds and searching the web, then your agent picks what's worth your time. This usually takes about a minute."
-              : "Reading your RSS feeds, then your agent picks what's worth your time. This usually takes about a minute."}
-          </p>
-          {!searchConfigured && (
-            <p className="text-xs mt-2 max-w-md" style={{ color: theme.textMuted }}>
-              Web search is off — this feed uses RSS feeds only. Add{" "}
-              <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
-              to <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> to
-              also search news sites.
-            </p>
-          )}
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="mt-3 text-xs hover:underline"
-              data-track="feed.loading_open_settings"
-              style={{ color: palette[600] }}
-            >
-              Add your favorite RSS feeds in Settings → Feed
-            </button>
-          )}
-        </div>
+        <FeedLoadingState
+          searchConfigured={searchConfigured}
+          onOpenSettings={onOpenSettings}
+          palette={palette}
+          theme={theme}
+        />
       )}
 
       {/* Empty state */}
@@ -343,6 +318,74 @@ export const FeedSection = React.memo(function FeedSection({
     </div>
   );
 });
+
+/**
+ * Loading state with a live elapsed timer and stage hints, so a ~1 minute
+ * agent curation reads as deliberate work instead of a hang.
+ */
+function FeedLoadingState({
+  searchConfigured,
+  onOpenSettings,
+  palette,
+  theme,
+}: {
+  searchConfigured?: boolean;
+  onOpenSettings?: () => void;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const stage =
+    elapsed < 10
+      ? searchConfigured
+        ? "Fetching your RSS feeds and searching the news..."
+        : "Fetching your RSS feeds..."
+      : elapsed < 40
+        ? "Your agent is reading the results and picking what's worth your time..."
+        : "Writing your briefing — almost there...";
+
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="flex items-center gap-3 mb-1.5">
+        <RefreshCw className="w-5 h-5 animate-spin" style={{ color: palette[500] }} />
+        <span className="text-sm font-medium" style={{ color: theme.text }}>
+          {stage}
+        </span>
+      </div>
+      <p className="text-xs mb-3 tabular-nums" style={{ color: theme.textMuted }}>
+        {elapsed}s elapsed · first load usually takes about a minute
+      </p>
+      <p className="text-xs max-w-md" style={{ color: theme.textMuted }}>
+        Unlike a plain RSS reader, Second Brain runs a real AI agent over every candidate story —
+        filtering noise, connecting items to your library, and writing a briefing. Later visits load
+        instantly from cache.
+      </p>
+      {!searchConfigured && (
+        <p className="text-xs mt-2 max-w-md" style={{ color: theme.textMuted }}>
+          Web search is off — this feed uses RSS feeds only. Add{" "}
+          <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
+          to <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> to
+          also search news sites.
+        </p>
+      )}
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          className="mt-3 text-xs hover:underline"
+          data-track="feed.loading_open_settings"
+          style={{ color: palette[600] }}
+        >
+          Add your favorite RSS feeds in Settings → Feed
+        </button>
+      )}
+    </div>
+  );
+}
 
 /**
  * Signals bar: one-line summary of what sources the feed is curated from
