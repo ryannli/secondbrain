@@ -320,8 +320,8 @@ export const FeedSection = React.memo(function FeedSection({
 });
 
 /**
- * Loading state with a live elapsed timer and stage hints, so a ~1 minute
- * agent curation reads as deliberate work instead of a hang.
+ * Loading state: a step checklist that visualizes the agent pipeline, so a
+ * ~1 minute curation reads as deliberate work instead of a hang.
  */
 function FeedLoadingState({
   searchConfigured,
@@ -340,48 +340,75 @@ function FeedLoadingState({
     return () => clearInterval(timer);
   }, []);
 
-  const stage =
-    elapsed < 10
-      ? searchConfigured
-        ? "Fetching your RSS feeds and searching the news..."
-        : "Fetching your RSS feeds..."
-      : elapsed < 40
-        ? "Your agent is reading the results and picking what's worth your time..."
-        : "Writing your briefing — almost there...";
+  const steps = [
+    { label: searchConfigured ? "Fetch RSS feeds and search the news" : "Fetch your RSS feeds", doneAt: 10 },
+    { label: "Agent reads every story, picks what's worth your time", doneAt: 40 },
+    { label: "Write your briefing", doneAt: Infinity },
+  ];
+  const activeIndex = steps.findIndex((step) => elapsed < step.doneAt);
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="flex items-center gap-3 mb-1.5">
-        <RefreshCw className="w-5 h-5 animate-spin" style={{ color: palette[500] }} />
-        <span className="text-sm font-medium" style={{ color: theme.text }}>
-          {stage}
+    <div className="max-w-md mx-auto mt-10 rounded-xl border p-5" style={{ borderColor: theme.border }}>
+      <div className="flex items-baseline justify-between mb-4">
+        <span className="text-sm font-semibold" style={{ color: theme.text }}>
+          Curating your feed
+        </span>
+        <span className="text-xs tabular-nums" style={{ color: theme.textMuted }}>
+          {elapsed}s
         </span>
       </div>
-      <p className="text-xs mb-3 tabular-nums" style={{ color: theme.textMuted }}>
-        {elapsed}s elapsed · first load usually takes about a minute
+
+      <div className="space-y-3 mb-4">
+        {steps.map((step, i) => {
+          const state = i < activeIndex ? "done" : i === activeIndex ? "active" : "pending";
+          return (
+            <div key={i} className="flex items-start gap-2.5 text-sm">
+              <span className="w-4 h-4 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                {state === "done" ? (
+                  <Check className="w-4 h-4" style={{ color: palette[600] }} />
+                ) : state === "active" ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ color: palette[500] }} />
+                ) : (
+                  <span className="w-3 h-3 rounded-full border-2" style={{ borderColor: theme.border }} />
+                )}
+              </span>
+              <span
+                style={{
+                  color: state === "active" ? theme.text : theme.textMuted,
+                  fontWeight: state === "active" ? 500 : 400,
+                }}
+              >
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs" style={{ color: theme.textMuted }}>
+        First load takes about a minute. Instant from cache after that.
       </p>
-      <p className="text-xs max-w-md" style={{ color: theme.textMuted }}>
-        Unlike a plain RSS reader, Second Brain runs a real AI agent over every candidate story —
-        filtering noise, connecting items to your library, and writing a briefing. Later visits load
-        instantly from cache.
-      </p>
-      {!searchConfigured && (
-        <p className="text-xs mt-2 max-w-md" style={{ color: theme.textMuted }}>
-          Web search is off — this feed uses RSS feeds only. Add{" "}
-          <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
-          to <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> to
-          also search news sites.
-        </p>
-      )}
-      {onOpenSettings && (
-        <button
-          onClick={onOpenSettings}
-          className="mt-3 text-xs hover:underline"
-          data-track="feed.loading_open_settings"
-          style={{ color: palette[600] }}
-        >
-          Add your favorite RSS feeds in Settings → Feed
-        </button>
+
+      {(!searchConfigured || onOpenSettings) && (
+        <div className="mt-4 pt-3 border-t space-y-1 text-xs" style={{ borderColor: theme.border }}>
+          {!searchConfigured && (
+            <p style={{ color: theme.textMuted }}>
+              Web search off — using RSS feeds only.{" "}
+              <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
+              in <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> enables it.
+            </p>
+          )}
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="hover:underline"
+              data-track="feed.loading_open_settings"
+              style={{ color: palette[600] }}
+            >
+              Add your feeds in Settings → Feed
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
