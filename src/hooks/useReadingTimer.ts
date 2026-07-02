@@ -15,7 +15,8 @@ export function useReadingTimer(sourceId: string | null) {
   const [isActive, setIsActive] = useState(false);
 
   // Refs for stable access in callbacks
-  const isVisibleRef = useRef(!document.hidden);
+  // Default to visible; synced with document.hidden in the main effect (document is unavailable during SSR)
+  const isVisibleRef = useRef(true);
   const isIdleRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const unsavedSecondsRef = useRef(0);
@@ -71,15 +72,20 @@ export function useReadingTimer(sourceId: string | null) {
     };
   }, [sourceId]);
 
-  // Reset elapsed display when source changes
-  useEffect(() => {
+  // Reset elapsed display when source changes (render-phase adjustment;
+  // unsavedSecondsRef is flushed and zeroed by the cleanup effect above)
+  const [prevSourceId, setPrevSourceId] = useState(sourceId);
+  if (prevSourceId !== sourceId) {
+    setPrevSourceId(sourceId);
     setElapsedSeconds(0);
-    unsavedSecondsRef.current = 0;
-  }, [sourceId]);
+  }
 
   // Main timer: tick every second when active
   useEffect(() => {
     if (!sourceId) return;
+
+    // Sync visibility now that we're in the browser
+    isVisibleRef.current = !document.hidden;
 
     const updateActive = () => {
       const active = isVisibleRef.current && !isIdleRef.current;

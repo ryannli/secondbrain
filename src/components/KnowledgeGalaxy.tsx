@@ -42,7 +42,7 @@ interface KnowledgeGalaxyProps {
  * Force-directed graph showing sources as nodes clustered by topic.
  * Connections between sources are shown as edges.
  */
-export function KnowledgeGalaxy({ palette, theme, onNavigateToSource }: KnowledgeGalaxyProps) {
+export function KnowledgeGalaxy({ theme, onNavigateToSource }: KnowledgeGalaxyProps) {
   const [data, setData] = useState<GalaxyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

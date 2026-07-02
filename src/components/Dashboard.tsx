@@ -544,9 +544,15 @@ const STAGE_CONFIG: Record<ProcessingStage, { base: number; max: number; label: 
 function ProcessingProgressBar({ stage, color, mutedColor }: { stage: ProcessingStage; color: string; mutedColor: string }) {
   const [progress, setProgress] = useState(STAGE_CONFIG[stage].base);
 
+  // Reset to the new stage's base progress (render-phase adjustment)
+  const [prevStage, setPrevStage] = useState(stage);
+  if (prevStage !== stage) {
+    setPrevStage(stage);
+    setProgress(STAGE_CONFIG[stage].base);
+  }
+
   useEffect(() => {
     const config = STAGE_CONFIG[stage];
-    setProgress(config.base);
 
     const interval = setInterval(() => {
       setProgress((prev) => {

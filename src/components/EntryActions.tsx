@@ -180,7 +180,6 @@ function WideActions({
   onMarkUnread,
   onClose,
   palette,
-  theme,
 }: EntryActionsProps) {
   const iconColor = "#9ca3af";
 

@@ -263,7 +263,7 @@ export const FeedSection = React.memo(function FeedSection({
       {/* Pinterest-style Grid */}
       {recommendedItems.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {recommendedItems.map((item, idx) => {
+          {recommendedItems.map((item) => {
             const originalIndex = items.findIndex(i => i.id === item.id);
             return (
               <FeedCard
@@ -810,7 +810,6 @@ function FeedCard({
   onDismiss,
   formatRelativeTime,
   theme,
-  muted = false,
 }: {
   item: FeedItem;
   index: number;
@@ -818,7 +817,6 @@ function FeedCard({
   onDismiss: (id: string) => void;
   formatRelativeTime: (date: string) => string;
   theme: Record<string, string>;
-  muted?: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const [hovering, setHovering] = useState(false);

@@ -164,12 +164,14 @@ function ToolsSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Auto-collapse when streaming ends
-  useEffect(() => {
+  // Auto-collapse when streaming ends (render-phase adjustment)
+  const [wasStreaming, setWasStreaming] = useState(isStreaming);
+  if (wasStreaming !== isStreaming) {
+    setWasStreaming(isStreaming);
     if (!isStreaming && tools.length > 0) {
       setIsOpen(false);
     }
-  }, [isStreaming, tools.length]);
+  }
 
   // Auto-scroll within the container while streaming
   useEffect(() => {

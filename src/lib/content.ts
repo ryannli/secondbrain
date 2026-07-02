@@ -1,5 +1,5 @@
 import { SourceType } from "./types";
-import { formatTextContent, extractReadableContent, generateTitle } from "./claude";
+import { extractReadableContent, generateTitle } from "./claude";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 
@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
  * Type now represents FILE FORMAT, not content source.
  * Brand (YouTube, Twitter, etc.) is detected separately from source_url.
  */
-export function getSourceType(url?: string, content?: string): SourceType {
+export function getSourceType(url?: string): SourceType {
   if (url) {
     const pathname = new URL(url).pathname.toLowerCase();
     // PDF links

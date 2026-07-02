@@ -10,7 +10,7 @@ describe("buildTree", () => {
     ];
     const folders = ["x", "x/sub"];
 
-    const tree = buildTree(items, folders, "source", (item) => ({ source: { meta: { id: item.id, title: item.name, createdAt: item.createdAt as string } } as any }));
+    const tree = buildTree(items, folders, "source", (item) => ({ source: { meta: { id: item.id, title: item.name, type: "text" as const, createdAt: item.createdAt as string } } }));
 
     expect(tree[0].type).toBe("folder");
     expect(tree[0].name).toBe("x");
