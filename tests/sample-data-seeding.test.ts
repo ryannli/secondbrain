@@ -36,7 +36,7 @@ describe("sample data seeding", () => {
     const claudeStat = await fs.lstat(path.join(tmpRoot, "CLAUDE.md"));
     const claudeTarget = await fs.readlink(path.join(tmpRoot, "CLAUDE.md"));
 
-    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     expect(userProfile).toContain("I use Second Brain");
     expect(agentInstructions).toContain("Second Brain data folder");
     expect(await fs.readFile(path.join(tmpRoot, "DataSchema.md"), "utf-8")).toContain("analysis.json");
@@ -60,7 +60,7 @@ describe("sample data seeding", () => {
 
     const config = await loadUserConfig();
 
-    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     await expect(fs.access(path.join(tmpRoot, "library", "demo001a", "meta.json"))).resolves.toBeUndefined();
   });
 
@@ -74,7 +74,7 @@ describe("sample data seeding", () => {
     const config = await loadUserConfig();
     const savedConfig = JSON.parse(await fs.readFile(path.join(tmpRoot, "config.json"), "utf-8"));
 
-    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
+    expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
     expect(config.searchSources).toEqual(["example.com"]);
     expect(savedConfig.feedSources).toBeUndefined();
   });

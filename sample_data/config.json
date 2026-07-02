@@ -6,6 +6,7 @@
   "headingStyle": "clean",
   "feedInterests": ["AI agents", "local-first software", "knowledge workflows"],
   "rssFeeds": [
+    { "url": "https://hnrss.org/frontpage", "label": "Hacker News" },
     { "url": "https://www.reddit.com/r/singularity/.rss", "label": "r/singularity" },
     { "url": "https://www.reddit.com/r/LocalLLaMA/.rss", "label": "r/LocalLLaMA" },
     { "url": "https://www.reddit.com/r/ClaudeAI/.rss", "label": "r/ClaudeAI" }

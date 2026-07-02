@@ -25,6 +25,7 @@ export async function GET(): Promise<NextResponse> {
         rootPathSource: getRootPathSource(),
         rootPathLocked: isRootPathLocked(),
         libraryPath: path.join(rootPath, "library"),
+        searchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
         ...userConfig,
       },
     });

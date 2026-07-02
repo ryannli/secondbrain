@@ -43,21 +43,21 @@ const TriageSchema = z.object({
   readTimeMinutes: z.number().default(5),
   density: z.number().default(50),
   originality: z.number().default(50),
-}).default({});
+}).prefault({});
 
 const DigestSchema = z.object({
   summary: z.string().default(""),
   highlights: z.array(HighlightSchema).default([]),
   concepts: z.array(ConceptSchema).default([]),
   structure: z.array(z.string()).default([]),
-}).default({});
+}).prefault({});
 
 const CritiqueSchema = z.object({
   hiddenAssumptions: z.array(z.string()).default([]),
   potentialIssues: z.array(z.string()).default([]),
   needsVerification: z.array(z.string()).default([]),
   biasIndicators: z.array(z.string()).default([]),
-}).default({});
+}).prefault({});
 
 export const AnalysisSchema = z.object({
   triage: TriageSchema,
@@ -68,4 +68,4 @@ export const AnalysisSchema = z.object({
   analyzedAt: z.string().optional(),
   userRating: z.number().min(0.5).max(5).optional(),
   userRatingAt: z.string().optional(),
-}).passthrough().default({});
+}).passthrough().prefault({});

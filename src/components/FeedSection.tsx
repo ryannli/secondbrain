@@ -29,6 +29,8 @@ interface FeedSectionProps {
   onUnstarBriefing?: (text: string) => void;
   starredBriefingTexts?: Set<string>;
   readBriefingTexts?: Set<string>;
+  searchConfigured?: boolean;
+  onOpenSettings?: () => void;
   palette: Record<number, string>;
   theme: Record<string, string>;
 }
@@ -57,6 +59,8 @@ export const FeedSection = React.memo(function FeedSection({
   onUnstarBriefing,
   starredBriefingTexts,
   readBriefingTexts,
+  searchConfigured,
+  onOpenSettings,
   palette,
   theme,
 }: FeedSectionProps) {
@@ -66,12 +70,7 @@ export const FeedSection = React.memo(function FeedSection({
   const recommendedItems = items.filter(item => item.scoring.action === "recommend");
   const filteredItems = items.filter(item => item.scoring.action === "skip");
 
-  // Format relative time (shared utility)
-
-  // Don't render if no items and no message
-  if (items.length === 0 && !message && !loading && !error && !briefing) {
-    return null;
-  }
+  const isEmpty = items.length === 0 && !message && !loading && !error && !briefing;
 
   return (
     <div>
@@ -192,16 +191,72 @@ export const FeedSection = React.memo(function FeedSection({
 
       {/* Loading state */}
       {loading && items.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="flex items-center gap-3 mb-3">
             <RefreshCw className="w-5 h-5 animate-spin" style={{ color: palette[500] }} />
             <span className="text-sm font-medium" style={{ color: theme.text }}>
-              Searching news sources...
+              Curating your feed...
             </span>
           </div>
-          <p className="text-xs" style={{ color: theme.textMuted }}>
-            This takes about 5 seconds (API rate limit)
+          <p className="text-xs max-w-md" style={{ color: theme.textMuted }}>
+            {searchConfigured
+              ? "Reading your RSS feeds and searching the web, then your agent picks what's worth your time. This usually takes about a minute."
+              : "Reading your RSS feeds, then your agent picks what's worth your time. This usually takes about a minute."}
           </p>
+          {!searchConfigured && (
+            <p className="text-xs mt-2 max-w-md" style={{ color: theme.textMuted }}>
+              Web search is off — this feed uses RSS feeds only. Add{" "}
+              <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>BRAVE_SEARCH_API_KEY</code>{" "}
+              to <code className="px-1 rounded" style={{ backgroundColor: theme.bgMuted }}>.env.local</code> to
+              also search news sites.
+            </p>
+          )}
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="mt-3 text-xs hover:underline"
+              data-track="feed.loading_open_settings"
+              style={{ color: palette[600] }}
+            >
+              Add your favorite RSS feeds in Settings → Feed
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isEmpty && (
+        <div
+          className="p-6 rounded-xl border text-center text-sm"
+          style={{ borderColor: theme.border }}
+        >
+          <p className="font-medium mb-1" style={{ color: theme.text }}>
+            Nothing here yet
+          </p>
+          <p className="text-xs max-w-md mx-auto" style={{ color: theme.textMuted }}>
+            Your RSS feeds may be temporarily unavailable or rate-limited. Try refreshing in a
+            minute{onOpenSettings ? ", or add more feeds in Settings → Feed" : ""}.
+          </p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <button
+              onClick={onRefresh}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              data-track="feed.empty_refresh"
+              style={{ backgroundColor: palette[500] }}
+            >
+              Refresh
+            </button>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border"
+                data-track="feed.empty_open_settings"
+                style={{ borderColor: theme.border, color: theme.text }}
+              >
+                Open Settings
+              </button>
+            )}
+          </div>
         </div>
       )}
 

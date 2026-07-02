@@ -101,6 +101,7 @@ function HomeContent() {
     palette,
     rssFeeds,
     saveRssFeeds,
+    searchConfigured,
     searchSources,
     saveSearchSources,
     feedInterests,
@@ -714,6 +715,8 @@ function HomeContent() {
                   onUnstarBriefing={feed.unstarBriefingItem}
                   starredBriefingTexts={feed.starredBriefingTexts}
                   readBriefingTexts={feed.readBriefingTexts}
+                  searchConfigured={searchConfigured}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
                   palette={palette}
                   theme={theme}
                 />
