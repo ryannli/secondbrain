@@ -15,12 +15,13 @@ import {
   ChevronRight,
   Link as LinkIcon,
 } from "lucide-react";
-import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection, UserHighlight } from "@/lib/types";
+import { ActionType, Highlight, ResolvedConnection, ConnectionType, Connection, SourceType, UserHighlight } from "@/lib/types";
 import { SourceError } from "./SourceError";
 import { MarkdownContent } from "./MarkdownContent";
 import { EntryActions } from "./EntryActions";
 import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
+import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { formatRelativeTime } from "@/lib/utils";
 /** Format seconds as M:SS or H:MM:SS */
 function formatTimer(totalSeconds: number): string {
@@ -30,6 +31,11 @@ function formatTimer(totalSeconds: number): string {
   const ss = String(s).padStart(2, "0");
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${ss}`;
   return `${m}:${ss}`;
+}
+
+function toSourceType(type: string | undefined): SourceType {
+  if (type === "text" || type === "document" || type === "image") return type;
+  return "html";
 }
 
 // Unified entry interface - works for both Source and Document
@@ -94,7 +100,6 @@ export interface EntryViewProps {
   theme: Record<string, string>;
   getActionConfig?: (action: ActionType) => { icon: React.ReactNode; label: string; description: string; color: string };
   getScoreColor?: (score: number) => string;
-  debugLoadingMode?: "none" | "analysis" | "connections";
   // Reading customization
   fontSize?: string;
   headingStyle?: string;
@@ -118,19 +123,11 @@ export const EntryView = React.memo(function EntryView({
   theme,
   getActionConfig,
   getScoreColor,
-  debugLoadingMode = "none",
   fontSize,
   headingStyle,
 }: EntryViewProps) {
   const hasAnalysis = !!entry.analysis;
-  const realAnalysis = entry.analysis;
-
-  // Apply debug mode from settings
-  const analysis = debugLoadingMode === "analysis"
-    ? undefined
-    : debugLoadingMode === "connections" && realAnalysis
-    ? { ...realAnalysis, connections: undefined }
-    : realAnalysis;
+  const analysis = entry.analysis;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(entry.content);
@@ -138,6 +135,17 @@ export const EntryView = React.memo(function EntryView({
   const [isSaving, setIsSaving] = useState(false);
   const [viewOriginal, setViewOriginal] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const readingScrollRef = React.useRef<HTMLDivElement>(null);
+  const readingProgress = useReadingProgress(
+    readingScrollRef,
+    `${entry.id}:${entry.content.length}`,
+    !isEditing && !viewOriginal && entry.content.trim().length > 0,
+  );
+  const showReadingProgress = !isEditing
+    && !viewOriginal
+    && entry.content.trim().length > 0
+    && readingProgress.hasScrollableContent;
+  const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
 
   // Resizable analysis panel
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -194,11 +202,19 @@ export const EntryView = React.memo(function EntryView({
 
   // Handle failed processing state (Sources only)
   if (entry.processingStatus === "failed") {
-    return <SourceError meta={{ id: entry.id, title: entry.title, sourceUrl: entry.sourceUrl, processingStatus: "failed" } as any} />;
+    return (
+      <SourceError
+        meta={{
+          id: entry.id,
+          title: entry.title,
+          type: toSourceType(entry.type),
+          sourceUrl: entry.sourceUrl,
+          createdAt: entry.createdAt ?? "",
+          processingStatus: "failed",
+        }}
+      />
+    );
   }
-
-  // Tab state for analysis panel
-  const [activeTab, setActiveTab] = useState<"digest" | "critique">("digest");
 
   return (
     <div ref={containerRef} className="flex items-stretch">
@@ -290,8 +306,18 @@ export const EntryView = React.memo(function EntryView({
             </div>
           )}
 
+          {showReadingProgress && (
+            <ReadingProgressMeter
+              seenPercent={readingProgress.seenPercent}
+              herePercent={readingProgress.herePercent}
+              isComplete={readingProgress.isComplete}
+              palette={palette}
+              theme={theme}
+            />
+          )}
+
           {/* Content */}
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden">
+          <div className={`${showReadingProgress ? "mt-4" : "mt-6"} flex-1 min-h-0 overflow-hidden`}>
             {isEditing ? (
               <textarea
                 value={editedContent}
@@ -341,15 +367,16 @@ export const EntryView = React.memo(function EntryView({
                 </div>
               </div>
             ) : (
-              <MarkdownContent
-                content={entry.content}
-                palette={palette}
-                className="h-full overflow-y-auto pr-6"
-                highlights={highlights}
-                onRemoveHighlight={onRemoveHighlight}
-                fontSize={fontSize}
-                headingStyle={headingStyle}
-              />
+              <div ref={readingScrollRef} className="h-full overflow-y-auto pr-6">
+                <MarkdownContent
+                  content={entry.content}
+                  palette={palette}
+                  highlights={highlights}
+                  onRemoveHighlight={onRemoveHighlight}
+                  fontSize={fontSize}
+                  headingStyle={headingStyle}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -545,6 +572,47 @@ export const EntryView = React.memo(function EntryView({
 });
 
 // Sub-components
+
+function ReadingProgressMeter({
+  seenPercent,
+  herePercent,
+  isComplete,
+  palette,
+  theme,
+}: {
+  seenPercent: number;
+  herePercent: number;
+  isComplete: boolean;
+  palette: Record<number, string>;
+  theme: Record<string, string>;
+}) {
+  return (
+    <div
+      className="mt-4 pr-6"
+      title="Seen increases only after content stays in view. Here shows the current scroll position."
+    >
+      <div className="flex items-center justify-between gap-3 mb-1.5 text-xs tabular-nums">
+        <span className="font-medium" style={{ color: isComplete ? palette[600] : theme.textMuted }}>
+          {seenPercent}% seen
+        </span>
+        <span style={{ color: theme.textLight }}>{herePercent}% here</span>
+      </div>
+      <div className="relative h-1.5 rounded-full overflow-visible" style={{ backgroundColor: theme.borderLight }}>
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{ width: `${seenPercent}%`, backgroundColor: isComplete ? palette[600] : palette[500] }}
+        />
+        <div
+          className="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full transition-all duration-150"
+          style={{
+            left: `calc(${herePercent}% - 1px)`,
+            backgroundColor: theme.textMuted,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function HighlightsSection({
   highlights,

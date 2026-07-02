@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Mermaid } from "@/components/ui";
@@ -37,6 +37,12 @@ interface TextSegment {
   parentChildren: HastContent[];
   indexInParent: number;
   globalStart: number;
+}
+
+interface HighlightRange {
+  id: string;
+  start: number;
+  end: number;
 }
 
 function escapeRegex(str: string): string {
@@ -84,50 +90,54 @@ function rehypeHighlight(options: { highlights: UserHighlight[] }) {
     // Concatenated text of the entire document (mirrors what the browser displays)
     const fullText = segments.map((s) => s.node.value).join("");
 
-    // 2. Find all highlight matches (longest first to avoid partial overlaps)
-    const matches: { id: string; start: number; end: number }[] = [];
-    for (const h of [...highlights].sort((a, b) => b.text.length - a.text.length)) {
+    // 2. Find all highlight matches, then keep a non-overlapping range set.
+    // Longer highlights win when selections overlap.
+    const candidates: HighlightRange[] = [];
+    for (const h of [...highlights].filter((h) => h.text.trim()).sort((a, b) => b.text.length - a.text.length)) {
       const re = buildFlexiblePattern(h.text);
       let m;
       while ((m = re.exec(fullText)) !== null) {
-        matches.push({ id: h.id, start: m.index, end: m.index + m[0].length });
+        candidates.push({ id: h.id, start: m.index, end: m.index + m[0].length });
       }
     }
-    if (!matches.length) return;
+    if (!candidates.length) return;
 
-    // Process from end→start so earlier segment indices stay valid
-    matches.sort((a, b) => b.start - a.start);
+    const ranges: HighlightRange[] = [];
+    for (const candidate of candidates.sort((a, b) => (b.end - b.start) - (a.end - a.start) || a.start - b.start)) {
+      const overlaps = ranges.some((range) => candidate.start < range.end && candidate.end > range.start);
+      if (!overlaps) ranges.push(candidate);
+    }
+    ranges.sort((a, b) => a.start - b.start);
+    if (!ranges.length) return;
 
-    // 3. For each match, split text nodes and wrap in <mark>
-    for (const { id, start, end } of matches) {
-      const affected = segments.filter((s) => {
-        const se = s.globalStart + s.node.value.length;
-        return se > start && s.globalStart < end;
-      });
+    // 3. Split each original text node once. Re-splitting the same node for
+    // multiple highlights can duplicate text because parent indices go stale.
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      const segEnd = seg.globalStart + seg.node.value.length;
+      const rangesInSegment = ranges.filter((range) => range.end > seg.globalStart && range.start < segEnd);
+      if (!rangesInSegment.length) continue;
 
-      for (let i = affected.length - 1; i >= 0; i--) {
-        const seg = affected[i];
-        const ls = Math.max(0, start - seg.globalStart);
-        const le = Math.min(seg.node.value.length, end - seg.globalStart);
+      const replacements: HastContent[] = [];
+      let cursor = 0;
 
-        const before = seg.node.value.slice(0, ls);
-        const matched = seg.node.value.slice(ls, le);
-        const after = seg.node.value.slice(le);
+      for (const range of rangesInSegment) {
+        const ls = Math.max(cursor, Math.max(0, range.start - seg.globalStart));
+        const le = Math.min(seg.node.value.length, range.end - seg.globalStart);
+        if (le <= ls) continue;
 
-        const replacements: HastContent[] = [];
-        if (before) replacements.push({ type: "text", value: before } as HastText);
-        if (matched) {
-          replacements.push({
-            type: "element",
-            tagName: "mark",
-            properties: { "data-highlight-id": id },
-            children: [{ type: "text", value: matched } as HastText],
-          } as HastElement);
-        }
-        if (after) replacements.push({ type: "text", value: after } as HastText);
-
-        seg.parentChildren.splice(seg.indexInParent, 1, ...replacements);
+        if (ls > cursor) replacements.push({ type: "text", value: seg.node.value.slice(cursor, ls) } as HastText);
+        replacements.push({
+          type: "element",
+          tagName: "mark",
+          properties: { "data-highlight-id": range.id },
+          children: [{ type: "text", value: seg.node.value.slice(ls, le) } as HastText],
+        } as HastElement);
+        cursor = le;
       }
+
+      if (cursor < seg.node.value.length) replacements.push({ type: "text", value: seg.node.value.slice(cursor) } as HastText);
+      seg.parentChildren.splice(seg.indexInParent, 1, ...replacements);
     }
   };
 }
@@ -157,16 +167,20 @@ const mdComponents = {
     }
     return <code className="text-inherit bg-transparent" {...props}>{children}</code>;
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mark: ({ children, node, ...props }: any) => (
-    <mark
-      {...props}
-      className="bg-yellow-200 dark:bg-yellow-900/50 px-0.5 rounded-sm cursor-pointer hover:bg-yellow-300 dark:hover:bg-yellow-800/60 transition-colors"
-      title="Click to remove highlight"
-    >
-      {children}
-    </mark>
-  ),
+  mark: ({ children, ...props }: { children?: React.ReactNode; node?: unknown } & React.HTMLAttributes<HTMLElement>) => {
+    const markProps = { ...props };
+    delete markProps.node;
+
+    return (
+      <mark
+        {...markProps}
+        className="bg-yellow-200 dark:bg-yellow-900/50 px-0.5 rounded-sm cursor-pointer hover:bg-yellow-300 dark:hover:bg-yellow-800/60 transition-colors"
+        title="Click to remove highlight"
+      >
+        {children}
+      </mark>
+    );
+  },
 };
 
 const REMARK_PLUGINS = [remarkGfm];
@@ -211,7 +225,10 @@ export const MarkdownContent = React.memo(function MarkdownContent({
 }: MarkdownContentProps) {
   // Event delegation for highlight removal (ref avoids re-render on callback change)
   const onRemoveRef = useRef(onRemoveHighlight);
-  onRemoveRef.current = onRemoveHighlight;
+
+  useEffect(() => {
+    onRemoveRef.current = onRemoveHighlight;
+  }, [onRemoveHighlight]);
 
   const handleClick = useMemo(() => (e: React.MouseEvent) => {
     const mark = (e.target as HTMLElement).closest("mark[data-highlight-id]");
