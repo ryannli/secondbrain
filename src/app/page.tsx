@@ -12,6 +12,7 @@ import { HistorySection } from "@/components/HistorySection";
 import { Header } from "@/components/Header";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AgentModeGate } from "@/components/AgentModeGate";
+import { OnboardingCards } from "@/components/OnboardingCards";
 import { ContextMenu } from "@/components/ContextMenu";
 import { Sidebar } from "@/components/Sidebar";
 import { useSettings } from "@/hooks/useSettings";
@@ -118,6 +119,8 @@ function HomeContent() {
     saveFeedInterests,
     agentModeEnabled,
     saveAgentModeEnabled,
+    onboardedAt,
+    saveOnboarded,
     agentProvider,
     saveAgentProvider,
     agentStatuses,
@@ -510,6 +513,11 @@ function HomeContent() {
         headingStyle={headingStyle}
         onHeadingStyleChange={saveHeadingStyle}
       />
+
+      {/* One-time expectation-setting cards after the gate, before the dashboard */}
+      {!settingsLoading && !onboardedAt && (
+        <OnboardingCards rootPath={rootPath} palette={palette} onComplete={saveOnboarded} />
+      )}
 
       <div className="flex-1 flex min-h-0">
         <Sidebar

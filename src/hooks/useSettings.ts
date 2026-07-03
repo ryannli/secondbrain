@@ -33,6 +33,7 @@ export function useSettings() {
   const [searchSources, setSearchSources] = useState<string[]>(DEFAULT_SEARCH_SOURCES);
   const [feedInterests, setFeedInterests] = useState<string[]>([]);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
+  const [onboardedAt, setOnboardedAt] = useState<string | null>(null);
   const [agentProvider, setAgentProvider] = useState<AgentProvider>(DEFAULT_AGENT_PROVIDER);
   const [agentStatuses, setAgentStatuses] = useState<Record<AgentProvider, AgentStatus> | null>(null);
   const [agentStatusLoading, setAgentStatusLoading] = useState(false);
@@ -72,6 +73,7 @@ export function useSettings() {
           setFeedInterests(data.config.feedInterests);
         }
         setAgentModeEnabled(data.config.agentModeEnabled === true);
+        setOnboardedAt(data.config.onboardedAt ?? null);
         if (isAgentProvider(data.config.agentProvider)) {
           setAgentProvider(data.config.agentProvider);
         }
@@ -260,6 +262,20 @@ export function useSettings() {
     }
   }, []);
 
+  const saveOnboarded = useCallback(async () => {
+    const stamp = new Date().toISOString();
+    setOnboardedAt(stamp);
+    try {
+      await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onboardedAt: stamp }),
+      });
+    } catch (err) {
+      console.error("Failed to save onboarding state:", err);
+    }
+  }, []);
+
   // Load config on mount
   useEffect(() => {
     let isMounted = true;
@@ -314,6 +330,8 @@ export function useSettings() {
     saveFeedInterests,
     agentModeEnabled,
     saveAgentModeEnabled,
+    onboardedAt,
+    saveOnboarded,
     agentProvider,
     saveAgentProvider,
     agentStatuses,
