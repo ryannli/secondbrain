@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import {
   Plus,
   Loader2,
+  Sparkles,
+  X as XIcon,
   AlertCircle,
   Clock,
   X,
@@ -18,6 +20,7 @@ import { LinkifiedText } from "@/components/LinkifiedText";
 import { getSourceIcon } from "@/lib/sourceIcon";
 import { formatRelativeTime } from "@/lib/utils";
 import { FeedSection } from "@/components/FeedSection";
+import { STARTER_PACK } from "@/lib/config";
 
 interface FeedProps {
   items: FeedItem[];
@@ -45,6 +48,7 @@ export interface DashboardProps {
   theme: Record<string, string>;
   getScoreColor: (score: number) => string;
   feed?: FeedProps;
+  onStarterPack?: () => void;
 }
 
 export const Dashboard = React.memo(function Dashboard({
@@ -60,6 +64,7 @@ export const Dashboard = React.memo(function Dashboard({
   theme,
   getScoreColor,
   feed,
+  onStarterPack,
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
@@ -227,6 +232,62 @@ export const Dashboard = React.memo(function Dashboard({
     </div>
   );
 
+  // First-run guidance: everything the user sees is still seeded examples.
+  // Explain what they are and offer a one-click starter pack; disappears on
+  // its own once the first real capture lands.
+  const onlyExamples = sources.every((s) => (s.meta.folder ?? "").split("/")[0] === "examples");
+  const [starterDismissed, setStarterDismissed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("starter-banner-dismissed") === "1"
+  );
+  const [starterStarted, setStarterStarted] = useState(false);
+  const showStarterBanner = Boolean(onStarterPack) && onlyExamples && !starterDismissed;
+
+  const starterBanner = showStarterBanner ? (
+    <div
+      className="w-full max-w-2xl mx-auto mb-6 px-4 py-3 rounded-xl border flex items-start gap-3"
+      style={{ borderColor: theme.border, backgroundColor: `${palette[500]}08` }}
+    >
+      <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: palette[600] }} />
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-sm font-medium" style={{ color: theme.text }}>
+          You&apos;re looking at examples
+        </p>
+        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: theme.textMuted }}>
+          They show what an analyzed source looks like — safe to delete anytime. Start your real
+          library by capturing anything above{onStarterPack ? ", or let your agent fetch and analyze a starter pack of great reads on AI" : ""}.
+        </p>
+        {starterStarted ? (
+          <p className="text-xs mt-2 flex items-center gap-1.5" style={{ color: palette[600] }}>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Capturing {STARTER_PACK.length} articles — they&apos;ll appear here as each one finishes.
+          </p>
+        ) : (
+          <button
+            onClick={() => {
+              setStarterStarted(true);
+              onStarterPack?.();
+            }}
+            className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+            data-track="starter_pack.capture"
+            style={{ backgroundColor: palette[600] }}
+          >
+            Get the starter pack ({STARTER_PACK.length} reads)
+          </button>
+        )}
+      </div>
+      <button
+        onClick={() => {
+          setStarterDismissed(true);
+          localStorage.setItem("starter-banner-dismissed", "1");
+        }}
+        className="p-1 rounded hover:bg-black/5 flex-shrink-0"
+        title="Dismiss"
+      >
+        <XIcon className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+      </button>
+    </div>
+  ) : null;
+
   // Rotating taglines
   const taglines = [
     "You can't read everything. You don't have to.",
@@ -262,6 +323,7 @@ export const Dashboard = React.memo(function Dashboard({
           </p>
         </div>
         {captureInputElement}
+        {starterBanner && <div className="w-full mt-6">{starterBanner}</div>}
       </div>
     );
   }
@@ -396,6 +458,7 @@ export const Dashboard = React.memo(function Dashboard({
         </p>
       </div>
       {captureInputElement}
+      {starterBanner}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 mt-6 mb-4">

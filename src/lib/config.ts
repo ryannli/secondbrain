@@ -34,6 +34,21 @@ export const DEFAULT_RSS_FEEDS: RssFeedSource[] = [
 
 export const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
 
+// First-run starter pack: curated public reads a new user can capture with
+// one click. Only titles and URLs ship here — each user's agent fetches and
+// analyzes their own copy, so no third-party content lives in the repo.
+export const STARTER_PACK: { title: string; url: string }[] = [
+  { title: "The Adolescence of Technology — Dario Amodei", url: "https://darioamodei.com/essay/the-adolescence-of-technology" },
+  { title: "Building a C compiler with parallel Claudes — Anthropic", url: "https://www.anthropic.com/engineering/building-c-compiler" },
+  { title: "Measuring AI agent autonomy — Anthropic", url: "https://www.anthropic.com/research/measuring-agent-autonomy" },
+  { title: "Harness engineering — OpenAI", url: "https://openai.com/index/harness-engineering/" },
+  { title: "Building a minimal coding agent — Mario Zechner", url: "https://mariozechner.at/posts/2025-11-30-pi-coding-agent/" },
+];
+
+// Seconds between starter-pack captures, so a laptop isn't asked to run
+// five analysis pipelines at once.
+export const STARTER_PACK_STAGGER_SECONDS = 15;
+
 export const SUGGESTED_SEARCH_SOURCES = [
   { domain: "reddit.com", label: "Reddit" },
   { domain: "arstechnica.com", label: "Ars Technica" },

@@ -28,6 +28,7 @@ import { SelectionPopover } from "@/components/SelectionPopover";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { useReadingTimer } from "@/hooks/useReadingTimer";
 import { TrackingProvider } from "@/components/TrackingProvider";
+import { STARTER_PACK, STARTER_PACK_STAGGER_SECONDS } from "@/lib/config";
 
 // Shown when an agent-maintained profile page has no content yet, so a
 // first visit explains itself instead of rendering a blank document.
@@ -228,9 +229,7 @@ function HomeContent() {
   }, [sourceId, currentView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Capture URL from feed
-  const handleCaptureUrl = (url: string) => {
-    setCaptureInput(url);
-    // Trigger capture immediately
+  const captureUrl = useCallback((url: string) => {
     fetch("/api/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -252,7 +251,21 @@ function HomeContent() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to capture");
       });
+  }, [upsertLibrarySummary, setError]);
+
+  const handleCaptureUrl = (url: string) => {
+    setCaptureInput(url);
+    captureUrl(url);
   };
+
+  // Capture the starter pack, staggered so the machine isn't asked to run
+  // several analysis pipelines at once. Lives here (not in Dashboard) so
+  // navigating away doesn't cancel the remaining captures.
+  const captureStarterPack = useCallback(() => {
+    STARTER_PACK.forEach((item, i) => {
+      setTimeout(() => captureUrl(item.url), i * STARTER_PACK_STAGGER_SECONDS * 1000);
+    });
+  }, [captureUrl]);
 
   // Load source from URL param
   useEffect(() => {
@@ -750,6 +763,7 @@ function HomeContent() {
                 palette={palette}
                 theme={theme}
                 getScoreColor={getScoreColor}
+                onStarterPack={captureStarterPack}
               />
             )}
           </div>
