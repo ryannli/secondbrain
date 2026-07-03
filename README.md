@@ -7,7 +7,7 @@
 
 Second Brain turns links, notes, PDFs, images, and feeds into a local-first reading workspace. It preserves the original source, creates an editable analysis layer, and helps you decide what deserves real attention.
 
-![Second Brain product preview](docs/assets/second-brain-preview.svg)
+![Second Brain demo — capture a link, read the triage, browse your curated feed](docs/assets/second-brain-demo.gif)
 
 ## Why It Exists
 
