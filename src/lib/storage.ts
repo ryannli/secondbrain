@@ -150,6 +150,53 @@ async function copyMissingTree(src: string, dest: string): Promise<void> {
   await fs.copyFile(src, dest);
 }
 
+/**
+ * Seeded sample content ships with fixed timestamps that would read as
+ * months-old on a fresh install. Re-stamp the seeded copies (never the
+ * sample_data source) to recent dates — this happens at creation time,
+ * before the user ever sees them, so meta.json immutability is preserved.
+ */
+async function refreshSeededTimestamps(rootPath: string): Promise<void> {
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const rewriteJson = async (
+    filePath: string,
+    update: (data: Record<string, unknown>) => void,
+  ) => {
+    try {
+      const data = JSON.parse(await fs.readFile(filePath, "utf-8")) as Record<string, unknown>;
+      update(data);
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+    } catch {
+      // Seeded file absent or malformed — not worth failing initialization
+    }
+  };
+
+  const restamp = async (dir: string, createdKey: "created_at" | "createdAt") => {
+    let entries: string[];
+    try {
+      entries = (await fs.readdir(dir, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort();
+    } catch {
+      return;
+    }
+    for (const [index, name] of entries.entries()) {
+      const stamp = new Date(Date.now() - (index + 1) * dayMs).toISOString();
+      await rewriteJson(path.join(dir, name, "meta.json"), (meta) => {
+        if (meta[createdKey]) meta[createdKey] = stamp;
+      });
+      await rewriteJson(path.join(dir, name, "analysis.json"), (analysis) => {
+        if (analysis.analyzedAt) analysis.analyzedAt = stamp;
+      });
+    }
+  };
+
+  await restamp(path.join(rootPath, "library"), "created_at");
+  await restamp(path.join(rootPath, "studio"), "createdAt");
+}
+
 const initializationPromises = new Map<string, Promise<void>>();
 
 export function clearUserDataInitializationCacheForTests(): void {
@@ -169,6 +216,7 @@ export async function ensureUserDataInitialized(rootPath = getRootPath()): Promi
     const samplePath = getSampleDataPath();
     if (await exists(samplePath)) {
       await copyMissingTree(samplePath, resolvedRootPath);
+      await refreshSeededTimestamps(resolvedRootPath);
       return;
     }
 

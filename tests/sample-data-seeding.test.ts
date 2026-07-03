@@ -44,6 +44,13 @@ describe("sample data seeding", () => {
     expect(claudeTarget).toBe("AGENTS.md");
     expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
     expect(studioDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
+
+    // Seeded copies are re-stamped to recent dates so they don't read as months old
+    for (const summary of summaries) {
+      const ageDays = (Date.now() - new Date(summary.meta.createdAt).getTime()) / 86_400_000;
+      expect(ageDays).toBeGreaterThanOrEqual(0);
+      expect(ageDays).toBeLessThan(7);
+    }
   });
 
   it("still seeds when API routes created empty directories before the seeding check", async () => {
