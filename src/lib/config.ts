@@ -14,7 +14,7 @@ export const FEED_CONFIG = {
 // Bounds on how much history is packed into agent prompts. Without these,
 // context grows with the library and every feed/capture gets slower forever.
 export const AGENT_CONTEXT_CONFIG = {
-  feedLibrarySources: 30,    // newest sources given to feed filtering/briefing
+  feedLibrarySources: 50,    // newest sources given to feed filtering/briefing (summaries only — cheap)
   connectionCandidates: 60,  // newest sources compared against a new capture
   interactionWindowDays: 30, // how far back reading interactions count
   maxSignalsPerType: 20,     // newest interactions kept per signal type
