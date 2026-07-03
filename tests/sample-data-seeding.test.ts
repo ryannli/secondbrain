@@ -42,7 +42,7 @@ describe("sample data seeding", () => {
     expect(await fs.readFile(path.join(tmpRoot, "DataSchema.md"), "utf-8")).toContain("analysis.json");
     expect(claudeStat.isSymbolicLink()).toBe(true);
     expect(claudeTarget).toBe("AGENTS.md");
-    expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b", "demo003c"]);
+    expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
     expect(studioDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
 
     // Seeded copies are re-stamped to recent dates so they don't read as months old
@@ -64,7 +64,7 @@ describe("sample data seeding", () => {
     const summaries = await listSourceSummaries();
 
     expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "R/singularity", "R/ClaudeAI"]);
-    expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b", "demo003c"]);
+    expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
   });
 
   it("does not inject sample data into a non-empty user data root", async () => {

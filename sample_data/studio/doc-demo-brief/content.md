@@ -1,6 +1,6 @@
 # Your First Week with Second Brain
 
-*This is an example Notebook document — the kind of synthesis your agent drafts from sources you've captured. It was built from the three example sources in your library.*
+*This is an example Notebook document — the kind of synthesis your agent drafts from sources you've captured. It was built from the two example sources in your library.*
 
 ## Day one: trust the verdicts, but check them
 
@@ -16,4 +16,4 @@ Ask the panel to draft a brief connecting your recent sources — it lands here,
 
 ## The safety net under all of it
 
-Everything above is plain files you own (**demo003c**). Originals never change, analysis can always be regenerated, and the examples folder — including this document — is yours to delete the moment it has done its job.
+Everything above is plain files you own. Originals never change, analysis can always be regenerated, and the examples folder — including this document — is yours to delete the moment it has done its job.

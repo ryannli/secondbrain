@@ -5,7 +5,6 @@
   "output": "content.md",
   "sources": [
     "demo001a",
-    "demo002b",
-    "demo003c"
+    "demo002b"
   ]
 }
