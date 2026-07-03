@@ -2,8 +2,11 @@
 
 ## Open (web app / OSS launch)
 
-- [ ] Real screenshots + demo GIF for the README hero (placeholder SVG today)
+- [x] Real demo GIF for the README hero (recorded from the live app; replaced the placeholder SVG)
 - [ ] Rotate the local Brave Search API key before publishing (never committed; disk hygiene)
+- [ ] Long articles can fail to process (e.g. paulgraham.com/greatwork.html, ~9k words).
+      Worked around by pointing the extension welcome-page example at a shorter essay
+      (do.html) — investigate the real limit (agent timeout? prompt size?) and fix.
 
 ### Compromises (revisit before launch / scaling)
 - **Extension server discovery**: probes ports 3000-3003 + 41932 in parallel and
