@@ -36,9 +36,9 @@ Bookmark managers work the wrong end of it. Saving is easy; **deciding is the ha
 
 Second Brain flips the loop: **triage before you read.** Every capture gets flagged at the door — so the twenty-minute mistakes get easier to decline, and the piece that matters gets your full attention: actually read, not skimmed with guilt.
 
-## Not another AI-summary app
+## Don't outsource your understanding — or your judgment
 
-Let's address it head-on: nobody needs one more tool that turns essays into three bullets so you can pretend you read them. **Understanding doesn't outsource. Neither does judgment.**
+Nobody needs one more tool that turns essays into three bullets so you can pretend you read them. **That is not what this is.**
 
 Second Brain's AI does exactly two jobs — and reading for you isn't one of them:
 
@@ -78,6 +78,29 @@ Every verdict is advisory. Every analysis is an editable file on your disk. The 
 - **Your library is the agent's workspace** — plain local files mean the agent reads and organizes the exact same files you see. Hand it content anytime: reorganize the library, or draft a post from what you've been reading lately, straight into your Notebook.
 - **Information comes to you** — the "For You" feed ranks RSS (and optional search) against your interests and reading history. It breaks the bottleneck of only knowing what you went looking for. Works out of the box, no API key.
 - **You control what it knows** — `USER.md` holds your explicit preferences; `MEMORY.md` is the agent's own evolving notes about you, visible and editable right in the app. Modern agent memory, without the black box.
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/foryou.png" alt="For You — a personalized briefing that cross-references your own library" />
+      <br/><sub><b>For You</b> — a briefing that knows your library: "compare this against <i>your</i> augmented-LLM notes."</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/agent.png" alt="Agent panel beside the reading view, with the current source as context" />
+      <br/><sub><b>Agent at your side</b> — the current source becomes context; ask, verify, reorganize, draft.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/memory.png" alt="Memory page — the agent's evolving notes about you, editable in the app" />
+      <br/><sub><b>Memory, in the open</b> — what the agent has learned about you is a file you can read and edit.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/notebook.png" alt="Notebook — an agent-drafted brief that cites the sources it connected" />
+      <br/><sub><b>Notebook</b> — agent-drafted syntheses that cite your sources, yours to rewrite.</sub>
+    </td>
+  </tr>
+</table>
 
 ## How it works
 
