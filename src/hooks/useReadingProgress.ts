@@ -3,7 +3,8 @@
 import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 const SEGMENT_HEIGHT_PX = 320;
-const DWELL_MS = 800;
+const TICK_MS = 400;
+const SEEN_DWELL_MS = 800;
 const COMPLETE_THRESHOLD = 0.95;
 
 interface ReadingProgress {
@@ -45,7 +46,8 @@ function writeSeenSegments(resetKey: string, segments: Set<number>) {
  * Tracks content coverage separately from scroll position.
  *
  * `herePercent` follows the current scroll position immediately.
- * `seenPercent` only increases after the visible area has remained in view.
+ * `seenPercent` counts segments that have accumulated enough visible time,
+ * so slow continuous reading counts while fast flings past content do not.
  */
 export function useReadingProgress(
   containerRef: RefObject<HTMLElement | null>,
@@ -60,7 +62,6 @@ export function useReadingProgress(
   });
 
   const seenSegmentsRef = useRef<Set<number>>(new Set());
-  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetKeyRef = useRef(resetKey);
 
   const updateProgress = useCallback((el: HTMLElement, persist = false) => {
@@ -81,29 +82,6 @@ export function useReadingProgress(
     });
   }, []);
 
-  const markVisibleSegments = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const totalSegments = Math.max(1, Math.ceil(el.scrollHeight / SEGMENT_HEIGHT_PX));
-    const inset = Math.min(80, el.clientHeight * 0.08);
-    const start = Math.max(0, el.scrollTop + inset);
-    const end = Math.min(el.scrollHeight, Math.max(start + 1, el.scrollTop + el.clientHeight - inset));
-    const startSegment = Math.max(0, Math.floor(start / SEGMENT_HEIGHT_PX));
-    const endSegment = Math.min(totalSegments - 1, Math.floor((end - 1) / SEGMENT_HEIGHT_PX));
-
-    for (let segment = startSegment; segment <= endSegment; segment += 1) {
-      seenSegmentsRef.current.add(segment);
-    }
-
-    updateProgress(el, true);
-  }, [containerRef, updateProgress]);
-
-  const scheduleMarkVisible = useCallback(() => {
-    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-    dwellTimerRef.current = setTimeout(markVisibleSegments, DWELL_MS);
-  }, [markVisibleSegments]);
-
   useEffect(() => {
     resetKeyRef.current = resetKey;
     seenSegmentsRef.current = new Set(readSeenSegments(resetKey));
@@ -114,27 +92,51 @@ export function useReadingProgress(
     }
 
     updateProgress(el);
-    scheduleMarkVisible();
+
+    // Sample the viewport on a fixed cadence and accumulate visible time per
+    // segment; a segment counts as seen once it reaches SEEN_DWELL_MS.
+    const dwellMs = new Map<number, number>();
+    const tick = () => {
+      if (document.hidden) return;
+
+      const totalSegments = Math.max(1, Math.ceil(el.scrollHeight / SEGMENT_HEIGHT_PX));
+      const inset = Math.min(80, el.clientHeight * 0.08);
+      const start = Math.max(0, el.scrollTop + inset);
+      const end = Math.min(el.scrollHeight, Math.max(start + 1, el.scrollTop + el.clientHeight - inset));
+      const startSegment = Math.max(0, Math.floor(start / SEGMENT_HEIGHT_PX));
+      const endSegment = Math.min(totalSegments - 1, Math.floor((end - 1) / SEGMENT_HEIGHT_PX));
+
+      let changed = false;
+      for (let segment = startSegment; segment <= endSegment; segment += 1) {
+        if (seenSegmentsRef.current.has(segment)) continue;
+        const dwell = (dwellMs.get(segment) ?? 0) + TICK_MS;
+        if (dwell >= SEEN_DWELL_MS) {
+          seenSegmentsRef.current.add(segment);
+          changed = true;
+        } else {
+          dwellMs.set(segment, dwell);
+        }
+      }
+      if (changed) updateProgress(el, true);
+    };
+    const interval = setInterval(tick, TICK_MS);
 
     let frame = 0;
     const handleScroll = () => {
       if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        updateProgress(el);
-        scheduleMarkVisible();
-      });
+      frame = requestAnimationFrame(() => updateProgress(el));
     };
 
     el.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll);
 
     return () => {
+      clearInterval(interval);
       el.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
       if (frame) cancelAnimationFrame(frame);
-      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     };
-  }, [containerRef, enabled, resetKey, scheduleMarkVisible, updateProgress]);
+  }, [containerRef, enabled, resetKey, updateProgress]);
 
   return progress;
 }

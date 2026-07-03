@@ -22,6 +22,7 @@ import { EntryActions } from "./EntryActions";
 import { StarRating } from "./StarRating";
 import { useResizable } from "@/hooks/useResizable";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { formatRelativeTime } from "@/lib/utils";
 /** Format seconds as M:SS or H:MM:SS */
 function formatTimer(totalSeconds: number): string {
@@ -136,11 +137,13 @@ export const EntryView = React.memo(function EntryView({
   const [viewOriginal, setViewOriginal] = useState(false);
   const [zoom, setZoom] = useState(100);
   const readingScrollRef = React.useRef<HTMLDivElement>(null);
+  const isReadingMode = !isEditing && !viewOriginal && entry.content.trim().length > 0;
   const readingProgress = useReadingProgress(
     readingScrollRef,
     `${entry.id}:${entry.content.length}`,
-    !isEditing && !viewOriginal && entry.content.trim().length > 0,
+    isReadingMode,
   );
+  useScrollRestore(readingScrollRef, `${entry.id}:${entry.content.length}`, isReadingMode);
   const showReadingProgress = !isEditing
     && !viewOriginal
     && entry.content.trim().length > 0
@@ -367,7 +370,7 @@ export const EntryView = React.memo(function EntryView({
                 </div>
               </div>
             ) : (
-              <div ref={readingScrollRef} className="h-full overflow-y-auto pr-6">
+              <div ref={readingScrollRef} className="h-full overflow-y-auto pr-6" data-highlightable>
                 <MarkdownContent
                   content={entry.content}
                   palette={palette}
