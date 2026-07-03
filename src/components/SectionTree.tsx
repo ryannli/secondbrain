@@ -7,6 +7,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Plus,
 } from "lucide-react";
 import { TreeNode } from "@/lib/types";
 import { TreeItem } from "@/components/TreeItem";
@@ -40,11 +41,14 @@ interface DragDropProps {
 export interface SectionTreeProps {
   // Section info
   label: string;
+  hint?: string; // One-line role description shown next to the label
   rootLabel: string;
   isOpen: boolean;
   onToggle: () => void;
   isEmpty: boolean;
   emptyMessage: string;
+  onAdd?: () => void; // Optional "+" action in the section header
+  addTitle?: string;
   // Tree data
   treeNodes: TreeNode[];
   expandedFolders: Set<string>;
@@ -72,11 +76,14 @@ export interface SectionTreeProps {
 
 export function SectionTree({
   label,
+  hint,
   rootLabel,
   isOpen,
   onToggle,
   isEmpty,
   emptyMessage,
+  onAdd,
+  addTitle,
   treeNodes,
   expandedFolders,
   onToggleFolder,
@@ -94,10 +101,15 @@ export function SectionTree({
   return (
     <>
       {/* Section Label */}
-      <div className="px-3 py-1">
-        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: theme.textMuted }}>
+      <div className="px-3 py-1 flex items-baseline gap-1.5 min-w-0">
+        <span className="text-xs font-medium uppercase tracking-wide flex-shrink-0" style={{ color: theme.textMuted }}>
           {label}
         </span>
+        {hint && (
+          <span className="text-[10px] truncate" style={{ color: theme.textLight || theme.textMuted }}>
+            · {hint}
+          </span>
+        )}
       </div>
 
       {/* Section Root - drop target for moving to root */}
@@ -129,6 +141,19 @@ export function SectionTree({
             {rootLabel}
           </span>
         </div>
+        {onAdd && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+            className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
+            data-track="section.add"
+            title={addTitle || "New"}
+          >
+            <Plus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();

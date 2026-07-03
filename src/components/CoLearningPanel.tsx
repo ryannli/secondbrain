@@ -862,7 +862,7 @@ export function CoLearningPanel({
               <div className="flex flex-wrap gap-2 justify-center">
                 {(contexts.length > 0
                   ? ["What's this?", "Explain simply", "What should I verify?"]
-                  : ["What's this?", "Explain simply", "Organize my library"]
+                  : ["Draft a brief connecting my recent sources", "What should I read next?", "Organize my library"]
                 ).map((q) => (
                   <button
                     key={q}

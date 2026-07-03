@@ -42,11 +42,14 @@ export interface DragDropProps {
 // Section configuration
 export interface SectionConfig {
   label: string;
+  hint?: string; // One-line role description shown next to the label
   rootLabel: string;
   isOpen: boolean;
   onToggle: () => void;
   isEmpty: boolean;
   emptyMessage: string;
+  onAdd?: () => void; // Optional "+" action in the section header
+  addTitle?: string;
   treeNodes: TreeNode[];
   expandedFolders: Set<string>;
   onToggleFolder: (path: string) => void;
@@ -217,11 +220,14 @@ export const Sidebar = React.memo(function Sidebar({
               <div key={section.label} className={index > 0 ? "mt-2" : ""}>
                 <SectionTree
                   label={section.label}
+                  hint={section.hint}
                   rootLabel={section.rootLabel}
                   isOpen={section.isOpen}
                   onToggle={section.onToggle}
                   isEmpty={section.isEmpty}
                   emptyMessage={section.emptyMessage}
+                  onAdd={section.onAdd}
+                  addTitle={section.addTitle}
                   treeNodes={section.treeNodes}
                   expandedFolders={section.expandedFolders}
                   onToggleFolder={section.onToggleFolder}
