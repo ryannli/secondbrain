@@ -29,6 +29,15 @@ import { ResizeHandle } from "@/components/ResizeHandle";
 import { useReadingTimer } from "@/hooks/useReadingTimer";
 import { TrackingProvider } from "@/components/TrackingProvider";
 
+// Shown when an agent-maintained profile page has no content yet, so a
+// first visit explains itself instead of rendering a blank document.
+const PROFILE_EMPTY_TEMPLATES: Record<string, string> = {
+  Memory: `*This page is maintained by your agent. As you read, rate sources, and chat, durable facts about your interests and knowledge get recorded here — so future analysis and feeds know what you already know.*
+
+*Nothing has been recorded yet. You can also edit this file directly; it lives in your data folder as \`MEMORY.md\`.*`,
+  User: `*Your reading preferences, in your own words. The agent reads this before analyzing content for you — edit it any time; it lives in your data folder as \`USER.md\`.*`,
+};
+
 export default function Home() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
@@ -554,7 +563,7 @@ function HomeContent() {
                 entry={{
                   id: `profile-${profileDoc.name}`,
                   title: profileDoc.name,
-                  content: profileDoc.content,
+                  content: profileDoc.content || PROFILE_EMPTY_TEMPLATES[profileDoc.name] || "",
                   type: "text",
                 }}
                 onSave={async (_title, content) => {
