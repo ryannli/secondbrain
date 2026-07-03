@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG, FeedItem, ProcessingStage } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { getSourceIcon } from "@/lib/sourceIcon";
 import { formatRelativeTime } from "@/lib/utils";
 import { FeedSection } from "@/components/FeedSection";
@@ -355,7 +356,7 @@ export const Dashboard = React.memo(function Dashboard({
           <ProcessingProgressBar stage={source.meta.processingStage!} color={palette[500]} mutedColor={theme.textMuted} />
         ) : isFailed ? (
           <p className="text-xs" style={{ color: "#ef4444" }}>
-            {source.meta.processingError || "Processing failed"}
+            <LinkifiedText text={source.meta.processingError || "Processing failed"} />
           </p>
         ) : source.reason && (
           <p className="text-xs line-clamp-2 break-words" style={{ color: theme.textMuted }}>

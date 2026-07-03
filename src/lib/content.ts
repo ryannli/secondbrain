@@ -87,7 +87,7 @@ export async function extractFromUrl(url: string, userAgent?: string, sourceId?:
   if (requiresAuthentication(url)) {
     debugLog(`[Content] ${siteName} requires authentication, please use Chrome Extension`);
     throw new Error(
-      `${siteName} requires login to view content. Please use the Chrome Extension to capture this page while logged in.`
+      `${siteName} requires login to view content. Please capture it with the [Chrome Extension](https://github.com/ryannli/secondbrain#chrome-extension) while logged in.`
     );
   }
 
