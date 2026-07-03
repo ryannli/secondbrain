@@ -29,6 +29,20 @@ interface ParsedMessage {
   totalToolCalls: number;
 }
 
+// A message sent while another turn was still streaming, waiting to be sent
+interface QueuedSend {
+  text: string;
+  contexts: AgentContext[];
+  userMessage: AgentMessage;
+}
+
+// Live record of an in-flight turn (also used to resume background streams)
+interface ActiveTurn {
+  messageId: string;
+  events: StreamEvent[];
+  queue: QueuedSend[];
+}
+
 /**
  * Build ParsedMessage from accumulated stream events
  */
@@ -309,8 +323,11 @@ export function CoLearningPanel({
   const conversationListRef = useRef<HTMLDivElement>(null);
   // Track current conversation ID in a ref so background fetches can check it
   const currentConvIdRef = useRef<string | null>(null);
-  // Track active background streams: convId → { messageId, events (live reference) }
-  const activeStreamsRef = useRef<Map<string, { messageId: string; events: StreamEvent[] }>>(new Map());
+  // Track active background streams: convId → live turn record
+  const activeStreamsRef = useRef<Map<string, ActiveTurn>>(new Map());
+  // In-flight turn for the conversation on screen. Set synchronously on send,
+  // so a second send during streaming queues instead of racing the first.
+  const viewTurnRef = useRef<ActiveTurn | null>(null);
 
   // Load conversation list and restore last session on mount
   useEffect(() => {
@@ -443,6 +460,7 @@ export function CoLearningPanel({
 
         // Resume streaming if there's a background fetch for this conversation
         const bgStream = activeStreamsRef.current.get(id);
+        viewTurnRef.current = bgStream ?? null;
         if (bgStream) {
           setStreamingMessageId(bgStream.messageId);
           setStreamingEvents([...bgStream.events]);
@@ -498,6 +516,7 @@ export function CoLearningPanel({
         if (currentConversationId === id) {
           setCurrentConversationId(null);
           setMessages([]);
+          viewTurnRef.current = null;
         }
       }
     } catch (err) {
@@ -519,6 +538,7 @@ export function CoLearningPanel({
     setStreamingMessageId(null);
     setIsLoading(false);
     setShowConversationList(false);
+    viewTurnRef.current = null;
   };
 
   const sendMessage = async () => {
@@ -526,12 +546,6 @@ export function CoLearningPanel({
     if (!messageText && contexts.length === 0) return;
 
     const currentContexts = [...contexts];
-    const currentHistory = messages.slice(-10).map((m) => ({
-      role: m.role,
-      content: m.content,
-      streamEvents: m.streamEvents,
-    }));
-
     const userMessage: AgentMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
@@ -540,22 +554,57 @@ export function CoLearningPanel({
       contexts: currentContexts.length > 0 ? currentContexts : undefined,
     };
 
-    const assistantMessageId = `msg-${Date.now()}-assistant`;
-    const newMessages = [...messages, userMessage];
-
-    setMessages(newMessages);
-    setStreamingEvents([]);
-    setStreamingMessageId(assistantMessageId);
     setInput("");
     setContexts([]);
-    setIsLoading(true);
     isNearBottomRef.current = true;
 
+    // A turn is already streaming in this conversation: show the message now
+    // and queue it; the active turn chains it on completion with full history.
+    if (viewTurnRef.current) {
+      setMessages((prev) => [...prev, userMessage]);
+      viewTurnRef.current.queue.push({ text: messageText, contexts: currentContexts, userMessage });
+      return;
+    }
+
+    await runTurn(messageText, currentContexts, userMessage, messages, currentConversationId);
+  };
+
+  // Runs one request/stream turn. On completion, chains any sends that were
+  // queued while it was streaming, using the completed history as the base.
+  const runTurn = async (
+    messageText: string,
+    turnContexts: AgentContext[],
+    userMessage: AgentMessage,
+    baseMessages: AgentMessage[],
+    convIdIn: string | null,
+    carriedQueue: QueuedSend[] = [],
+  ) => {
+    const currentHistory = baseMessages.slice(-10).map((m) => ({
+      role: m.role,
+      content: m.content,
+      streamEvents: m.streamEvents,
+    }));
+
+    const assistantMessageId = `${userMessage.id}-assistant`;
+    const newMessages = [...baseMessages, userMessage];
+    const allEvents: StreamEvent[] = [];
+    const turn: ActiveTurn = { messageId: assistantMessageId, events: allEvents, queue: carriedQueue };
+
+    // Synchronous, before any await: a send arriving from now on gets queued
+    const isViewed = convIdIn === null || currentConvIdRef.current === convIdIn;
+    if (isViewed) {
+      viewTurnRef.current = turn;
+      setMessages([...newMessages, ...turn.queue.map((q) => q.userMessage)]);
+      setStreamingEvents([]);
+      setStreamingMessageId(assistantMessageId);
+      setIsLoading(true);
+    }
+
     // Save conversation immediately with user message
-    let convId = currentConversationId;
+    let convId = convIdIn;
     try {
-      convId = await saveConversation(newMessages, currentConversationId);
-      if (convId && convId !== currentConversationId) {
+      convId = await saveConversation(newMessages, convIdIn);
+      if (convId && convId !== convIdIn && isViewed) {
         setCurrentConversationId(convId);
       }
     } catch (e) {
@@ -566,10 +615,12 @@ export function CoLearningPanel({
     const isActive = () => convId !== null && currentConvIdRef.current === convId;
 
     // Register background stream so loadConversation can resume it
-    const allEvents: StreamEvent[] = [];
     if (convId) {
-      activeStreamsRef.current.set(convId, { messageId: assistantMessageId, events: allEvents });
+      activeStreamsRef.current.set(convId, turn);
     }
+
+    // Messages after this turn resolves; base for chained queued sends
+    let outcomeMessages = newMessages;
 
     try {
       const res = await fetch("/api/chat", {
@@ -577,7 +628,7 @@ export function CoLearningPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: messageText,
-          contexts: currentContexts.map((c) => ({
+          contexts: turnContexts.map((c) => ({
             text: (c.type === "source" || c.type === "document") ? `[${c.type === "source" ? "Source" : "Document"}: ${c.title}]` : (c.content || ""),
             source: c.title,
           })),
@@ -634,29 +685,30 @@ export function CoLearningPanel({
         streamEvents: allEvents.length > 0 ? allEvents : undefined,
       };
 
-      const finalMessages = [...newMessages, assistantMessage];
+      outcomeMessages = [...newMessages, assistantMessage];
       if (isActive()) {
-        setMessages(finalMessages);
+        setMessages([...outcomeMessages, ...turn.queue.map((q) => q.userMessage)]);
         setStreamingEvents([]);
         setStreamingMessageId(null);
       }
 
       // Always save final conversation (even if user switched away)
-      await saveConversation(finalMessages, convId);
+      await saveConversation(outcomeMessages, convId);
       loadConversations();
       if (isActive()) {
         onAgentComplete?.();
       }
 
     } catch (err) {
+      const errorMessage: AgentMessage = {
+        id: `msg-${Date.now()}-error`,
+        role: "assistant",
+        content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
+        timestamp: new Date().toISOString(),
+      };
+      outcomeMessages = [...newMessages, errorMessage];
       if (isActive()) {
-        const errorMessage: AgentMessage = {
-          id: `msg-${Date.now()}-error`,
-          role: "assistant",
-          content: `Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages([...newMessages, errorMessage]);
+        setMessages([...outcomeMessages, ...turn.queue.map((q) => q.userMessage)]);
         setStreamingEvents([]);
         setStreamingMessageId(null);
       }
@@ -664,8 +716,16 @@ export function CoLearningPanel({
       if (convId) {
         activeStreamsRef.current.delete(convId);
       }
-      if (isActive()) {
-        setIsLoading(false);
+      const next = turn.queue.shift();
+      if (next) {
+        runTurn(next.text, next.contexts, next.userMessage, outcomeMessages, convId, turn.queue);
+      } else {
+        if (viewTurnRef.current === turn) {
+          viewTurnRef.current = null;
+        }
+        if (isActive()) {
+          setIsLoading(false);
+        }
       }
     }
   };
@@ -999,7 +1059,7 @@ export function CoLearningPanel({
           />
           <button
             onClick={sendMessage}
-            disabled={isLoading || (!input.trim() && contexts.length === 0)}
+            disabled={!input.trim() && contexts.length === 0}
             className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
             data-track="agent.send"
             style={{ backgroundColor: palette[500], color: "white" }}

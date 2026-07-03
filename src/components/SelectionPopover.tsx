@@ -19,6 +19,9 @@ export function SelectionPopover({
 }: SelectionPopoverProps) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [selectedText, setSelectedText] = useState("");
+  // Highlights only anchor to the reading content (content.md text), so the
+  // button is offered only for selections inside a [data-highlightable] area
+  const [canHighlight, setCanHighlight] = useState(false);
   const { addContext } = useCoLearning();
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +72,11 @@ export function SelectionPopover({
     const popoverX = Math.max(containerRect.left + 60, Math.min(firstRect.left + firstRect.width / 2, containerRect.right - 60));
     const popoverY = firstRect.top - 6;
 
+    const anchorEl = range.commonAncestorContainer instanceof Element
+      ? range.commonAncestorContainer
+      : range.commonAncestorContainer.parentElement;
+    setCanHighlight(!!anchorEl?.closest("[data-highlightable]"));
+
     setSelectedText(text);
     setPosition({
       x: popoverX,
@@ -116,7 +124,7 @@ export function SelectionPopover({
       onMouseDown={(e) => e.preventDefault()}
     >
       <div className="flex items-center gap-0.5 rounded shadow-md overflow-hidden">
-        {onHighlight && (
+        {onHighlight && canHighlight && (
           <button
             onClick={handleHighlight}
             className="flex items-center gap-1 px-2 py-1 text-white text-xs whitespace-nowrap hover:brightness-110 transition-all"

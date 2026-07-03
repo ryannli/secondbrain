@@ -100,11 +100,15 @@ describe("sample data seeding", () => {
     expect(savedConfig.feedSources).toBeUndefined();
   });
 
-  it("keeps MEMORY.md out of the default profile API surface", async () => {
-    const response = await getProfile(new Request("http://localhost/api/profile/Memory"), {
+  it("serves agent-maintained profile pages and rejects unknown ones", async () => {
+    const memory = await getProfile(new Request("http://localhost/api/profile/Memory"), {
       params: Promise.resolve({ name: "Memory" }),
     });
+    expect(memory.status).toBe(200);
 
-    expect(response.status).toBe(404);
+    const unknown = await getProfile(new Request("http://localhost/api/profile/Random"), {
+      params: Promise.resolve({ name: "Random" }),
+    });
+    expect(unknown.status).toBe(404);
   });
 });

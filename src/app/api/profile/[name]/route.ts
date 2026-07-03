@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { loadProfileDoc, saveProfileDoc } from "@/lib/storage";
 import { invalidateProfileCache } from "@/lib/claude";
 
-type ProfileName = "USER";
+type ProfileName = "USER" | "MEMORY";
 
-const VALID_NAMES = new Set<ProfileName>(["USER"]);
+const VALID_NAMES = new Set<ProfileName>(["USER", "MEMORY"]);
 
 function validateName(name: string): ProfileName | null {
   const upper = name.toUpperCase() as ProfileName;

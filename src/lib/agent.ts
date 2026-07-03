@@ -36,11 +36,22 @@ export async function getConfiguredAgentProvider(): Promise<AgentProvider> {
 
 async function buildPromptWithProfiles(prompt: string): Promise<string> {
   const { userProfile } = await loadUserProfiles();
+  // Memory is agent-written during chats, so read it fresh instead of caching
+  const memory = (await loadProfileDoc("MEMORY").catch(() => "")).trim();
+
+  const preamble: string[] = [];
   const profileParts: string[] = [];
-  if (userProfile) profileParts.push(`<user-preferences file="USER.md">\n${userProfile}\n</user-preferences>`);
+  if (userProfile) {
+    preamble.push("You MUST follow the instructions in <user-preferences>.");
+    profileParts.push(`<user-preferences file="USER.md">\n${userProfile}\n</user-preferences>`);
+  }
+  if (memory) {
+    preamble.push("<agent-memory> is accumulated background context about the user.");
+    profileParts.push(`<agent-memory file="MEMORY.md">\n${memory}\n</agent-memory>`);
+  }
 
   return profileParts.length > 0
-    ? `You MUST follow the instructions in <user-preferences>.\n\n${profileParts.join("\n\n")}\n\n${prompt}`
+    ? `${preamble.join(" ")}\n\n${profileParts.join("\n\n")}\n\n${prompt}`
     : prompt;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Clock,
   Star,
@@ -12,10 +12,7 @@ import {
   Plus,
 } from "lucide-react";
 import { HistoryEvent } from "@/lib/types";
-import { InterestStream } from "./InterestStream";
 import { ReadingHeatmap } from "./ReadingHeatmap";
-import { KnowledgeGalaxy } from "./KnowledgeGalaxy";
-import { ConceptConstellation } from "./ConceptConstellation";
 
 interface HistorySectionProps {
   events: HistoryEvent[];
@@ -120,46 +117,6 @@ function groupByDay(events: HistoryEvent[]): Map<string, HistoryEvent[]> {
   return groups;
 }
 
-type ConceptTimeRange = "week" | "month";
-
-function ConceptConstellationSection({ palette, theme }: { palette: Record<number, string>; theme: Record<string, string> }) {
-  const [range, setRange] = useState<ConceptTimeRange>("month");
-
-  return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold" style={{ color: theme.textMuted }}>
-          Concept Constellation
-        </h3>
-        <div
-          className="flex rounded-md overflow-hidden text-[11px]"
-          style={{ border: `1px solid ${theme.border}` }}
-        >
-          {(["week", "month"] as ConceptTimeRange[]).map(r => {
-            const active = range === r;
-            return (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className="px-2.5 py-0.5 transition-colors"
-                data-track="constellation.range"
-                style={{
-                  backgroundColor: active ? theme.text : "transparent",
-                  color: active ? theme.bg : theme.textMuted,
-                  fontWeight: active ? 600 : 400,
-                }}
-              >
-                {r === "week" ? "This Week" : "This Month"}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <ConceptConstellation palette={palette} theme={theme} range={range} />
-    </div>
-  );
-}
-
 export const HistorySection = React.memo(function HistorySection({
   events,
   loading,
@@ -202,36 +159,22 @@ export const HistorySection = React.memo(function HistorySection({
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
-          Brain Waves
+          History
         </h2>
       </div>
-
-      {/* Interest Stream */}
-      <InterestStream palette={palette} theme={theme} />
 
       {/* Reading Heatmap */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
-          Reading Activity
+          Daily Activity
         </h3>
         <ReadingHeatmap events={events} palette={palette} theme={theme} />
       </div>
 
-      {/* Knowledge Galaxy */}
-      <div className="mb-8">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
-          Knowledge Galaxy
-        </h3>
-        <KnowledgeGalaxy palette={palette} theme={theme} onNavigateToSource={onNavigateToSource} />
-      </div>
-
-      {/* Concept Constellation */}
-      <ConceptConstellationSection palette={palette} theme={theme} />
-
       {/* Activity Timeline */}
       <div className="flex items-center gap-2 mb-4 mt-2">
         <h3 className="text-sm font-semibold" style={{ color: theme.textMuted }}>
-          Activity
+          Recent Activity
         </h3>
       </div>
       <div className="relative pl-6">

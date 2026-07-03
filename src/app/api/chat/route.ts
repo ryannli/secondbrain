@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
-import { getCurrentRootPath } from "@/lib/storage";
+import { getCurrentRootPath, loadProfileDoc } from "@/lib/storage";
 import { getAgentChatCommand, getConfiguredAgentProvider } from "@/lib/agent";
 import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
 import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
@@ -53,10 +53,19 @@ export async function POST(request: NextRequest) {
 Your environment:
 - \`./library/\` - The content library (read and write)
 - \`./config.json\` - User settings (read only)
+- \`./MEMORY.md\` - Your memory about the user (you maintain this)
 - \`./AGENTS.md\` or \`./CLAUDE.md\` - Your detailed instructions if present
 
 Be concise but thorough. Use markdown formatting when helpful.
 `;
+
+    // Inject agent memory and its maintenance duty
+    const memory = (await loadProfileDoc("MEMORY").catch(() => "")).trim();
+    prompt += "\n## Memory\n";
+    if (memory) {
+      prompt += `<agent-memory file="./MEMORY.md">\n${memory}\n</agent-memory>\n`;
+    }
+    prompt += `You own \`./MEMORY.md\`: your observations about the user (interests, preferences, ongoing projects, expertise). If this conversation reveals something durable about the user, update the file before finishing — merge and revise rather than append, remove stale entries, keep it concise. Do not record one-off task details. If nothing new was learned, leave it untouched.\n`;
 
     // Add user's current location
     if (currentPath) {

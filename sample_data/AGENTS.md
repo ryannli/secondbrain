@@ -9,7 +9,7 @@ is a compatibility symlink to this file.
 
 - Read `USER.md` at the start of a task when it exists. Treat it as user-owned preferences.
 - Read `DataSchema.md` before editing `analysis.json`, `meta.json`, highlights, or Studio documents.
-- `MEMORY.md` may exist in a user's real data folder, but it is optional and user-maintained.
+- `MEMORY.md` is your memory about the user, maintained by you across conversations (interests, preferences, ongoing projects). Read it when it exists; when a conversation reveals something durable about the user, update it — merge and revise rather than append, and keep it concise. The user may also edit it.
 
 ## Directory Map
 

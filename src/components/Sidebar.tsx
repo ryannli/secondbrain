@@ -8,6 +8,7 @@ import {
   Rss,
   Clock,
   FileText,
+  Brain,
 } from "lucide-react";
 import { Source, TreeNode } from "@/lib/types";
 import { theme } from "@/lib/theme";
@@ -210,6 +211,26 @@ export const Sidebar = React.memo(function Sidebar({
               style={{ color: selectedProfile === "User" ? palette[600] : theme.text }}
             >
               User
+            </span>
+          </button>
+
+          <button
+            onClick={() => onSelectProfile("Memory")}
+            className="mx-2 px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-left rounded-lg"
+            data-track="nav.profile.memory"
+            style={{
+              backgroundColor: selectedProfile === "Memory" ? `${palette[500]}15` : undefined,
+            }}
+          >
+            <Brain
+              className="w-4 h-4"
+              style={{ color: selectedProfile === "Memory" ? palette[500] : theme.textMuted }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: selectedProfile === "Memory" ? palette[600] : theme.text }}
+            >
+              Memory
             </span>
           </button>
 
