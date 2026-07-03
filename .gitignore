@@ -64,3 +64,6 @@ test-sample.pdf
 
 # Agent workspace directories
 /.agents/
+
+# Demo workspace for recording marketing assets (never commit)
+/demo_data/
