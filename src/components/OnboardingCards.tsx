@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FolderOpen, ScanSearch, Sparkles, SquareArrowOutUpRight, FileText, Braces } from "lucide-react";
+import { FolderOpen, ScanSearch, Sparkles, SquareArrowOutUpRight, FileText } from "lucide-react";
 import { theme } from "@/lib/theme";
 
 interface OnboardingCardsProps {
@@ -10,32 +10,35 @@ interface OnboardingCardsProps {
   onComplete: () => void;
 }
 
-/** Mini file tree — card 1's visual. Real UI primitives, not a screenshot. */
+/** High-level workspace structure — card 1's visual. */
 function FolderVisual({ palette }: { palette: Record<number, string> }) {
   const row = "flex items-center gap-2 text-xs";
   return (
     <div
-      className="mx-auto w-64 rounded-xl border p-4 text-left space-y-2"
+      className="mx-auto w-72 rounded-xl border p-4 text-left space-y-2"
       style={{ borderColor: theme.border, backgroundColor: "white" }}
     >
       <div className={row} style={{ color: theme.text }}>
         <FolderOpen className="w-3.5 h-3.5" style={{ color: palette[500] }} />
-        <span className="font-medium">library/that-great-article/</span>
+        <span className="font-medium">library/</span>
+        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>what you capture</span>
       </div>
       <div className={`${row} pl-5`} style={{ color: theme.textMuted }}>
         <FileText className="w-3.5 h-3.5" />
-        <span>original.html</span>
-        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>never touched</span>
+        <span>That great article you saved</span>
       </div>
       <div className={`${row} pl-5`} style={{ color: theme.textMuted }}>
         <FileText className="w-3.5 h-3.5" />
-        <span>content.md</span>
-        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>yours to edit</span>
+        <span>The paper from last week</span>
+      </div>
+      <div className={row} style={{ color: theme.text }}>
+        <FolderOpen className="w-3.5 h-3.5" style={{ color: palette[500] }} />
+        <span className="font-medium">notebook/</span>
+        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>what your agent drafts</span>
       </div>
       <div className={`${row} pl-5`} style={{ color: theme.textMuted }}>
-        <Braces className="w-3.5 h-3.5" />
-        <span>analysis.json</span>
-        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>regenerable</span>
+        <FileText className="w-3.5 h-3.5" />
+        <span>A brief connecting the two</span>
       </div>
     </div>
   );
@@ -119,7 +122,7 @@ export function OnboardingCards({ rootPath, palette, onComplete }: OnboardingCar
   const cards = [
     {
       icon: FolderOpen,
-      title: "It all lives here",
+      title: "It all lives on your disk",
       visual: <FolderVisual palette={palette} />,
       body: (
         <>
