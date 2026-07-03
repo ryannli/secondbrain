@@ -831,7 +831,11 @@ function ConnectionsSection({
   };
 
   const typePriority: Record<ConnectionType, number> = { contradicts: 0, redundant: 1, related: 2 };
-  const sortedConnections = [...connections].sort((a, b) => typePriority[a.type] - typePriority[b.type]).slice(0, 5);
+  // Agents write these files too — treat unknown connection types as "related"
+  // instead of crashing the view.
+  const configFor = (type: ConnectionType) => connectionConfig[type] ?? connectionConfig.related;
+  const priorityFor = (type: ConnectionType) => typePriority[type] ?? typePriority.related;
+  const sortedConnections = [...connections].sort((a, b) => priorityFor(a.type) - priorityFor(b.type)).slice(0, 5);
 
   const toggleConnection = (connId: string) => {
     setExpandedConnections((prev) => {
@@ -855,7 +859,7 @@ function ConnectionsSection({
       {isExpanded && (
         <div className="mt-3 space-y-2">
           {sortedConnections.map((conn) => {
-            const config = connectionConfig[conn.type];
+            const config = configFor(conn.type);
             const isOpen = expandedConnections.has(conn.id);
 
             return (

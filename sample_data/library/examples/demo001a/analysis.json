@@ -63,7 +63,7 @@
   "connections": [
     {
       "id": "conn-demo001a-demo002b",
-      "type": "builds_on",
+      "type": "related",
       "summary": "The advanced-features guide picks up where this orientation ends.",
       "details": "Once the core loop is familiar, the advanced guide covers the For You feed, the agent panel, Notebook drafting, and profile pages.",
       "relatedSourceIds": [

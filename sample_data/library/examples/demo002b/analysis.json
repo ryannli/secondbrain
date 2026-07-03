@@ -68,7 +68,7 @@
   "connections": [
     {
       "id": "conn-demo002b-demo001a",
-      "type": "builds_on",
+      "type": "related",
       "summary": "Extends the orientation's core loop into daily-driver features.",
       "details": "The introduction covers capture, triage, and reading; this guide adds the feed, the agent panel, profile pages, and the file contract underneath them.",
       "relatedSourceIds": [

@@ -38,11 +38,9 @@ export const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
 // analyzes their own copy, so no third-party content lives in the repo.
 export const STARTER_PACK: { title: string; url: string }[] = [
   { title: "Building a C compiler with parallel Claudes — Anthropic", url: "https://www.anthropic.com/engineering/building-c-compiler" },
-  { title: "Measuring AI agent autonomy — Anthropic", url: "https://www.anthropic.com/research/measuring-agent-autonomy" },
   { title: "Harness engineering — OpenAI", url: "https://openai.com/index/harness-engineering/" },
   { title: "Bezos's Prometheus raises $12B — TechCrunch", url: "https://techcrunch.com/2026/06/11/jeff-bezoss-prometheus-raises-12b-to-build-an-artificial-general-engineer-for-the-physical-world/" },
   { title: "What to Do — Paul Graham", url: "https://www.paulgraham.com/do.html" },
-  { title: "Two tricks for fast LLM inference — Sean Goedecke", url: "https://www.seangoedecke.com/fast-llm-inference/" },
 ];
 
 // Seconds between starter-pack captures, so a laptop isn't asked to run
