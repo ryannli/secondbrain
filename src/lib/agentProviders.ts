@@ -10,6 +10,7 @@ export interface AgentCommandContext {
   cwd?: string;
   filePath?: string;
   outputPath?: string;
+  model?: string; // Optional model override; empty means the CLI's own default
 }
 
 export interface AgentCommandSpec {
@@ -156,14 +157,18 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
     statusArgs: ["--version"],
     chatEventFormat: "claude-stream-json",
     chatTransport: "prompt-stdin",
-    buildTextArgs: () => ["--print", "--tools", "", "--output-format", "text"],
-    buildFileArgs: () => [
+    buildTextArgs: ({ model }) => [
+      "--print", "--tools", "", "--output-format", "text",
+      ...(model ? ["--model", model] : []),
+    ],
+    buildFileArgs: ({ model }) => [
       "--print",
       "--tools", "Read",
       "--output-format", "text",
       "--permission-mode", "dontAsk",
+      ...(model ? ["--model", model] : []),
     ],
-    buildChatArgs: () => [
+    buildChatArgs: ({ model }) => [
       "--print",
       "--output-format", "stream-json",
       "--verbose",
@@ -171,6 +176,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
       "--permission-mode", "acceptEdits",
       "--allowedTools", "Read,Write,Edit,Bash,Glob,Grep,Task,WebSearch,WebFetch",
       "--max-turns", "30",
+      ...(model ? ["--model", model] : []),
     ],
     resolveCommand: (env) => resolveAgentCommand("claude", env),
     sanitizeEnv: claudeEnv,
@@ -181,17 +187,18 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
     statusArgs: ["--version"],
     chatEventFormat: "codex-jsonl",
     chatTransport: "codex-app-server",
-    buildTextArgs: ({ rootPath, outputPath }) => [
+    buildTextArgs: ({ rootPath, outputPath, model }) => [
       "exec",
       "--cd", rootPath,
       "--sandbox", "read-only",
       "--skip-git-repo-check",
       "--ephemeral",
       "--color", "never",
+      ...(model ? ["-m", model] : []),
       ...(outputPath ? ["--output-last-message", outputPath] : []),
       "-",
     ],
-    buildFileArgs: ({ rootPath, filePath, outputPath }) => {
+    buildFileArgs: ({ rootPath, filePath, outputPath, model }) => {
       const args = [
         "exec",
         "--cd", rootPath,
@@ -199,6 +206,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
         "--skip-git-repo-check",
         "--ephemeral",
         "--color", "never",
+        ...(model ? ["-m", model] : []),
       ];
 
       if (outputPath) {
@@ -212,7 +220,10 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
       args.push("-");
       return args;
     },
-    buildChatArgs: () => ["app-server", "--stdio"],
+    buildChatArgs: ({ model }) => [
+      ...(model ? ["-c", `model="${model}"`] : []),
+      "app-server", "--stdio",
+    ],
     resolveCommand: (env) => resolveAgentCommand("codex", env),
     sanitizeEnv: passthroughEnv,
     classifyStatus: (input, command) => classifyStatus("codex", input, command),

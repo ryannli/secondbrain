@@ -28,6 +28,8 @@ export interface SettingsModalProps {
   onFeedInterestsChange?: (interests: string[]) => void;
   agentProvider?: AgentProvider;
   onAgentProviderChange?: (provider: AgentProvider) => void;
+  agentModels?: Partial<Record<AgentProvider, string>>;
+  onAgentModelChange?: (provider: AgentProvider, model: string) => void;
   agentStatuses?: Record<AgentProvider, AgentStatus> | null;
   agentStatusLoading?: boolean;
   onRefreshAgentStatus?: () => void;
@@ -83,6 +85,8 @@ function normalizeRssInputUrl(rawUrl: string): string {
   return `https://${trimmed}`;
 }
 
+const CLAUDE_MODEL_ALIASES = ["haiku", "sonnet", "opus"]; // stable CLI aliases
+
 export function SettingsModal({
   isOpen,
   onClose,
@@ -104,6 +108,8 @@ export function SettingsModal({
   onFeedInterestsChange,
   agentProvider = "claude",
   onAgentProviderChange,
+  agentModels = {},
+  onAgentModelChange,
   agentStatuses,
   agentStatusLoading = false,
   onRefreshAgentStatus,
@@ -117,6 +123,36 @@ export function SettingsModal({
   const [newRssLabel, setNewRssLabel] = useState("");
   const [newSearchSource, setNewSearchSource] = useState("");
   const [newInterest, setNewInterest] = useState("");
+  const [modelDraft, setModelDraft] = useState("");
+  const [modelTest, setModelTest] = useState<{ state: "idle" | "testing" | "ok" | "error"; message?: string }>({ state: "idle" });
+
+  // Keep the model input in sync with the selected provider's saved value
+  useEffect(() => {
+    setModelDraft(agentModels[agentProvider] ?? "");
+    setModelTest({ state: "idle" });
+  }, [agentProvider, agentModels]);
+
+  const saveModelDraft = (value: string) => {
+    setModelDraft(value);
+    onAgentModelChange?.(agentProvider, value);
+    setModelTest({ state: "idle" });
+  };
+
+  const testModel = async () => {
+    if (!modelDraft.trim()) return;
+    setModelTest({ state: "testing" });
+    try {
+      const res = await fetch("/api/agent/model-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: agentProvider, model: modelDraft.trim() }),
+      });
+      const data = await res.json();
+      setModelTest(data.success ? { state: "ok", message: data.message } : { state: "error", message: data.message || data.error });
+    } catch (err) {
+      setModelTest({ state: "error", message: err instanceof Error ? err.message : "Test failed" });
+    }
+  };
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editedRootPath, setEditedRootPath] = useState(rootPath);
@@ -740,6 +776,60 @@ export function SettingsModal({
                 })}
               </div>
             </div>
+
+            {onAgentModelChange && (
+              <div className="pt-1">
+                <label className="block text-sm font-medium mb-1">Model <span className="font-normal text-xs" style={{ color: theme.textMuted }}>(optional)</span></label>
+                <p className="text-xs text-gray-400 mb-2">
+                  Leave empty to use {selectedAgentDetails.label}&apos;s own default. Model names follow your CLI —
+                  neither CLI can list them, but Test runs a quick probe to validate one.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={modelDraft}
+                    onChange={(e) => setModelDraft(e.target.value)}
+                    onBlur={() => saveModelDraft(modelDraft)}
+                    onKeyDown={(e) => e.key === "Enter" && saveModelDraft(modelDraft)}
+                    placeholder={agentProvider === "claude" ? "CLI default — or haiku / sonnet / opus" : "CLI default — or a Codex model name"}
+                    className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                    style={{ borderColor: theme.border }}
+                  />
+                  <button
+                    onClick={testModel}
+                    disabled={!modelDraft.trim() || modelTest.state === "testing"}
+                    className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+                    data-track="settings.model_test"
+                    style={{ borderColor: theme.border, color: theme.textMuted }}
+                  >
+                    {modelTest.state === "testing" ? "Testing..." : "Test"}
+                  </button>
+                </div>
+                {agentProvider === "claude" && (
+                  <div className="flex gap-1.5 mt-2">
+                    {CLAUDE_MODEL_ALIASES.map((alias) => (
+                      <button
+                        key={alias}
+                        onClick={() => saveModelDraft(alias)}
+                        className="px-2 py-0.5 text-xs rounded-full border hover:bg-gray-50"
+                        style={{
+                          borderColor: modelDraft === alias ? palette[500] : theme.border,
+                          color: modelDraft === alias ? palette[600] : theme.textMuted,
+                        }}
+                      >
+                        {alias}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {modelTest.state === "ok" && (
+                  <p className="text-xs mt-2" style={{ color: palette[600] }}>✓ {modelTest.message}</p>
+                )}
+                {modelTest.state === "error" && (
+                  <p className="text-xs mt-2 break-words" style={{ color: "#dc2626" }}>{modelTest.message}</p>
+                )}
+              </div>
+            )}
 
             {!selectedAgentReady && (
               <div

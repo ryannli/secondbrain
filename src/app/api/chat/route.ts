@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
 import { getCurrentRootPath, loadProfileDoc } from "@/lib/storage";
-import { getAgentChatCommand, getConfiguredAgentProvider } from "@/lib/agent";
+import { getAgentChatCommand, getConfiguredAgentModel, getConfiguredAgentProvider } from "@/lib/agent";
 import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
 import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
 import { createCodexParseState, parseCodexEvent, type AgentStreamEvent } from "@/lib/agentChatEvents";
@@ -134,6 +134,8 @@ Be concise but thorough. Use markdown formatting when helpful.
     let proc: ReturnType<typeof spawn> | null = null;
     let agentTimeout: ReturnType<typeof setTimeout> | null = null;
     let streamClosed = false;
+
+    const model = await getConfiguredAgentModel(provider);
 
     const stream = new ReadableStream({
       cancel() {

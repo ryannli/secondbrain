@@ -123,6 +123,8 @@ function HomeContent() {
     saveOnboarded,
     agentProvider,
     saveAgentProvider,
+    agentModels,
+    saveAgentModel,
     agentStatuses,
     agentStatusLoading,
     settingsLoading,
@@ -505,6 +507,8 @@ function HomeContent() {
         onFeedInterestsChange={saveFeedInterests}
         agentProvider={agentProvider}
         onAgentProviderChange={saveAgentProvider}
+        agentModels={agentModels}
+        onAgentModelChange={saveAgentModel}
         agentStatuses={agentStatuses}
         agentStatusLoading={agentStatusLoading}
         onRefreshAgentStatus={loadAgentStatus}

@@ -30,6 +30,7 @@ export interface UserConfig {
   agentModeEnabled?: boolean; // Must be enabled before entering the app
   onboardedAt?: string;   // Set once the first-run onboarding cards were seen
   agentProvider?: AgentProvider; // Local CLI provider used for AI analysis and chat
+  agentModels?: Partial<Record<AgentProvider, string>>; // Optional model per provider; empty inherits the CLI default
   fontSize?: string;      // "sm" | "base" | "lg"
   headingStyle?: string;  // "clean" | "colored" | "accented"
 }

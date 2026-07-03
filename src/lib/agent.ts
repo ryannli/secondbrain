@@ -25,6 +25,12 @@ export function invalidateAgentProfileCache(): void {
   profileCache = null;
 }
 
+export async function getConfiguredAgentModel(provider: AgentProvider): Promise<string | undefined> {
+  const config = await loadUserConfig();
+  const model = config.agentModels?.[provider]?.trim();
+  return model || undefined;
+}
+
 export async function getConfiguredAgentProvider(): Promise<AgentProvider> {
   if (isAgentProvider(process.env.SECONDBRAIN_AGENT_PROVIDER)) {
     return process.env.SECONDBRAIN_AGENT_PROVIDER;
@@ -101,7 +107,8 @@ export async function callAgent(prompt: string, debugLabel?: string): Promise<st
   }
 
   const { outputPath, cleanupPath } = await prepareCodexOutputPath(provider, label, runId, debugDir);
-  const commandSpec = buildAgentCommandSpec(provider, "text", { rootPath, outputPath });
+  const model = await getConfiguredAgentModel(provider);
+  const commandSpec = buildAgentCommandSpec(provider, "text", { rootPath, outputPath, model });
 
   return spawnAgentForText(provider, commandSpec, fullPrompt, {
     cwd: rootPath,
@@ -125,7 +132,8 @@ export async function callAgentWithFileAccess(prompt: string, filePath: string):
     console.log(`[callAgent:${provider}] Debug log: ${debugFile}`);
   }
   const { outputPath, cleanupPath } = await prepareCodexOutputPath(provider, "file", runId, debugDir);
-  const commandSpec = buildAgentCommandSpec(provider, "file", { rootPath, filePath, outputPath });
+  const model = await getConfiguredAgentModel(provider);
+  const commandSpec = buildAgentCommandSpec(provider, "file", { rootPath, filePath, outputPath, model });
 
   return spawnAgentForText(provider, commandSpec, prompt, {
     cwd: rootPath,
@@ -216,8 +224,8 @@ function spawnAgentForText(
   });
 }
 
-export function getAgentChatCommand(provider: AgentProvider, cwd: string): { command: string; args: string[]; env: NodeJS.ProcessEnv } {
-  return buildAgentCommandSpec(provider, "chat", { rootPath: getCurrentRootPath(), cwd });
+export function getAgentChatCommand(provider: AgentProvider, cwd: string, model?: string): { command: string; args: string[]; env: NodeJS.ProcessEnv } {
+  return buildAgentCommandSpec(provider, "chat", { rootPath: getCurrentRootPath(), cwd, model });
 }
 
 export async function getAgentStatus(provider: AgentProvider): Promise<AgentStatus> {

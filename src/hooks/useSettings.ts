@@ -35,6 +35,7 @@ export function useSettings() {
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
   const [onboardedAt, setOnboardedAt] = useState<string | null>(null);
   const [agentProvider, setAgentProvider] = useState<AgentProvider>(DEFAULT_AGENT_PROVIDER);
+  const [agentModels, setAgentModels] = useState<Partial<Record<AgentProvider, string>>>({});
   const [agentStatuses, setAgentStatuses] = useState<Record<AgentProvider, AgentStatus> | null>(null);
   const [agentStatusLoading, setAgentStatusLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -76,6 +77,9 @@ export function useSettings() {
         setOnboardedAt(data.config.onboardedAt ?? null);
         if (isAgentProvider(data.config.agentProvider)) {
           setAgentProvider(data.config.agentProvider);
+        }
+        if (data.config.agentModels && typeof data.config.agentModels === "object") {
+          setAgentModels(data.config.agentModels);
         }
         if (data.config.theme) {
           setThemeModeState(data.config.theme);
@@ -262,6 +266,21 @@ export function useSettings() {
     }
   }, []);
 
+  const saveAgentModel = async (provider: AgentProvider, model: string) => {
+    const next = { ...agentModels, [provider]: model.trim() };
+    if (!model.trim()) delete next[provider];
+    setAgentModels(next);
+    try {
+      await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentModels: next }),
+      });
+    } catch (err) {
+      console.error("Failed to save agent model:", err);
+    }
+  };
+
   const saveOnboarded = useCallback(async () => {
     const stamp = new Date().toISOString();
     setOnboardedAt(stamp);
@@ -334,6 +353,8 @@ export function useSettings() {
     saveOnboarded,
     agentProvider,
     saveAgentProvider,
+    agentModels,
+    saveAgentModel,
     agentStatuses,
     agentStatusLoading,
     settingsLoading,

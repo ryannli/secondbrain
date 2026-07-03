@@ -67,3 +67,6 @@ test-sample.pdf
 
 # Demo workspace for recording marketing assets (never commit)
 /demo_data/
+
+# Runtime state must not ship in the seed
+sample_data/.tracking/
