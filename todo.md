@@ -3,6 +3,9 @@
 ## Open (web app / OSS launch)
 
 - [x] Real demo GIF for the README hero (recorded from the live app; replaced the placeholder SVG)
+- [ ] Re-record the hero GIF as one single "Skip moment": paste link → triage card appears →
+      verdict says Skip (45 min saved). One loop, no product tour — this is the acquisition hook.
+      Secondary asset for a follow-up post: the Contradicts connection card.
 - [ ] Rotate the local Brave Search API key before publishing (never committed; disk hygiene)
 - [ ] Long articles can fail to process (e.g. paulgraham.com/greatwork.html, ~9k words).
       Worked around by pointing the extension welcome-page example at a shorter essay
