@@ -197,7 +197,7 @@ export function OnboardingCards({ rootPath, palette, onComplete }: OnboardingCar
         Skip
       </button>
 
-      <div key={step} className="w-full max-w-lg px-8 text-center animate-gentle-fade">
+      <div key={step} className="w-full max-w-lg px-8 text-center animate-[fadeSlideUp_0.35s_ease-out_both]">
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-5"
           style={{ backgroundColor: `${palette[500]}14` }}
