@@ -73,7 +73,7 @@ describe("sample data seeding", () => {
     const config = await loadUserConfig();
 
     expect(config).toEqual({});
-    await expect(fs.access(path.join(tmpRoot, "library", "demo001a"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.access(path.join(tmpRoot, "library", "examples", "demo001a"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("still seeds when the data root only contains operating-system metadata files", async () => {
@@ -82,7 +82,7 @@ describe("sample data seeding", () => {
     const config = await loadUserConfig();
 
     expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "r/singularity", "r/LocalLLaMA", "r/ClaudeAI"]);
-    await expect(fs.access(path.join(tmpRoot, "library", "demo001a", "meta.json"))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(tmpRoot, "library", "examples", "demo001a", "meta.json"))).resolves.toBeUndefined();
   });
 
   it("migrates legacy Hacker News feed sources to the current default RSS feeds", async () => {

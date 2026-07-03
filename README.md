@@ -11,9 +11,12 @@
 [![Local-first](https://img.shields.io/badge/Local--first-your%20files%2C%20your%20machine-8b5cf6.svg)](#your-data-stays-yours)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**A local-first reading workspace with an attention filter: AI triages, critiques,
-and connects what you capture — so you can spot the slop before it costs you time,
-and give the pieces that matter your full, undivided reading.**
+**Information grows faster than any brain can follow. Second Brain is a local-first
+workspace with an agent inside: it triages and critiques what you capture, connects
+it to everything you've read, remembers what you know, and proactively recommends
+sources you'd actually want — so your fixed attention lands only where it counts.**
+
+The reading — and the judgment — stay yours.
 
 [Get started](#get-started-in-2-minutes) · [How it works](#how-it-works) · [Why local-first](#your-data-stays-yours) · [Chrome extension](#capture-anything-in-one-click)
 
@@ -98,6 +101,7 @@ Open [http://localhost:3000](http://localhost:3000), confirm your agent shows **
 
 Want a guided path? See [docs/ONBOARDING.md](docs/ONBOARDING.md).
 
+<a id="chrome-extension"></a>
 ## Capture anything in one click
 
 The optional **Chrome extension** captures pages exactly as you see them — including logged-in pages, JS-heavy apps, and tweets. Bookmark a tweet on X and it lands in your library automatically (you can turn that off).

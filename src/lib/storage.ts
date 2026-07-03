@@ -173,24 +173,36 @@ async function refreshSeededTimestamps(rootPath: string): Promise<void> {
   };
 
   const restamp = async (dir: string, createdKey: "created_at" | "createdAt") => {
-    let entries: string[];
-    try {
-      entries = (await fs.readdir(dir, { withFileTypes: true }))
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .sort();
-    } catch {
-      return;
-    }
-    for (const [index, name] of entries.entries()) {
-      const stamp = new Date(Date.now() - (index + 1) * dayMs).toISOString();
-      await rewriteJson(path.join(dir, name, "meta.json"), (meta) => {
-        if (meta[createdKey]) meta[createdKey] = stamp;
-      });
-      await rewriteJson(path.join(dir, name, "analysis.json"), (analysis) => {
-        if (analysis.analyzedAt) analysis.analyzedAt = stamp;
-      });
-    }
+    let index = 0;
+    // Entries may sit inside seeded folders (e.g. library/examples/), so walk
+    // recursively: any directory containing meta.json is an entry to restamp.
+    const walk = async (current: string): Promise<void> => {
+      let entries: string[];
+      try {
+        entries = (await fs.readdir(current, { withFileTypes: true }))
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name)
+          .sort();
+      } catch {
+        return;
+      }
+      for (const name of entries) {
+        const entryPath = path.join(current, name);
+        if (await exists(path.join(entryPath, "meta.json"))) {
+          index += 1;
+          const stamp = new Date(Date.now() - index * dayMs).toISOString();
+          await rewriteJson(path.join(entryPath, "meta.json"), (meta) => {
+            if (meta[createdKey]) meta[createdKey] = stamp;
+          });
+          await rewriteJson(path.join(entryPath, "analysis.json"), (analysis) => {
+            if (analysis.analyzedAt) analysis.analyzedAt = stamp;
+          });
+        } else {
+          await walk(entryPath);
+        }
+      }
+    };
+    await walk(dir);
   };
 
   await restamp(path.join(rootPath, "library"), "created_at");
