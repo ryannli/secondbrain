@@ -1,16 +1,37 @@
-// Second Brain - auto-detect which port the server is running on
-const PORTS = [3000, 41932];
+// Second Brain server discovery.
+// The web app runs on 3000 by default, but `next dev` auto-increments when
+// the port is taken; 41932 is the desktop build. Probe candidates in
+// parallel, and verify the responder is actually Second Brain before any
+// page content is sent — another app could be squatting on the port.
+const PORTS = [3000, 3001, 3002, 3003, 41932];
+
+async function probePort(port) {
+  const res = await fetch(`http://localhost:${port}/api/config`, {
+    signal: AbortSignal.timeout(800),
+  });
+  if (!res.ok) throw new Error(`port ${port}: not ok`);
+  const data = await res.json();
+  if (data?.app !== "secondbrain") throw new Error(`port ${port}: not Second Brain`);
+  return port;
+}
 
 async function getApiUrl() {
-  for (const port of PORTS) {
-    try {
-      const res = await fetch(`http://localhost:${port}/api/config`, {
-        signal: AbortSignal.timeout(500),
-      });
-      if (res.ok) return `http://localhost:${port}/api/capture`;
-    } catch {}
+  // Fast path: the port that worked last time
+  try {
+    const { lastPort } = await chrome.storage.local.get("lastPort");
+    if (lastPort) {
+      return `http://localhost:${await probePort(lastPort)}/api/capture`;
+    }
+  } catch {}
+
+  // Probe all candidates in parallel; first verified server wins
+  try {
+    const port = await Promise.any(PORTS.map(probePort));
+    await chrome.storage.local.set({ lastPort: port });
+    return `http://localhost:${port}/api/capture`;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 // Handle messages from content script

@@ -20,6 +20,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
+      app: "secondbrain", // identity marker for the extension's server discovery
       config: {
         rootPath,
         rootPathSource: getRootPathSource(),
