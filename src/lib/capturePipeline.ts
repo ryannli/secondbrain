@@ -1,4 +1,5 @@
 import { debugLog } from "./log";
+import { AGENT_CONTEXT_CONFIG } from "@/lib/config";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { analyzeContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections, formatTextContent, generateTitle } from "@/lib/claude";
 import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource } from "@/lib/storage";
@@ -161,7 +162,9 @@ async function findConnectionsForSource(
   try {
     // Load all existing sources with their analysis
     debugLog(`[${sourceId}] Loading existing sources for connections...`);
-    const existingSources = await listSourcesForConnections(sourceId);
+    // Bounded to the newest candidates — comparing against the whole library
+    // makes every capture slower as the library grows
+    const existingSources = await listSourcesForConnections(sourceId, undefined, AGENT_CONTEXT_CONFIG.connectionCandidates);
     debugLog(`[${sourceId}] Loaded ${existingSources.length} existing sources`);
 
     if (existingSources.length === 0) {

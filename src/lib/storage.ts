@@ -1264,17 +1264,21 @@ export interface SourceForConnections {
   id: string;
   title: string;
   summary: string;
+  createdAt: string;
   highlights: { text: string; type: string; reaction?: "star" | "dismiss"; reactionAt?: string }[];
   concepts: { term: string; definition: string; status?: "knew" | "learned"; statusAt?: string }[];
 }
 
 /**
- * Load all sources with their analysis summaries for connection finding
- * Returns minimal data needed for connections analysis
+ * Load sources with their analysis summaries for connection finding,
+ * newest first. Returns minimal data needed for connections analysis.
+ * Pass `limit` to bound agent prompt size — context otherwise grows
+ * with the library and slows every feed/capture down.
  */
 export async function listSourcesForConnections(
   excludeId?: string,
-  libraryPath = getLibraryPath()
+  libraryPath = getLibraryPath(),
+  limit?: number
 ): Promise<SourceForConnections[]> {
   await ensureLibraryExists(libraryPath);
   const sources: SourceForConnections[] = [];
@@ -1303,23 +1307,26 @@ export async function listSourcesForConnections(
 
           // Load title from content.md
           let title = entry.name;
+          let createdAt = "";
+          try {
+            const metaData = await readMetaJson(fullPath);
+            createdAt = metaData.created_at || "";
+            title = metaData.original_title || entry.name;
+          } catch {
+            // Keep entry.name as title
+          }
           try {
             const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
             const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
             if (titleMatch) title = titleMatch[1];
           } catch {
-            // Use meta.json title as fallback
-            try {
-              const metaData = await readMetaJson(fullPath);
-              title = metaData.original_title || entry.name;
-            } catch {
-              // Keep entry.name as title
-            }
+            // Keep meta.json/entry.name title
           }
 
           sources.push({
             id: entry.name,
             title,
+            createdAt,
             summary: analysis.digest?.summary ?? "",
             highlights: (analysis.digest?.highlights ?? []).map((h) => ({
               text: h.text,
@@ -1345,7 +1352,8 @@ export async function listSourcesForConnections(
   }
 
   await scanDir(libraryPath);
-  return sources;
+  sources.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return limit ? sources.slice(0, limit) : sources;
 }
 
 /**

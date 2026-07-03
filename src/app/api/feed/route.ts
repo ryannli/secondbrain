@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadFeedCache, saveFeedCache, listSourcesForConnections, loadUserConfig, loadFeedHistory, loadStarredBriefings, listFeedSnapshots, loadFeedSnapshot } from "@/lib/storage";
 import { searchNews } from "@/lib/search";
 import { filterFeedItems, generateBriefing, generateInsights, buildInteractionContext } from "@/lib/claude";
-import { DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES, FEED_CONFIG } from "@/lib/config";
+import { AGENT_CONTEXT_CONFIG, DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES, FEED_CONFIG } from "@/lib/config";
 import { FeedCache, FeedSignals, InsightItem } from "@/lib/types";
 
 /**
@@ -162,9 +162,10 @@ async function generateFeed() {
 
   const interests = feedInterests;
 
-  // 2. Load user's sources for filtering (to avoid showing what they already have)
-  const sources = await listSourcesForConnections();
-  debugLog(`[generateFeed] Loaded ${sources.length} sources from library for filtering`);
+  // 2. Load the user's most recent sources for filtering/briefing context
+  // (bounded — the whole library in every prompt slows generation as it grows)
+  const sources = await listSourcesForConnections(undefined, undefined, AGENT_CONTEXT_CONFIG.feedLibrarySources);
+  debugLog(`[generateFeed] Loaded ${sources.length} recent sources from library for filtering`);
 
   // 3. Search for news (RSS feeds + search sources)
   const { results: allSearchResults, rssFeedCount, searchCallCount } = await searchNews(interests, searchSources, rssFeeds);
@@ -186,8 +187,8 @@ async function generateFeed() {
     };
   }
 
-  // 3.6 Extract interaction signals from past 30 days
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  // 3.6 Extract interaction signals from the configured window
+  const thirtyDaysAgo = Date.now() - AGENT_CONTEXT_CONFIG.interactionWindowDays * 24 * 60 * 60 * 1000;
   const interactionSignals: Parameters<typeof buildInteractionContext>[0] = {
     starredHighlights: [],
     dismissedHighlights: [],
@@ -210,14 +211,21 @@ async function generateFeed() {
     }
   }
 
-  // 3.7 Include starred briefing items as interaction signals
+  // 3.7 Include starred briefing items as interaction signals (same window)
   const starredBriefings = await loadStarredBriefings();
   for (const item of starredBriefings.items) {
+    if (!item.starredAt || new Date(item.starredAt).getTime() <= thirtyDaysAgo) continue;
     interactionSignals.starredHighlights.push({
       text: item.text,
       sourceTitle: "Feed Briefing",
       at: item.starredAt,
     });
+  }
+
+  // Keep only the newest N per signal type so prompts stay bounded
+  for (const list of Object.values(interactionSignals) as { at?: string }[][]) {
+    list.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+    list.splice(AGENT_CONTEXT_CONFIG.maxSignalsPerType);
   }
 
   const totalInteractions = interactionSignals.starredHighlights.length + interactionSignals.dismissedHighlights.length

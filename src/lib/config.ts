@@ -11,6 +11,15 @@ export const FEED_CONFIG = {
   maxFeedItems: 30,        // Max items to show in feed (from ~50 search results)
 };
 
+// Bounds on how much history is packed into agent prompts. Without these,
+// context grows with the library and every feed/capture gets slower forever.
+export const AGENT_CONTEXT_CONFIG = {
+  feedLibrarySources: 30,    // newest sources given to feed filtering/briefing
+  connectionCandidates: 60,  // newest sources compared against a new capture
+  interactionWindowDays: 30, // how far back reading interactions count
+  maxSignalsPerType: 20,     // newest interactions kept per signal type
+};
+
 export const API_CONFIG = {
   braveSearchBaseUrl: "https://api.search.brave.com/res/v1",
   braveResultsPerQuery: 10, // Results per search query
