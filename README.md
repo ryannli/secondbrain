@@ -44,6 +44,12 @@ Second Brain's AI does exactly two jobs — and reading for you isn't one of the
 
 Every verdict is advisory. Every analysis is an editable file on your disk. The reader stays human — that's the point, not a limitation.
 
+<div align="center">
+<img src="docs/assets/source-view.png" width="850" alt="Reading view — the original text front and center, with score, verdict, and a Contradicts connection beside it" />
+<br/>
+<em>The original stays front and center. The verdict, the critique, and a "this contradicts what you read last week" sit beside it.</em>
+</div>
+
 ## What you get
 
 ### 🔑 Runs on what's already yours
@@ -57,6 +63,12 @@ Every verdict is advisory. Every analysis is an editable file on your disk. The 
 - **A triage card on every source** — score, read-time estimate, and a straight verdict: deep read, skim, or skip. Judge in five seconds whether something deserves fifty minutes.
 - **Read with a critical companion** — when something is worth it, you read the original with digest and critique beside the text: concepts explained, hidden assumptions and shaky claims flagged. It sharpens your reading instead of replacing it.
 - **A library that argues with itself** — new captures are checked against everything you've read: what they support, repeat, or **contradict**.
+
+<div align="center">
+<img src="docs/assets/dashboard.png" width="850" alt="Dashboard — every capture wears its verdict: Must Read, Worth Reading, or Skip" />
+<br/>
+<em>Every capture wears its verdict before it gets a minute of your time.</em>
+</div>
 
 ### 🤖 Agentic to the core
 
