@@ -847,16 +847,23 @@ export function CoLearningPanel({
 
       {/* Messages */}
       <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && contexts.length === 0 && !isLoading && (
+        {messages.length === 0 && !isLoading && (
           <div className="text-center py-8">
-            <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
-            <p className="text-sm" style={{ color: theme.textMuted }}>
-              Your second hand for the cognitive workspace.
-            </p>
+            {contexts.length === 0 && (
+              <>
+                <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                <p className="text-sm" style={{ color: theme.textMuted }}>
+                  Your second hand for the cognitive workspace.
+                </p>
+              </>
+            )}
             <div className="mt-4 space-y-2">
               <p className="text-xs" style={{ color: theme.textMuted }}>Try asking:</p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {["What's this?", "Explain simply", "Organize my library"].map((q) => (
+                {(contexts.length > 0
+                  ? ["What's this?", "Explain simply", "What should I verify?"]
+                  : ["What's this?", "Explain simply", "Organize my library"]
+                ).map((q) => (
                   <button
                     key={q}
                     onClick={() => setInput(q)}

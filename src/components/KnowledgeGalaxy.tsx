@@ -138,11 +138,13 @@ export function KnowledgeGalaxy({ theme, onNavigateToSource }: KnowledgeGalaxyPr
     );
   }
 
-  if (error || !data || data.nodes.length === 0) {
+  // A couple of floating dots reads as broken, not as a young galaxy —
+  // ask for more sources until there's enough to show real structure.
+  if (error || !data || data.nodes.length < 3) {
     return (
       <div className="text-center py-6">
         <p className="text-xs" style={{ color: theme.textMuted }}>
-          {error ? "Could not load knowledge graph" : "Add sources to see your knowledge galaxy"}
+          {error ? "Could not load knowledge graph" : "Capture a few more sources to see your knowledge galaxy take shape"}
         </p>
       </div>
     );
