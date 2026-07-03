@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Second Brain Capture",
-  "version": "1.4",
+  "version": "1.5",
   "description": "Capture any page to Second Brain",
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
   "action": {
     "default_title": "Capture to Second Brain"
   },
@@ -18,16 +23,30 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["*://*.twitter.com/*", "*://*.x.com/*"],
-      "js": ["twitter-autocapture.js"],
-      "css": ["content.css"],
+      "matches": [
+        "*://*.twitter.com/*",
+        "*://*.x.com/*"
+      ],
+      "js": [
+        "twitter-autocapture.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_end"
     }
-  ]
+  ],
+  "options_page": "welcome.html"
 }

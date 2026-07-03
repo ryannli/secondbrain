@@ -106,10 +106,12 @@
 #secondbrain-float.sb-success {
   opacity: 1;
   background: #22c55e;
+  cursor: pointer;
 }
 
+/* Wider than the other states: fits "Captured! Open →" */
 #secondbrain-float.sb-success .sb-label {
-  max-width: 100px;
+  max-width: 160px;
   opacity: 1;
 }
 

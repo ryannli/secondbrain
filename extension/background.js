@@ -34,13 +34,34 @@ async function getApiUrl() {
   }
 }
 
-// Handle messages from content script
+// Open the welcome page on first install
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
+  }
+});
+
+async function openApp() {
+  const { lastPort } = await chrome.storage.local.get("lastPort");
+  chrome.tabs.create({ url: `http://localhost:${lastPort || 3000}` });
+}
+
+// Handle messages from content scripts and the welcome page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "capture") {
     captureFromContent(message.html, message.title, message.url)
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true; // Keep message channel open for async response
+  }
+  if (message.action === "probe") {
+    getApiUrl()
+      .then((apiUrl) => sendResponse({ port: apiUrl ? new URL(apiUrl).port : null }))
+      .catch(() => sendResponse({ port: null }));
+    return true;
+  }
+  if (message.action === "openApp") {
+    openApp();
   }
 });
 
@@ -104,7 +125,7 @@ chrome.action.onClicked.addListener(async (tab) => {
         chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: showNotification,
-          args: ["Captured! Processing in background...", "success"],
+          args: ["Captured! Click to open Second Brain →", "success", true],
         });
       } else {
         chrome.scripting.executeScript({
@@ -134,7 +155,7 @@ function getPageContent() {
   };
 }
 
-function showNotification(message, type) {
+function showNotification(message, type, clickToOpen = false) {
   const existing = document.getElementById("secondbrain-notification");
   if (existing) existing.remove();
 
@@ -153,14 +174,21 @@ function showNotification(message, type) {
     z-index: 999999;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     transition: opacity 0.3s;
+    ${clickToOpen ? "cursor: pointer;" : ""}
     ${type === "success"
       ? "background: #3b6044; color: white;"
       : "background: #ef4444; color: white;"}
   `;
+  if (clickToOpen) {
+    div.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "openApp" });
+      div.remove();
+    });
+  }
   document.body.appendChild(div);
 
   setTimeout(() => {
     div.style.opacity = "0";
     setTimeout(() => div.remove(), 300);
-  }, 4000);
+  }, clickToOpen ? 6000 : 4000);
 }

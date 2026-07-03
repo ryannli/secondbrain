@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Second Brain Capture — Welcome</title>
+  <style>
+    :root {
+      --green: #3b6044;
+      --green-soft: rgba(59, 96, 68, 0.08);
+      --text: #27272a;
+      --muted: #71717a;
+      --light: #a1a1aa;
+      --border: #e4e4e7;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #fafafa;
+      display: flex;
+      justify-content: center;
+      padding: 56px 24px;
+    }
+    main { width: 100%; max-width: 560px; }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+    .logo svg { width: 28px; height: 28px; color: var(--green); }
+    .logo span { font-size: 17px; font-weight: 700; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+
+    /* Connection status */
+    .status-row { display: flex; align-items: center; gap: 10px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--light); flex-shrink: 0; }
+    .dot.ok { background: #22c55e; }
+    .dot.fail { background: var(--red); }
+    .status-text { font-size: 14px; font-weight: 500; flex: 1; }
+    .status-hint { font-size: 12px; color: var(--muted); margin-top: 6px; margin-left: 19px; }
+    .status-hint code { background: var(--green-soft); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+    button {
+      font: inherit; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; color: var(--text);
+      padding: 6px 12px; cursor: pointer;
+    }
+    button:hover { background: #f4f4f5; }
+    button.primary { background: var(--green); border-color: var(--green); color: #fff; }
+    button.primary:hover { opacity: 0.92; }
+    button[hidden] { display: none; }
+
+    /* Steps */
+    h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 26px 0 12px; }
+    .step { display: flex; gap: 14px; }
+    .step + .step { margin-top: 14px; }
+    .step-num {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      background: var(--green-soft); color: var(--green);
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .step-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .step-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .step-desc a { color: var(--green); font-weight: 500; }
+
+    /* Floating button demo: replica of the real on-page button */
+    .demo-page {
+      position: relative;
+      margin-top: 10px;
+      height: 108px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fcfcfc;
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .demo-line { height: 8px; border-radius: 4px; background: #ececee; margin-bottom: 10px; }
+    .demo-float {
+      position: absolute;
+      bottom: 12px; right: 12px;
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 11px;
+      background: var(--green); color: #fff;
+      border: none; border-radius: 20px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+      opacity: 0.85;
+      transition: opacity 0.2s ease, background 0.2s ease;
+    }
+    /* Explicit hover background: outranks the generic `button:hover` rule */
+    .demo-float:hover { opacity: 1; background: var(--green); }
+    .demo-float.capturing:hover { background: #6b7280; }
+    .demo-float.success:hover { background: #22c55e; }
+    .demo-float svg { width: 16px; height: 16px; display: block; }
+    .demo-float .lbl {
+      display: block;
+      max-width: 0; overflow: hidden; white-space: nowrap;
+      opacity: 0;
+      transition: max-width 0.2s ease, opacity 0.2s ease;
+    }
+    .demo-float:hover .lbl,
+    .demo-float.capturing .lbl,
+    .demo-float.success .lbl { max-width: 130px; opacity: 1; }
+    .demo-float.capturing { background: #6b7280; }
+    .demo-float.success { background: #22c55e; }
+    .demo-caption { font-size: 12px; color: var(--light); margin-top: 8px; }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: flex-start; gap: 12px; }
+    .toggle-row .grow { flex: 1; }
+    .toggle-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .toggle-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .switch { position: relative; width: 36px; height: 21px; flex-shrink: 0; margin-top: 2px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; border-radius: 999px;
+      background: #d4d4d8; transition: background 0.15s; cursor: pointer;
+    }
+    .slider::before {
+      content: ""; position: absolute; width: 17px; height: 17px;
+      left: 2px; top: 2px; border-radius: 50%; background: #fff;
+      transition: transform 0.15s;
+    }
+    .switch input:checked + .slider { background: var(--green); }
+    .switch input:checked + .slider::before { transform: translateX(15px); }
+
+    footer { margin-top: 30px; font-size: 12px; color: var(--light); }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo">
+      <svg viewBox="0 0 64 64" fill="currentColor">
+        <circle cx="32" cy="32" r="28" opacity="0.25"/>
+        <circle cx="32" cy="32" r="20" opacity="0.4"/>
+        <circle cx="32" cy="32" r="12" opacity="0.6"/>
+        <circle cx="32" cy="32" r="5"/>
+      </svg>
+      <span>Second Brain Capture</span>
+    </div>
+
+    <h1>You're all set to capture.</h1>
+    <p class="subtitle">Save any page to your Second Brain in one click — get a verdict on whether it deserves your attention before you spend it.</p>
+
+    <div class="card">
+      <div class="status-row">
+        <span class="dot" id="status-dot"></span>
+        <span class="status-text" id="status-text">Checking for Second Brain…</span>
+        <button id="retry-btn" hidden>Retry</button>
+        <button id="open-app-btn" class="primary" hidden>Open Second Brain</button>
+      </div>
+      <p class="status-hint" id="status-hint" hidden>
+        Start the app first, then retry: <code>npm run dev</code> in the secondbrain folder.
+      </p>
+    </div>
+
+    <h2>How to capture</h2>
+    <div class="card">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div style="flex: 1;">
+          <div class="step-title">The floating button</div>
+          <div class="step-desc">Every page gets this button in the corner — one click saves the page exactly as you see it. Try it:</div>
+          <div class="demo-page">
+            <div class="demo-line" style="width: 70%"></div>
+            <div class="demo-line" style="width: 92%"></div>
+            <div class="demo-line" style="width: 84%"></div>
+            <div class="demo-line" style="width: 45%"></div>
+            <button class="demo-float" id="demo-float" type="button" aria-label="Capture demo">
+              <svg viewBox="0 0 64 64" fill="currentColor">
+                <circle cx="32" cy="32" r="28" opacity="0.25"/>
+                <circle cx="32" cy="32" r="20" opacity="0.4"/>
+                <circle cx="32" cy="32" r="12" opacity="0.6"/>
+                <circle cx="32" cy="32" r="5"/>
+              </svg>
+              <span class="lbl" id="demo-float-label">Capture</span>
+            </button>
+          </div>
+          <div class="demo-caption">A live replica — drag the real one anywhere, or turn it off below.</div>
+        </div>
+      </div>
+      <div class="step" style="margin-top: 16px;">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Or pin the toolbar icon</div>
+          <div class="step-desc">Click the puzzle icon <span class="inline-icon">🧩</span> in Chrome's toolbar and pin <strong>Second Brain Capture</strong> — same capture, one click, no on-page button.</div>
+        </div>
+      </div>
+      <div class="step" style="margin-top: 16px;">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Try it now</div>
+          <div class="step-desc">
+            Open <a href="https://www.paulgraham.com/do.html" target="_blank" rel="noopener">this essay</a> and click either button. When it says Captured, click through to see the analysis in Second Brain.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Preferences</h2>
+    <div class="card">
+      <div class="toggle-row">
+        <div class="grow">
+          <div class="toggle-title">Floating capture button</div>
+          <div class="toggle-desc">Show the draggable Capture button on every page. Turn it off if it gets in the way — the toolbar icon keeps working.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="float-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="toggle-row">
+        <div class="grow">
+          <div class="toggle-title">Auto-save bookmarked tweets</div>
+          <div class="toggle-desc">On X / Twitter, bookmarking a tweet also saves it to your Second Brain automatically. Everything stays on your machine.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="twitter-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <footer>
+      Local-first: captures go to your own machine, never to a server.
+      <a href="https://github.com/ryannli/secondbrain#chrome-extension" target="_blank" rel="noopener">Learn more</a>
+    </footer>
+  </main>
+  <script src="welcome.js"></script>
+</body>
+</html>

@@ -35,8 +35,10 @@
         return;
       }
 
-      // Dedup check
-      chrome.storage.local.get(CAPTURED_KEY, (result) => {
+      // Dedup check + settings (auto-capture can be disabled from the welcome page)
+      chrome.storage.local.get([CAPTURED_KEY, "twitterAutocaptureEnabled", "sbTwitterNoticeShown"], (result) => {
+        if (result.twitterAutocaptureEnabled === false) return;
+
         const captured = result[CAPTURED_KEY] || [];
         if (captured.includes(tweetUrl)) return;
 
@@ -52,7 +54,13 @@
           { action: "capture", html, title, url: tweetUrl },
           (response) => {
             if (response?.success) {
-              showToast("Bookmarked tweet captured");
+              if (!result.sbTwitterNoticeShown) {
+                // First time: explain what just happened and where to turn it off
+                chrome.storage.local.set({ sbTwitterNoticeShown: true });
+                showToast("Saved to Second Brain — bookmarked tweets are auto-captured. Turn this off on the extension's welcome page.", false, 7000);
+              } else {
+                showToast("Bookmarked tweet captured");
+              }
             } else {
               showToast("Capture failed", true);
             }
@@ -63,7 +71,7 @@
     true // capture phase
   );
 
-  function showToast(message, isError = false) {
+  function showToast(message, isError = false, durationMs = 2000) {
     const existing = document.getElementById("sb-autocapture-toast");
     if (existing) existing.remove();
 
@@ -76,6 +84,6 @@
     setTimeout(() => {
       toast.style.opacity = "0";
       setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    }, durationMs);
   }
 })();

@@ -10,6 +10,7 @@ import {
   Inbox,
   Bookmark,
   Flame,
+  Puzzle,
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG, FeedItem, ProcessingStage } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
@@ -121,7 +122,7 @@ export const Dashboard = React.memo(function Dashboard({
 
   // Capture input JSX (not a component to avoid re-mounting on state change)
   const captureInputElement = (
-    <div className="max-w-xl mx-auto mt-8 mb-8">
+    <div className="w-full max-w-2xl mx-auto mt-8 mb-8">
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -165,7 +166,7 @@ export const Dashboard = React.memo(function Dashboard({
         )}
 
         {/* Input row */}
-        <div className="flex items-center gap-3 p-3">
+        <div className="flex items-center gap-3 px-4 py-3.5">
           <Plus className="w-5 h-5 flex-shrink-0" style={{ color: theme.textLight }} />
           <input
             type="text"
@@ -186,6 +187,21 @@ export const Dashboard = React.memo(function Dashboard({
             Capture
           </button>
         </div>
+      </div>
+
+      {/* Extension hint */}
+      <div className="mt-2 flex items-center justify-center gap-1.5 text-xs" style={{ color: theme.textLight }}>
+        <Puzzle className="w-3.5 h-3.5" />
+        <span>Fastest way to capture: the</span>
+        <a
+          href="https://github.com/ryannli/secondbrain#chrome-extension"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium hover:underline"
+          style={{ color: palette[600] }}
+        >
+          browser extension ↗
+        </a>
       </div>
 
       {/* Pending Captures */}

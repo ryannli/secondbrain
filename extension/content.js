@@ -80,9 +80,13 @@ function createFloatingButton() {
   });
 
   container.addEventListener("click", (e) => {
-    if (!wasDragged) {
-      handleCapture();
+    if (wasDragged) return;
+    // Right after a successful capture, a click opens the app instead
+    if (container.classList.contains("sb-success")) {
+      chrome.runtime.sendMessage({ action: "openApp" });
+      return;
     }
+    handleCapture();
   });
 
   document.body.appendChild(container);
@@ -125,11 +129,11 @@ async function handleCapture() {
       if (response && response.success) {
         container.classList.remove("sb-capturing");
         container.classList.add("sb-success");
-        label.textContent = "Captured!";
+        label.textContent = "Captured! Open →";
         setTimeout(() => {
           container.classList.remove("sb-success");
           label.textContent = "Capture";
-        }, 2000);
+        }, 4000);
       } else {
         container.classList.remove("sb-capturing");
         container.classList.add("sb-error");
@@ -149,9 +153,30 @@ async function handleCapture() {
   }, 500);
 }
 
-// Initialize
+// Initialize — the floating button is on by default and can be disabled
+// from the extension's welcome/options page
+function initFloatingButton() {
+  chrome.storage.local.get("floatingButtonEnabled", ({ floatingButtonEnabled }) => {
+    if (floatingButtonEnabled !== false) {
+      createFloatingButton();
+    }
+  });
+}
+
+// React to the setting live, without requiring a page refresh
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !("floatingButtonEnabled" in changes)) return;
+  const enabled = changes.floatingButtonEnabled.newValue !== false;
+  const existing = document.getElementById("secondbrain-float");
+  if (enabled && !existing) {
+    createFloatingButton();
+  } else if (!enabled && existing) {
+    existing.remove();
+  }
+});
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", createFloatingButton);
+  document.addEventListener("DOMContentLoaded", initFloatingButton);
 } else {
-  createFloatingButton();
+  initFloatingButton();
 }
