@@ -85,7 +85,12 @@ function normalizeRssInputUrl(rawUrl: string): string {
   return `https://${trimmed}`;
 }
 
-const CLAUDE_MODEL_ALIASES = ["haiku", "sonnet", "opus"]; // stable CLI aliases
+// Stable Claude Code aliases — the CLI maps them to the current generation
+const CLAUDE_MODEL_OPTIONS = [
+  { id: "haiku", desc: "fastest" },
+  { id: "sonnet", desc: "balanced" },
+  { id: "opus", desc: "deepest" },
+];
 
 export function SettingsModal({
   isOpen,
@@ -124,12 +129,16 @@ export function SettingsModal({
   const [newSearchSource, setNewSearchSource] = useState("");
   const [newInterest, setNewInterest] = useState("");
   const [modelDraft, setModelDraft] = useState("");
+  const [modelCustomOpen, setModelCustomOpen] = useState(false);
   const [modelTest, setModelTest] = useState<{ state: "idle" | "testing" | "ok" | "error"; message?: string }>({ state: "idle" });
 
   // Keep the model input in sync with the selected provider's saved value
   useEffect(() => {
-    setModelDraft(agentModels[agentProvider] ?? "");
+    const saved = agentModels[agentProvider] ?? "";
+    setModelDraft(saved);
     setModelTest({ state: "idle" });
+    const isAlias = agentProvider === "claude" && CLAUDE_MODEL_OPTIONS.some((o) => o.id === saved);
+    setModelCustomOpen(Boolean(saved) && !isAlias);
   }, [agentProvider, agentModels]);
 
   const saveModelDraft = (value: string) => {
@@ -779,54 +788,118 @@ export function SettingsModal({
 
             {onAgentModelChange && (
               <div className="pt-1">
-                <label className="block text-sm font-medium mb-1">Model <span className="font-normal text-xs" style={{ color: theme.textMuted }}>(optional)</span></label>
-                <p className="text-xs text-gray-400 mb-2">
-                  Leave empty to use {selectedAgentDetails.label}&apos;s own default. Model names follow your CLI —
-                  neither CLI can list them, but Test runs a quick probe to validate one.
+                <label className="block text-sm font-medium mb-1">Model</label>
+                <p className="text-xs text-gray-400 mb-3">
+                  How much horsepower analysis and chat get. Applies only to {selectedAgentDetails.label}.
                 </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={modelDraft}
-                    onChange={(e) => setModelDraft(e.target.value)}
-                    onBlur={() => saveModelDraft(modelDraft)}
-                    onKeyDown={(e) => e.key === "Enter" && saveModelDraft(modelDraft)}
-                    placeholder={agentProvider === "claude" ? "CLI default — or haiku / sonnet / opus" : "CLI default — or a Codex model name"}
-                    className="flex-1 px-3 py-2 text-sm border rounded-lg"
-                    style={{ borderColor: theme.border }}
-                  />
+
+                <div className={`grid gap-2 ${agentProvider === "claude" ? "grid-cols-4" : "grid-cols-2"}`}>
                   <button
-                    onClick={testModel}
-                    disabled={!modelDraft.trim() || modelTest.state === "testing"}
-                    className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
-                    data-track="settings.model_test"
-                    style={{ borderColor: theme.border, color: theme.textMuted }}
+                    onClick={() => {
+                      saveModelDraft("");
+                      setModelCustomOpen(false);
+                    }}
+                    className="text-center rounded-lg border px-2 py-3 transition-all"
+                    data-track="settings.model_default"
+                    style={{
+                      borderColor: !modelDraft && !modelCustomOpen ? palette[500] : theme.border,
+                      backgroundColor: !modelDraft && !modelCustomOpen ? `${palette[500]}10` : "transparent",
+                    }}
                   >
-                    {modelTest.state === "testing" ? "Testing..." : "Test"}
+                    <div className="text-sm font-medium" style={{ color: !modelDraft && !modelCustomOpen ? palette[600] : theme.text }}>
+                      CLI default
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: theme.textMuted }}>your CLI&apos;s setting</div>
                   </button>
+
+                  {agentProvider === "claude" &&
+                    CLAUDE_MODEL_OPTIONS.map((option) => {
+                      const isSelected = modelDraft === option.id && !modelCustomOpen;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            saveModelDraft(option.id);
+                            setModelCustomOpen(false);
+                          }}
+                          className="text-center rounded-lg border px-2 py-3 transition-all"
+                          data-track="settings.model_alias"
+                          style={{
+                            borderColor: isSelected ? palette[500] : theme.border,
+                            backgroundColor: isSelected ? `${palette[500]}10` : "transparent",
+                          }}
+                        >
+                          <div className="text-sm font-medium" style={{ color: isSelected ? palette[600] : theme.text }}>
+                            {option.id}
+                          </div>
+                          <div className="text-xs mt-0.5" style={{ color: theme.textMuted }}>{option.desc}</div>
+                        </button>
+                      );
+                    })}
+
+                  {agentProvider === "codex" && (
+                    <button
+                      onClick={() => setModelCustomOpen(true)}
+                      className="text-center rounded-lg border px-2 py-3 transition-all"
+                      data-track="settings.model_custom"
+                      style={{
+                        borderColor: modelCustomOpen ? palette[500] : theme.border,
+                        backgroundColor: modelCustomOpen ? `${palette[500]}10` : "transparent",
+                      }}
+                    >
+                      <div className="text-sm font-medium" style={{ color: modelCustomOpen ? palette[600] : theme.text }}>
+                        Custom
+                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: theme.textMuted }}>name a model</div>
+                    </button>
+                  )}
                 </div>
-                {agentProvider === "claude" && (
-                  <div className="flex gap-1.5 mt-2">
-                    {CLAUDE_MODEL_ALIASES.map((alias) => (
+
+                {agentProvider === "claude" && !modelCustomOpen && (
+                  <button
+                    onClick={() => setModelCustomOpen(true)}
+                    className="mt-2 text-xs hover:underline"
+                    data-track="settings.model_custom"
+                    style={{ color: theme.textMuted }}
+                  >
+                    Use a custom model name…
+                  </button>
+                )}
+
+                {modelCustomOpen && (
+                  <div className="mt-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={modelDraft}
+                        onChange={(e) => setModelDraft(e.target.value)}
+                        onBlur={() => saveModelDraft(modelDraft)}
+                        onKeyDown={(e) => e.key === "Enter" && saveModelDraft(modelDraft)}
+                        placeholder={agentProvider === "claude" ? "e.g. a full model ID" : "e.g. the model from your codex config"}
+                        className="flex-1 px-3 py-2 text-sm border rounded-lg"
+                        style={{ borderColor: theme.border }}
+                        autoFocus
+                      />
                       <button
-                        key={alias}
-                        onClick={() => saveModelDraft(alias)}
-                        className="px-2 py-0.5 text-xs rounded-full border hover:bg-gray-50"
-                        style={{
-                          borderColor: modelDraft === alias ? palette[500] : theme.border,
-                          color: modelDraft === alias ? palette[600] : theme.textMuted,
-                        }}
+                        onClick={testModel}
+                        disabled={!modelDraft.trim() || modelTest.state === "testing"}
+                        className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+                        data-track="settings.model_test"
+                        style={{ borderColor: theme.border, color: theme.textMuted }}
                       >
-                        {alias}
+                        {modelTest.state === "testing" ? "Testing..." : "Test"}
                       </button>
-                    ))}
+                    </div>
+                    <p className="text-xs mt-1.5" style={{ color: theme.textLight }}>
+                      Model names follow your CLI — Test runs a quick probe to validate one.
+                    </p>
+                    {modelTest.state === "ok" && (
+                      <p className="text-xs mt-1" style={{ color: palette[600] }}>✓ {modelTest.message}</p>
+                    )}
+                    {modelTest.state === "error" && (
+                      <p className="text-xs mt-1 break-words" style={{ color: "#dc2626" }}>{modelTest.message}</p>
+                    )}
                   </div>
-                )}
-                {modelTest.state === "ok" && (
-                  <p className="text-xs mt-2" style={{ color: palette[600] }}>✓ {modelTest.message}</p>
-                )}
-                {modelTest.state === "error" && (
-                  <p className="text-xs mt-2 break-words" style={{ color: "#dc2626" }}>{modelTest.message}</p>
                 )}
               </div>
             )}
