@@ -1,15 +1,41 @@
 {
   "fontFamily": "outfit",
-  "theme": "light",
-  "agentProvider": "claude",
-  "fontSize": "sm",
-  "headingStyle": "clean",
-  "feedInterests": ["AI agents", "local-first software", "knowledge workflows"],
-  "rssFeeds": [
-    { "url": "https://hnrss.org/frontpage", "label": "Hacker News" },
-    { "url": "https://www.reddit.com/r/singularity/.rss", "label": "r/singularity" },
-    { "url": "https://www.reddit.com/r/LocalLLaMA/.rss", "label": "r/LocalLLaMA" },
-    { "url": "https://www.reddit.com/r/ClaudeAI/.rss", "label": "r/ClaudeAI" }
+  "feedInterests": [
+    "ai agent",
+    "ai startup",
+    "tech industry",
+    "frontier science"
   ],
-  "searchSources": ["reddit.com"]
+  "theme": "light",
+  "fontSize": "xs",
+  "lineSpacing": "default",
+  "contentWidth": "default",
+  "headingStyle": "colored",
+  "rssFeeds": [
+    {
+      "url": "https://hnrss.org/frontpage",
+      "label": "Hacker News"
+    },
+    {
+      "url": "https://www.reddit.com/r/singularity/.rss",
+      "label": "R/singularity"
+    },
+    {
+      "url": "https://www.reddit.com/r/ClaudeAI/.rss",
+      "label": "R/ClaudeAI"
+    }
+  ],
+  "searchSources": [
+    "reddit.com",
+    "anthropic.com",
+    "techcrunch.com",
+    "nytimes.com",
+    "wired.com",
+    "theverge.com",
+    "bloomberg.com",
+    "arstechnica.com",
+    "theguardian.com"
+  ],
+  "agentProvider": "claude",
+  "agentModeEnabled": true
 }

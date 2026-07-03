@@ -38,11 +38,11 @@ export const DEFAULT_SEARCH_SOURCES = ["reddit.com"];
 // one click. Only titles and URLs ship here — each user's agent fetches and
 // analyzes their own copy, so no third-party content lives in the repo.
 export const STARTER_PACK: { title: string; url: string }[] = [
-  { title: "The Adolescence of Technology — Dario Amodei", url: "https://darioamodei.com/essay/the-adolescence-of-technology" },
   { title: "Building a C compiler with parallel Claudes — Anthropic", url: "https://www.anthropic.com/engineering/building-c-compiler" },
   { title: "Measuring AI agent autonomy — Anthropic", url: "https://www.anthropic.com/research/measuring-agent-autonomy" },
-  { title: "Harness engineering — OpenAI", url: "https://openai.com/index/harness-engineering/" },
-  { title: "Building a minimal coding agent — Mario Zechner", url: "https://mariozechner.at/posts/2025-11-30-pi-coding-agent/" },
+  { title: "An AI agent published a hit piece on me — Scott Shambaugh", url: "https://theshamblog.com/an-ai-agent-published-a-hit-piece-on-me-part-2/" },
+  { title: "What to Do — Paul Graham", url: "https://www.paulgraham.com/do.html" },
+  { title: "Two tricks for fast LLM inference — Sean Goedecke", url: "https://www.seangoedecke.com/fast-llm-inference/" },
 ];
 
 // Seconds between starter-pack captures, so a laptop isn't asked to run
