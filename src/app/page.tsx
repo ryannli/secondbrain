@@ -60,7 +60,7 @@ function HomeContent() {
   const [isCoLearningOpen, setIsCoLearningOpen] = useLocalStorage("agent-panel-open", false);
   const [isSidebarOpen, setIsSidebarOpen] = useLocalStorage("sidebar-open", true);
   const mainContentRef = React.useRef<HTMLDivElement>(null);
-  const { addContext } = useCoLearning();
+  const { addContext, prefillInput } = useCoLearning();
   const [profileDoc, setProfileDoc] = useState<{ name: string; content: string } | null>(null);
   const [highlights, setHighlights] = useState<UserHighlight[]>([]);
   const readingTimer = useReadingTimer(entry.source?.meta.id ?? null);
@@ -521,6 +521,7 @@ function HomeContent() {
               onToggle: library.toggle,
               isEmpty: library.isEmpty,
               emptyMessage: "No sources yet — paste a link above to start",
+              onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "library" }) }),
               treeNodes: library.treeNodes,
               expandedFolders: library.expandedFolders,
               onToggleFolder: library.toggleFolder,
@@ -538,8 +539,9 @@ function HomeContent() {
               onToggle: studio.toggle,
               isEmpty: studio.isEmpty,
               emptyMessage: "Nothing here yet — ask the Agent to draft a brief from your sources",
-              onAdd: () => setIsCoLearningOpen(true),
+              onAdd: () => prefillInput("Draft a brief connecting my recent sources"),
               addTitle: "New note — ask the Agent to draft one",
+              onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "studio" }) }),
               treeNodes: studio.treeNodes,
               expandedFolders: studio.expandedFolders,
               onToggleFolder: studio.toggleFolder,

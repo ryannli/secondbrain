@@ -32,6 +32,7 @@ export function TooltipButton({
         className={`
           p-2 rounded-lg hover:bg-black/5 transition-colors
           disabled:opacity-50 disabled:cursor-not-allowed
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10
           ${className}
         `.trim().replace(/\s+/g, " ")}
         style={style}

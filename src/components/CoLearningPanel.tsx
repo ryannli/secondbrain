@@ -371,6 +371,19 @@ export function CoLearningPanel({
     };
   }, [isOpen, onToggle]);
 
+  // Prefill the ask input from outside (e.g. the Notebook "+" button),
+  // opening the panel if needed so the action always has visible feedback
+  useEffect(() => {
+    const handlePrefill = (e: CustomEvent<{ text: string }>) => {
+      if (e.detail?.text) setInput(e.detail.text);
+      if (!isOpen) onToggle();
+    };
+    window.addEventListener("colearning:prefill", handlePrefill as EventListener);
+    return () => {
+      window.removeEventListener("colearning:prefill", handlePrefill as EventListener);
+    };
+  }, [isOpen, onToggle]);
+
   // Auto-add entry (source or document) as context when viewing one
   const entryId = sourceId || documentId;
   const entryTitle = sourceTitle || documentTitle;
@@ -1014,5 +1027,9 @@ export function useCoLearning() {
     window.dispatchEvent(event);
   };
 
-  return { addContext };
+  const prefillInput = (text: string) => {
+    window.dispatchEvent(new CustomEvent("colearning:prefill", { detail: { text } }));
+  };
+
+  return { addContext, prefillInput };
 }

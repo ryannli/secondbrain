@@ -8,9 +8,11 @@ import {
   FolderOpen,
   FolderPlus,
   Plus,
+  SquareArrowOutUpRight,
 } from "lucide-react";
 import { TreeNode } from "@/lib/types";
 import { TreeItem } from "@/components/TreeItem";
+import { TooltipButton } from "@/components/ui";
 
 // Folder management interface
 interface FolderManagementProps {
@@ -49,6 +51,7 @@ export interface SectionTreeProps {
   emptyMessage: string;
   onAdd?: () => void; // Optional "+" action in the section header
   addTitle?: string;
+  onReveal?: () => void; // Open the section's real folder in the OS file manager
   // Tree data
   treeNodes: TreeNode[];
   expandedFolders: Set<string>;
@@ -84,6 +87,7 @@ export function SectionTree({
   emptyMessage,
   onAdd,
   addTitle,
+  onReveal,
   treeNodes,
   expandedFolders,
   onToggleFolder,
@@ -142,29 +146,36 @@ export function SectionTree({
           </span>
         </div>
         {onAdd && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd();
-            }}
-            className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
+          <TooltipButton
+            onClick={onAdd}
+            tooltip={{ title: addTitle || "New" }}
+            className="!p-1 flex-shrink-0"
             data-track="section.add"
-            title={addTitle || "New"}
           >
             <Plus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
-          </button>
+          </TooltipButton>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            folderManagement.onStartCreateFolder("");
-          }}
-          className="p-1 rounded hover:bg-black/10 transition-colors flex-shrink-0"
+        <TooltipButton
+          onClick={() => folderManagement.onStartCreateFolder("")}
+          tooltip={{ title: "New folder" }}
+          className="!p-1 flex-shrink-0"
           data-track="folder.create"
-          title="New folder"
         >
           <FolderPlus className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
-        </button>
+        </TooltipButton>
+        {onReveal && (
+          <TooltipButton
+            onClick={onReveal}
+            tooltip={{
+              title: "Open on your computer",
+              description: "This is a real folder of markdown and JSON — yours to grep, sync, or edit.",
+            }}
+            className="!p-1 flex-shrink-0"
+            data-track="section.reveal"
+          >
+            <SquareArrowOutUpRight className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+          </TooltipButton>
+        )}
       </div>
 
       {/* Folder Creation Input at root level */}

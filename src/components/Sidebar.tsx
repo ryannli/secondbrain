@@ -50,6 +50,7 @@ export interface SectionConfig {
   emptyMessage: string;
   onAdd?: () => void; // Optional "+" action in the section header
   addTitle?: string;
+  onReveal?: () => void; // Open the section's real folder in the OS file manager
   treeNodes: TreeNode[];
   expandedFolders: Set<string>;
   onToggleFolder: (path: string) => void;
@@ -228,6 +229,7 @@ export const Sidebar = React.memo(function Sidebar({
                   emptyMessage={section.emptyMessage}
                   onAdd={section.onAdd}
                   addTitle={section.addTitle}
+                  onReveal={section.onReveal}
                   treeNodes={section.treeNodes}
                   expandedFolders={section.expandedFolders}
                   onToggleFolder={section.onToggleFolder}
