@@ -1,74 +1,74 @@
 {
   "triage": {
-    "score": 86,
-    "reason": "Useful framing for understanding why Second Brain preserves originals while letting AI regenerate derived analysis.",
+    "score": 92,
+    "reason": "Start here \u2014 two minutes that explain how the whole workspace fits together.",
     "action": "must_read",
-    "readTimeMinutes": 3,
-    "density": 78,
-    "originality": 72
+    "readTimeMinutes": 2,
+    "density": 74,
+    "originality": 60
   },
   "digest": {
-    "summary": "The piece argues that AI reading tools should triage attention while preserving user agency and original source records. It frames local files as the substrate that makes AI output inspectable, editable, and reversible.",
+    "summary": "An orientation to Second Brain's core loop: capture anything, let AI triage and analyze it, read with digest and critique beside the original, and watch new captures connect to what you already know. Emphasizes that every AI output is editable and everything is plain local files.",
     "highlights": [
       {
         "id": "h1",
-        "text": "A reading system should decide what deserves attention before it asks the user to organize anything.",
+        "text": "The AI reads first, and you spend your judgment only where it counts.",
         "type": "insight"
       },
       {
         "id": "h2",
-        "text": "AI can triage, compare, and draft, but the user should decide what matters and what is true.",
+        "text": "Capture your first link in the box above, or grab the starter pack and let your agent build you a small library.",
         "type": "actionable"
       },
       {
         "id": "h3",
-        "text": "Original records must remain untouched so derived analysis can be regenerated safely.",
+        "text": "Everything lives as plain files on your machine \u2014 no database, no cloud, no lock-in.",
         "type": "fact"
       }
     ],
     "concepts": [
       {
         "id": "c1",
-        "term": "Derived reading layer",
-        "definition": "A regeneratable layer of summaries, critique, claims, and recommendations built from preserved source material."
+        "term": "Triage Card",
+        "definition": "The score, read-time estimate, and verdict every capture receives \u2014 the panel beside each document."
       },
       {
         "id": "c2",
-        "term": "Reversibility",
-        "definition": "The product property that lets users recover from bad AI output by returning to immutable original content."
+        "term": "Digest vs Critique",
+        "definition": "Two separate analyses: the digest helps you understand a source; the critique helps you evaluate it."
       }
     ],
     "structure": [
-      "Problem: passive archives do not protect attention",
-      "Principle: local files make AI output inspectable",
-      "Workflow: capture, derive, revisit",
-      "Requirement: preserve originals"
+      "Premise: attention is the scarce resource",
+      "The loop: capture, triage, read with analysis, connect",
+      "Ownership: everything editable, everything local",
+      "Next step: first capture or starter pack"
     ]
   },
   "critique": {
     "hiddenAssumptions": [
-      "Users are comfortable with filesystem-visible data.",
-      "The cost of preserving raw originals is acceptable."
+      "AI triage is trustworthy enough that skipped items are safe to skip.",
+      "Users prefer verdicts over browsing everything themselves."
     ],
     "potentialIssues": [
-      "The workflow depends on high-quality triage; poor scoring could hide useful material.",
-      "Local-first storage does not automatically solve backup or sync."
+      "A miscalibrated score could bury something important \u2014 verdicts should be checked against your own judgment early on."
     ],
     "needsVerification": [
-      "Whether users actually edit derived files outside the UI.",
-      "How large raw captures affect performance over time."
+      "Whether the scoring matches your taste; rate a few sources to teach it."
     ],
     "biasIndicators": [
-      "Strong preference for user agency and inspectability over cloud convenience."
+      "Written by the product about itself \u2014 read the critique tab on real captures to see it argue with material it did not write."
     ]
   },
   "connections": [
     {
       "id": "conn-demo001a-demo002b",
-      "type": "related",
-      "summary": "Both sources describe attention triage before deep reading.",
-      "details": "The local-first workflow explains why original records and derived analysis should be separate; the RSS triage note applies that idea to feed defaults and search fallback behavior.",
-      "relatedSourceIds": ["demo002b"]
+      "type": "builds_on",
+      "summary": "The advanced-features guide picks up where this orientation ends.",
+      "details": "Once the core loop is familiar, the advanced guide covers the For You feed, the agent panel, Notebook drafting, and profile pages.",
+      "relatedSourceIds": [
+        "demo002b"
+      ]
     }
   ],
   "analyzedAt": "2026-01-15T09:02:00.000Z"

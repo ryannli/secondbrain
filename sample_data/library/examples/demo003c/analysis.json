@@ -1,0 +1,69 @@
+{
+  "triage": {
+    "score": 71,
+    "reason": "Launch announcement \u2014 skim for the three design decisions; the introduction document covers usage better.",
+    "action": "skim",
+    "readTimeMinutes": 2,
+    "density": 62,
+    "originality": 50
+  },
+  "digest": {
+    "summary": "Announcement that Second Brain is open source under MIT. Positions the product against read-it-later apps: triage before reading, digest separated from critique, connections across the library. Highlights three decisions: no separate model subscription, plain local files, and an agent that works directly in the user's workspace.",
+    "highlights": [
+      {
+        "id": "h1",
+        "text": "Saving was never the hard part.",
+        "type": "insight"
+      },
+      {
+        "id": "h2",
+        "text": "Analysis runs through the coding agent you already use \u2014 so there is no separate model API key to buy.",
+        "type": "fact"
+      },
+      {
+        "id": "h3",
+        "text": "The roadmap is negotiable, but the philosophy isn't.",
+        "type": "insight"
+      }
+    ],
+    "concepts": [
+      {
+        "id": "c1",
+        "term": "Local-first",
+        "definition": "The filesystem is the single source of truth; the web UI is just a view over the user's own files."
+      }
+    ],
+    "structure": [
+      "Announcement and license",
+      "Positioning against read-it-later apps",
+      "Three design decisions",
+      "How to run it"
+    ]
+  },
+  "critique": {
+    "hiddenAssumptions": [
+      "Readers already have a Claude Code or Codex CLI subscription to reuse."
+    ],
+    "potentialIssues": [
+      "Announcement tone: claims about triage quality are not benchmarked here."
+    ],
+    "needsVerification": [
+      "Whether extension capture works on the sites you actually read."
+    ],
+    "biasIndicators": [
+      "First-party announcement of the product it describes."
+    ]
+  },
+  "connections": [
+    {
+      "id": "conn-demo003c-demo001a",
+      "type": "related",
+      "summary": "The announcement's claims are demonstrated hands-on in the introduction.",
+      "details": "This piece states the positioning; the Welcome document walks through the loop those claims describe.",
+      "relatedSourceIds": [
+        "demo001a"
+      ]
+    }
+  ],
+  "analyzedAt": "2026-01-15T09:22:00.000Z"
+}

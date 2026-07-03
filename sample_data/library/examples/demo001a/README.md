@@ -1,11 +1,11 @@
-# Local-first AI reading workflow
+# Welcome to Second Brain
 
-**Score:** 86/100  
+**Score:** 92/100  
 **Action:** Must Read  
-**Read time:** 3 minutes
+**Read time:** 2 minutes
 
-Useful framing for understanding why Second Brain preserves originals while letting AI regenerate derived analysis.
+Start here — two minutes that explain how the whole workspace fits together.
 
 ## Summary
 
-The piece argues that AI reading tools should triage attention while preserving user agency and original source records. It frames local files as the substrate that makes AI output inspectable, editable, and reversible.
+An orientation to Second Brain's core loop: capture anything, let AI triage and analyze it, read with digest and critique beside the original, and watch new captures connect to what you already know.

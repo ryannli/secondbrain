@@ -1,11 +1,11 @@
-# RSS-first feed triage
+# Advanced features in Second Brain
 
-**Score:** 74/100  
+**Score:** 84/100  
 **Action:** Worth Reading  
-**Read time:** 2 minutes
+**Read time:** 4 minutes
 
-Directly relevant to onboarding because it explains why RSS defaults should work before search configuration.
+Read after the introduction — the feed, agent panel, and profile pages are where the product compounds.
 
 ## Summary
 
-The note argues that RSS should be the default feed substrate because it works without API keys or billing. Search should add depth after the user has already experienced a useful first-run feed.
+A tour of Second Brain beyond the core loop: the For You feed, the agent panel and Notebook, profile pages, extension capture, and the plain-file data model.

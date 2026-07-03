@@ -1,69 +1,79 @@
 {
   "triage": {
-    "score": 74,
-    "reason": "Directly relevant to onboarding because it explains why RSS defaults should work before search configuration.",
+    "score": 84,
+    "reason": "Read after the introduction \u2014 the feed, agent panel, and profile pages are where the product compounds.",
     "action": "worth_reading",
-    "readTimeMinutes": 2,
-    "density": 70,
-    "originality": 62
+    "readTimeMinutes": 4,
+    "density": 80,
+    "originality": 58
   },
   "digest": {
-    "summary": "The note argues that RSS should be the default feed substrate because it works without API keys or billing. Search should add depth after the user has already experienced a useful first-run feed.",
+    "summary": "A tour of Second Brain beyond the core loop: the agent-curated For You feed, the library-aware agent panel that drafts into the Notebook, the User and Memory profile pages, extension capture for logged-in pages, and the plain-file data model that makes analysis safely regeneratable.",
     "highlights": [
       {
         "id": "h1",
-        "text": "Search should expand coverage, not decide whether the product works at all.",
+        "text": "Your agent ranks every story against your Radar topics and reading history \u2014 and writes a briefing that cross-references your own library.",
         "type": "insight"
       },
       {
         "id": "h2",
-        "text": "Defaults should demonstrate the product without becoming generic news.",
+        "text": "Ask the agent to draft a brief connecting your recent sources \u2014 drafts land in your Notebook.",
         "type": "actionable"
+      },
+      {
+        "id": "h3",
+        "text": "Originals are never touched, so derived layers are always safe to rebuild.",
+        "type": "fact"
       }
     ],
     "concepts": [
       {
         "id": "c1",
-        "term": "RSS baseline",
-        "definition": "A feed mode that works without search credentials, billing, or account setup."
+        "term": "Radar topics",
+        "definition": "The interests the agent uses to rank every story \u2014 they also become web search queries."
       },
       {
         "id": "c2",
-        "term": "Coverage expansion",
-        "definition": "The role of search APIs after baseline feeds already provide value."
+        "term": "Notebook",
+        "definition": "The sidebar section for agent-drafted documents, beside the Library of captured sources."
+      },
+      {
+        "id": "c3",
+        "term": "Memory page",
+        "definition": "The agent's own evolving notes about what you know and care about, editable like any file."
       }
     ],
     "structure": [
-      "Problem: search-key dependency breaks first run",
-      "Principle: RSS as baseline",
-      "Design: opinionated but replaceable defaults",
-      "Onboarding: show gathering, reasoning, and capture"
+      "For You feed: sources, radar, briefing",
+      "Agent panel and Notebook drafting",
+      "User and Memory profile pages",
+      "Extension capture for logged-in pages",
+      "File-based data model and reanalysis"
     ]
   },
   "critique": {
     "hiddenAssumptions": [
-      "The default RSS sources match the user's interests well enough to demonstrate value.",
-      "RSS freshness and availability are reliable enough for first-run use."
+      "The user runs a local agent CLI they already trust with their reading material."
     ],
     "potentialIssues": [
-      "Reddit RSS can be rate-limited or noisy.",
-      "Users outside AI/startup interests may need different defaults."
+      "Feed quality depends on radar topics \u2014 vague topics produce generic briefings."
     ],
     "needsVerification": [
-      "Which default feeds produce the best first-run recommendations.",
-      "Whether users notice the difference between RSS-only and search-enhanced mode."
+      "Whether the starter RSS defaults match your interests; swap them early in Settings \u2192 Feed."
     ],
     "biasIndicators": [
-      "Prefers immediate local usefulness over exhaustive search coverage."
+      "Product documentation tone \u2014 treats agent-drafted output as reliably useful."
     ]
   },
   "connections": [
     {
       "id": "conn-demo002b-demo001a",
-      "type": "related",
-      "summary": "Both sources prioritize attention triage before organization.",
-      "details": "The RSS note applies the local-first workflow's principle that defaults should help users judge value before asking them to configure infrastructure.",
-      "relatedSourceIds": ["demo001a"]
+      "type": "builds_on",
+      "summary": "Extends the orientation's core loop into daily-driver features.",
+      "details": "The introduction covers capture, triage, and reading; this guide adds the feed, the agent panel, profile pages, and the file contract underneath them.",
+      "relatedSourceIds": [
+        "demo001a"
+      ]
     }
   ],
   "analyzedAt": "2026-01-15T09:12:00.000Z"

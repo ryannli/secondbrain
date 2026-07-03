@@ -1,0 +1,72 @@
+{"t":"2026-07-03T20:55:25.264Z","e":"click","text":"Save","tag":"button","path":"/"}
+{"t":"2026-07-03T20:55:25.980Z","e":"click","track":"settings.close","text":"Done","tag":"button","path":"/"}
+{"t":"2026-07-03T20:55:32.056Z","e":"visibility","state":"hidden","path":"/"}
+{"t":"2026-07-03T20:55:32.749Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:55:32.750Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:55:46.274Z","e":"click","track":"starter_pack.capture","text":"Get the starter pack (5 reads)","tag":"button","path":"/"}
+{"t":"2026-07-03T20:56:52.769Z","e":"scroll","depth":0.37,"path":"/"}
+{"t":"2026-07-03T20:56:59.139Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:56:59.580Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:56:59.141Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:56:59.581Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:01.166Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:01.311Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:01.167Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:01.312Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:21.863Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:22.128Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:22.130Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:57:21.864Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T20:58:02.086Z","e":"scroll","depth":0.55,"path":"/"}
+{"t":"2026-07-03T20:58:33.259Z","e":"click","track":"source.card_select","text":"Must ReadBuilding a C compiler with a te...","tag":"button","path":"/"}
+{"t":"2026-07-03T20:58:33.500Z","path":"/?source=cc1109a9","e":"navigate","from":"/","to":"/?source=cc1109a9"}
+{"t":"2026-07-03T20:58:40.542Z","path":"/","e":"navigate","from":"/?source=cc1109a9","to":"/"}
+{"t":"2026-07-03T20:58:41.075Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T20:58:42.490Z","e":"scroll","depth":0,"path":"/"}
+{"t":"2026-07-03T20:59:11.554Z","e":"visibility","state":"hidden","path":"/"}
+{"t":"2026-07-03T21:00:19.317Z","e":"visibility","state":"visible","path":"/"}
+{"t":"2026-07-03T21:00:21.116Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:00:23.041Z","e":"scroll","depth":0.82,"path":"/"}
+{"t":"2026-07-03T21:00:24.332Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:00:25.882Z","e":"scroll","depth":0.61,"path":"/"}
+{"t":"2026-07-03T21:00:28.432Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:00:33.273Z","e":"scroll","depth":0,"path":"/"}
+{"t":"2026-07-03T21:00:36.714Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:01:22.412Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:01:22.610Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:01:22.414Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:01:24.906Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:01:22.611Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:01:32.199Z","e":"click","track":"source.card_select","text":"SkimSecond Brain is now open sourcegithu...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:01:32.417Z","path":"/?source=demo003c","e":"navigate","from":"/","to":"/?source=demo003c"}
+{"t":"2026-07-03T21:01:36.942Z","e":"click","text":"github.com ↗","tag":"a","path":"/?source=demo003c"}
+{"t":"2026-07-03T21:01:36.967Z","e":"visibility","state":"hidden","path":"/?source=demo003c"}
+{"t":"2026-07-03T21:01:38.920Z","e":"visibility","state":"visible","path":"/?source=demo003c"}
+{"t":"2026-07-03T21:01:45.595Z","path":"/","e":"navigate","from":"/?source=demo003c","to":"/"}
+{"t":"2026-07-03T21:01:50.766Z","e":"click","track":"source.card_select","text":"Must ReadWelcome to Second Brain169d ago...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:01:50.842Z","path":"/?source=demo001a","e":"navigate","from":"/","to":"/?source=demo001a"}
+{"t":"2026-07-03T21:02:00.013Z","e":"session","tz":420,"path":"/?view=foryou"}
+{"t":"2026-07-03T21:02:00.014Z","e":"session","tz":420,"path":"/?view=foryou"}
+{"t":"2026-07-03T21:02:01.341Z","e":"click","track":"nav.dashboard","text":"Dashboard","tag":"button","path":"/?view=foryou"}
+{"t":"2026-07-03T21:02:01.602Z","path":"/","e":"navigate","from":"/?view=foryou","to":"/"}
+{"t":"2026-07-03T21:02:03.226Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:02:06.324Z","e":"click","track":"source.card_select","text":"Worth ReadingAdvanced features in Second...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:02:06.359Z","path":"/?source=demo002b","e":"navigate","from":"/","to":"/?source=demo002b"}
+{"t":"2026-07-03T21:02:11.669Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:11.671Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:15.098Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:15.763Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:15.099Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:15.765Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:20.119Z","e":"scroll","depth":1,"path":"/"}
+{"t":"2026-07-03T21:02:31.637Z","e":"click","track":"source.card_select","text":"Worth ReadingAdvanced features in Second...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:02:31.856Z","path":"/?source=demo002b","e":"navigate","from":"/","to":"/?source=demo002b"}
+{"t":"2026-07-03T21:02:36.687Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:02:36.688Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:04:33.937Z","e":"click","track":"source.card_select","text":"SkimSecond Brain is now open sourcegithu...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:04:34.017Z","path":"/?source=demo003c","e":"navigate","from":"/","to":"/?source=demo003c"}
+{"t":"2026-07-03T21:04:45.608Z","path":"/","e":"navigate","from":"/?source=demo003c","to":"/"}
+{"t":"2026-07-03T21:04:46.329Z","e":"click","track":"source.card_select","text":"Must ReadWelcome to Second Brain169d ago...","tag":"button","path":"/"}
+{"t":"2026-07-03T21:04:46.382Z","path":"/?source=demo001a","e":"navigate","from":"/","to":"/?source=demo001a"}
+{"t":"2026-07-03T21:04:50.492Z","e":"session","tz":420,"path":"/"}
+{"t":"2026-07-03T21:04:50.494Z","e":"session","tz":420,"path":"/"}

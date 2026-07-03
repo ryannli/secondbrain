@@ -1,7 +1,11 @@
 {
   "id": "doc-demo-brief",
-  "title": "Connection Brief: Capture First, Search Later",
+  "title": "Your First Week with Second Brain",
   "createdAt": "2026-01-15T09:30:00.000Z",
   "output": "content.md",
-  "sources": ["demo001a", "demo002b"]
+  "sources": [
+    "demo001a",
+    "demo002b",
+    "demo003c"
+  ]
 }

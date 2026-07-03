@@ -1,21 +1,19 @@
-# Connection Brief: Capture First, Search Later
+# Your First Week with Second Brain
 
-This example Studio document shows the kind of synthesis an agent can create from captured sources.
+*This is an example Notebook document — the kind of synthesis your agent drafts from sources you've captured. It was built from the three example sources in your library.*
 
-## Core Connection
+## Day one: trust the verdicts, but check them
 
-`demo001a` argues that Second Brain should preserve original source records while keeping AI analysis editable and regeneratable. `demo002b` applies the same philosophy to feed onboarding: RSS defaults create value before a user configures search APIs.
+Capture a handful of links and let the triage cards do their job (**demo001a**). Read one Must Read with the Digest tab open; open the Critique tab before you repeat any claim to someone else. Rate a source or two — scoring calibrates to your taste.
 
-Together, they suggest a product rule:
+## Day two or three: point the feed at your interests
 
-> First-run value should come from durable local defaults, not fragile external setup.
+Set your Radar topics in Settings → Feed and skim your first For You briefing (**demo002b**). Star what's good, dismiss what isn't — the feed learns from both.
 
-## Practical Implications
+## When it clicks: put the agent to work
 
-- Keep `original.*` and `meta.json` immutable so analysis can be repaired without losing evidence.
-- Let RSS provide the baseline For You feed before requiring search credentials.
-- Treat agent output as a draft layer the user owns, not as hidden product state.
+Ask the panel to draft a brief connecting your recent sources — it lands here, in the Notebook. Tell the User page how you like to work; watch the Memory page start filling in.
 
-## Next Action
+## The safety net under all of it
 
-When reviewing a new onboarding feature, ask whether it demonstrates the complete product without requiring users to configure an external service first.
+Everything above is plain files you own (**demo003c**). Originals never change, analysis can always be regenerated, and the examples folder — including this document — is yours to delete the moment it has done its job.

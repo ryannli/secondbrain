@@ -1,12 +1,23 @@
-RSS-first feed triage
+Advanced features in Second Brain
 
-A personalized feed should not become useless when a search API key is missing. RSS provides a reliable baseline because it needs no account, no billing setup, and no search quota. Search should expand coverage, not become the foundation that decides whether the product works at all.
+Once the capture-triage-read loop feels natural, these are the features that compound.
 
-The product should start with a small set of high-signal feeds and let the user replace them. Defaults should be opinionated enough to demonstrate the product, but not so broad that the feed becomes generic news.
+## The For You feed
 
-The first-run experience should show the user three things quickly:
-1. The system can gather candidates.
-2. The system can explain why something is worth reading.
-3. The user can capture a recommendation into the library.
+Second Brain pulls candidates from your RSS feeds (and web search, if you add a free Brave key), then your agent ranks every story against your Radar topics and reading history — and writes a short briefing that cross-references your own library. Tune it in Settings → Feed. First generation takes about a minute; later visits load from cache.
 
-Search keys can be introduced later, when the user understands why deeper coverage is valuable.
+## The agent panel
+
+The right-hand panel is an agent with your whole library as its workspace. Select text in any document to hand it context, or ask library-wide questions: "what should I read next?", "draft a brief connecting my recent sources". Drafts land in your Notebook — the sidebar section for what the agent creates, next to the Library section for what you capture.
+
+## Profile pages: User and Memory
+
+The User page is where you tell the agent how to work for you, in plain prose — it reads that page before analyzing anything. The Memory page is the reverse: the agent's own notes about what you know and care about, kept up to date across conversations. Both are editable files in your data folder.
+
+## Capture beyond public pages
+
+The Chrome extension captures pages exactly as you see them — logged-in pages, JS-heavy apps, tweets. Bookmark a tweet on X and it can land in your library automatically.
+
+## Everything is a file
+
+Each source is a folder: the immutable original, an editable content layer, and regeneratable analysis. Grep your library, put it in git, sync it with anything. If an analysis goes stale, hit Reanalyze — originals are never touched, so derived layers are always safe to rebuild.

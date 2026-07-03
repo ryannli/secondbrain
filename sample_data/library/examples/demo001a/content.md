@@ -1,20 +1,24 @@
 ---
-title: "Local-first AI reading workflow"
-readStatus: "unread"
+title: "Welcome to Second Brain"
+readStatus: "read"
+lastReadAt: "2026-07-03T21:01:50.887Z"
 ---
 
-# Local-first AI reading workflow
+# Welcome to Second Brain
 
-Knowledge tools fail when they become passive archives. A better reading system should help the user decide what deserves attention before it asks them to organize anything.
+Second Brain is built on one observation: you cannot read everything, and you do not have to. Publishing is free now; your attention is still twenty-four hours a day. So instead of another read-it-later list, this workspace flips the loop — the AI reads first, and you spend your judgment only where it counts.
 
-Local files make the system inspectable: every summary, source, and critique can be edited, searched, moved, or versioned with ordinary tools.
+## The loop
 
-The main design tradeoff is not whether AI should summarize. The harder question is where AI should be allowed to act. AI can triage, compare, and draft. The user should still decide what matters, what is true, and what becomes part of their long-term memory.
+1. **Capture** — paste a link, drop a PDF, or use the browser extension. The original is stored untouched, forever.
+2. **Triage** — every capture gets a score, a read-time estimate, and a straight verdict: Must Read, Worth Reading, Skim, or Skip. Look right: the card next to this document is a real Triage Card, and it scored this very page.
+3. **Read with analysis beside you** — the Digest tab summarizes and extracts concepts so you understand faster; the Critique tab lists hidden assumptions and claims worth verifying so you evaluate sharper.
+4. **Connect** — new captures are checked against everything you've read: what they support, repeat, or contradict.
 
-## Workflow loops
+## You stay in charge
 
-1. Capture quickly, preserving the original.
-2. Generate a derived reading layer with summary, critique, and claims.
-3. Revisit only the pieces that cross an attention threshold.
+Every word the AI writes here is yours to edit — summaries, highlights, even this analysis. And everything lives as plain files on your machine: press the small open-folder button next to Library in the sidebar and see for yourself. No database, no cloud, no lock-in.
 
-The most important product requirement is reversibility. If a model makes a bad summary, the user should not lose the raw source. If the user's interests change, the system should re-run derived analysis without rewriting the original record.
+## What to do next
+
+Capture your first link in the box above, or grab the starter pack and let your agent build you a small library in a few minutes. This document and its neighbors are just examples — delete the examples folder whenever you're done with them.
