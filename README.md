@@ -1,86 +1,79 @@
+<div align="center">
+
+<img src="extension/icon128.png" width="72" alt="Second Brain" />
+
 # Second Brain
 
-**AI triage for people who read more than they can reasonably process.**
+### You can't read everything. You don't have to.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Node 20+](https://img.shields.io/badge/Node-20%2B-blue.svg)](#quick-start)
+[![Node 20+](https://img.shields.io/badge/Node-20%2B-blue.svg)](#get-started-in-2-minutes)
+[![Local-first](https://img.shields.io/badge/Local--first-your%20files%2C%20your%20machine-8b5cf6.svg)](#your-data-stays-yours)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Second Brain turns links, notes, PDFs, images, and feeds into a local-first reading workspace. It preserves the original source, creates an editable analysis layer, and helps you decide what deserves real attention.
+**A local-first reading workspace with an attention filter: AI triages, critiques,
+and connects what you capture — so you can spot the slop before it costs you time,
+and give the pieces that matter your full, undivided reading.**
+
+[Get started](#get-started-in-2-minutes) · [How it works](#how-it-works) · [Why local-first](#your-data-stays-yours) · [Chrome extension](#capture-anything-in-one-click)
 
 ![Second Brain demo — capture a link, read the triage, browse your curated feed](docs/assets/second-brain-demo.gif)
 
-## Why It Exists
+</div>
 
-AI made it cheap to produce information. It did not make your attention bigger.
+---
 
-Second Brain is built around a sharper loop:
+## Your attention is a constant. Information isn't.
 
-1. Capture anything quickly.
-2. Let AI summarize, critique, and connect it.
-3. Spend your judgment only where it matters.
+AI made content exponential. It did nothing for the reader: you still have the same hours, the same one pair of eyes, no upgrade path. The gap between what gets published and what any human can absorb widens every single day — and reading faster won't close it.
 
-This is not a passive bookmark manager. It is an attention filter with a filesystem you own.
+The only lever left is **selection**: spending a fixed attention budget where it actually compounds. That's the problem Second Brain was built for. Not storing more — choosing better.
 
-## Key Features
+Bookmark managers work the wrong end of it. Saving is easy; **deciding is the hard part**. So the list grows, the guilt grows, and the one article that would have changed your thinking is buried under forty that wouldn't.
 
-| Feature | What it does |
-| --- | --- |
-| Triage cards | Scores each source and recommends whether to read, skim, summarize, or skip. |
-| Digest + critique | Separates comprehension from evaluation: summary, structure, concepts, assumptions, issues, and verification needs. |
-| Local-first library | Stores sources as plain files under your data folder. No database lock-in. |
-| Preserved originals | Keeps `meta.json` and `original.*` intact so derived analysis can be regenerated safely. |
-| RSS-first feed | Starts with RSS defaults so the feed works before any search API key is configured. |
-| Agent-native workspace | Claude Code or another local agent can inspect and organize the same markdown/JSON files the app uses. |
-| Chrome capture extension | Optional one-click capture for logged-in or heavily dynamic pages. |
+Second Brain flips the loop: **triage before you read.** Every capture gets flagged at the door — so the twenty-minute mistakes get easier to decline, and the piece that matters gets your full attention: actually read, not skimmed with guilt.
 
-## Product Shape
+## Not another AI-summary app
 
-Second Brain has three core surfaces:
+Let's address it head-on: nobody needs one more tool that turns essays into three bullets so you can pretend you read them. **Understanding doesn't outsource. Neither does judgment.**
 
-| Surface | Job |
-| --- | --- |
-| Dashboard | Capture new material and review what needs attention. |
-| Source view | Read the processed content beside digest, critique, highlights, concepts, and connections. |
-| For You feed | Pull candidates from RSS and optional search, then rank them against your interests and reading history. |
+Second Brain's AI does exactly two jobs — and reading for you isn't one of them:
 
-## Recommended Path Today
+1. **Filter** — score and critique every capture, so you can recognize AI slop and shallow takes before they cost you twenty minutes of your life.
+2. **Deepen** — when something *is* worth reading, you read the original, with analysis beside the text: concepts explained, hidden assumptions flagged, contradictions with your other sources surfaced.
 
-Use the **web app**.
+Every verdict is advisory. Every analysis is an editable file on your disk. The reader stays human — that's the point, not a limitation.
 
-It is the public open-source entrypoint: easy to run, easy to inspect, and easiest for contributors to debug.
-The Chrome extension is an optional companion for one-click and logged-in page capture, not a requirement for the first run.
+## What you get
 
-## Chrome Extension
+### 🔑 Runs on what's already yours
 
-The extension is **not required**.
+- **No new subscription** — analysis runs through the coding agent you already pay for ([Claude Code](https://docs.claude.com/en/docs/claude-code/setup) or [Codex CLI](https://github.com/openai/codex)). No model API keys, no metered bill.
+- **All data on your disk** — every source is a folder of markdown and JSON. Grep it, git it, sync it, leave anytime. No database, no cloud, no lock-in.
 
-You can use Second Brain without it for:
+### 🎯 Capture fast, decide faster
 
-- pasted text
-- public URLs
-- PDFs and images
-- RSS feed review
-- manual capture from the web app
+- **Capture anything in seconds** — paste a link or text, drop a PDF or image, or one-click the Chrome extension (logged-in and JS-rendered pages included).
+- **A triage card on every source** — score, read-time estimate, and a straight verdict: deep read, skim, or skip. Judge in five seconds whether something deserves fifty minutes.
+- **Read with a critical companion** — when something is worth it, you read the original with digest and critique beside the text: concepts explained, hidden assumptions and shaky claims flagged. It sharpens your reading instead of replacing it.
+- **A library that argues with itself** — new captures are checked against everything you've read: what they support, repeat, or **contradict**.
 
-Use the extension when you want:
+### 🤖 Agentic to the core
 
-- one-click capture from Chrome
-- logged-in pages
-- JavaScript-rendered pages where server-side fetch cannot see the content
-- Twitter/X-like pages where the browser-rendered DOM is the real source
+- **Your library is the agent's workspace** — plain local files mean the agent reads and organizes the exact same files you see. Hand it content anytime: reorganize the library, or draft a post from what you've been reading lately, straight into your Notebook.
+- **Information comes to you** — the "For You" feed ranks RSS (and optional search) against your interests and reading history. It breaks the bottleneck of only knowing what you went looking for. Works out of the box, no API key.
+- **You control what it knows** — `USER.md` holds your explicit preferences; `MEMORY.md` is the agent's own evolving notes about you, visible and editable right in the app. Modern agent memory, without the black box.
 
-Chrome does not allow a normal website or local app to silently install an unpacked extension for a user. For development, users must load it manually through `chrome://extensions`. Later, a Chrome Web Store release can make installation one click. Enterprise force-install policies exist, but they are not appropriate for normal open-source onboarding.
+## How it works
 
-## Quick Start
+1. **Capture** — paste a link, drop a PDF, or one-click the Chrome extension on any page (even logged-in and JS-rendered ones).
+2. **AI triages** — content is extracted, scored, summarized, critiqued, and connected to what you've already read.
+3. **You read and judge** — the sources worth it get your real attention: original text front and center, analysis at your side. Everything the AI wrote is yours to edit — or overrule.
 
-### Prerequisites
+## Get started in 2 minutes
 
-- **Node.js 20+**
-- **One local agent CLI, installed and signed in.** Second Brain runs all analysis through the coding agent you already use — no separate model API key needed:
-  - [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) — `npm install -g @anthropic-ai/claude-code`, then run `claude` once to sign in
-  - or [OpenAI Codex CLI](https://github.com/openai/codex) — `npm install -g @openai/codex`, then run `codex` once to sign in
-
-### Run it
+All you need is **Node 20+** and one agent CLI you already use, signed in:
+[Claude Code](https://docs.claude.com/en/docs/claude-code/setup) (`claude`) or [OpenAI Codex](https://github.com/openai/codex) (`codex`).
 
 ```bash
 git clone https://github.com/ryannli/secondbrain.git
@@ -89,96 +82,67 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), confirm your agent shows **Connected**, and hit **Enable Agent Mode**.
+Open [http://localhost:3000](http://localhost:3000), confirm your agent shows **Connected**, and hit **Enable Agent Mode**. First launch seeds a small example library so you can feel the product before capturing anything.
 
-On first launch, Second Brain seeds an empty data folder with a small working library:
+Want a guided path? See [docs/ONBOARDING.md](docs/ONBOARDING.md).
 
-- `USER.md` preferences
-- `AGENTS.md` data-folder instructions, with `CLAUDE.md` as a compatibility symlink
-- `DataSchema.md` for safe agent edits
-- two captured example documents
-- one example Studio synthesis document
-- processed `content.md`
-- ready `analysis.json`
-- cross-source connections
-- RSS/search defaults
+## Capture anything in one click
 
-The seed is safe by default: it only runs for an empty data folder and never overwrites existing files.
+The optional **Chrome extension** captures pages exactly as you see them — including logged-in pages, JS-heavy apps, and tweets. Bookmark a tweet on X and it lands in your library automatically (you can turn that off).
 
-For a guided setup flow, see [docs/ONBOARDING.md](docs/ONBOARDING.md).
+Load it from `chrome://extensions` → **Load unpacked** → select the `extension/` folder. A welcome page opens, checks the connection, and walks you through the rest.
 
-## Search And RSS
+No extension? Paste links, text, PDFs, and images straight into the dashboard.
 
-The feed works in RSS-only mode by default. New installs start with a small set of high-signal RSS feeds:
+## Your data stays yours
 
-- Hacker News
-- r/singularity
-- r/LocalLLaMA
-- r/ClaudeAI
-
-Add your own blogs, newsletters, and subreddits in **Settings → Feed**.
-
-Search is optional. Add a [Brave Search API key](https://brave.com/search/api/) (free tier available) only when you want broader web coverage:
-
-```bash
-cp .env.example .env.local
-```
-
-Then open `.env.local`, paste your key into `BRAVE_SEARCH_API_KEY`, and restart `npm run dev`.
-Do not commit `.env.local`; it is intentionally ignored. Without that key, Second Brain still runs the feed from RSS and shows a clear RSS-only notice.
-
-## Data Model
-
-Every captured source is a folder:
+This is not a philosophy section — it's the architecture:
 
 ```text
 library/{id}/
-├── meta.json        # original metadata, captured once
-├── original.*       # original raw source, captured once
-├── content.md       # derived readable content, editable
-├── analysis.json    # derived AI analysis, editable/regeneratable
+├── meta.json        # capture metadata — never modified
+├── original.*       # the raw source — never modified
+├── content.md       # readable content — yours to edit
+├── analysis.json    # AI analysis — yours to edit, safe to regenerate
 └── README.md        # human-readable triage card
 ```
 
-The rule is simple: original files are evidence; derived files are workspace.
+- Everything lives in a folder you choose (`./user_data` by default, or `SECONDBRAIN_ROOT=~/SecondBrain npm run dev`).
+- Originals are evidence and never overwritten; analysis is workspace and always regenerable.
+- Content is analyzed through **your** authenticated local agent session — it never touches a third-party server of ours. There isn't one.
 
-## Local Data
+## Under the hood
 
-By default, local data lives in:
+<details>
+<summary><b>Feed & search configuration</b></summary>
 
-```text
-./user_data
-```
+The For You feed works in RSS-only mode by default, seeded with high-signal feeds (Hacker News, r/singularity, r/LocalLLaMA, r/ClaudeAI). Add your own in **Settings → Feed**.
 
-You can point it elsewhere:
+Optional: broaden coverage with a [Brave Search API key](https://brave.com/search/api/) (free tier available):
 
 ```bash
-SECONDBRAIN_ROOT=~/SecondBrain npm run dev
+cp .env.example .env.local   # then paste your key into BRAVE_SEARCH_API_KEY
 ```
 
-You can also change the data location from Settings when `SECONDBRAIN_ROOT` is not set. The local override is saved in `.secondbrain.local.json`, which should stay out of git.
+`.env.local` is git-ignored. Without a key, the feed still runs on RSS and says so clearly.
 
-Do not commit your real `user_data/`. It can contain source text, preferences, reading history, and agent conversations.
+</details>
 
-## AI Agent Boundary
+<details>
+<summary><b>Agent providers & privacy boundary</b></summary>
 
-Second Brain calls a local agent CLI through a subprocess. The app currently supports:
+Second Brain calls a local agent CLI via subprocess — Claude Code (`claude`) or OpenAI Codex (`codex`). Pick your provider in Agent Mode setup or Settings.
 
-- Claude Code via `claude`
-- OpenAI Codex via `codex`
+- Captured content is sent through your authenticated local agent session for analysis.
+- No separate model API key is required for core analysis.
+- Prompt/response debug logs are **off by default**. `SECONDBRAIN_AGENT_DEBUG_LOGS=1` enables them for local debugging only — they can contain source text.
 
-Claude Code is not required. Choose the provider you already use in Agent Mode setup or Settings.
+Agent Mode is required: if no provider is connected, you get a setup gate instead of a degraded app.
 
-Agent Mode is required. If no provider is connected, Second Brain shows the setup gate instead of opening a reduced workspace. The first-run experience should reflect the complete product, not a partial reader.
+</details>
 
-That means:
-
-- content may be sent through your authenticated local agent session for analysis
-- no separate model API key is required for core analysis
-- `BRAVE_SEARCH_API_KEY` is only for optional feed search
-- prompt/response debug logs are off by default; set `SECONDBRAIN_AGENT_DEBUG_LOGS=1` only while developing because logs may contain sensitive source text
-
-## Development
+<details>
+<summary><b>Development</b></summary>
 
 ```bash
 npm test
@@ -186,25 +150,15 @@ npm run lint
 npm run build
 ```
 
-Server-side pipeline tracing is quiet by default. To see capture/feed/agent traces in the terminal:
+Pipeline tracing: `SECONDBRAIN_DEBUG=1 npm run dev`.
 
-```bash
-SECONDBRAIN_DEBUG=1 npm run dev
-```
+Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md). Agent-facing project context lives in [AGENTS.md](AGENTS.md) (`CLAUDE.md` is a symlink so Claude Code and Codex share one context).
 
-For local agent debugging, you can temporarily run:
-
-```bash
-SECONDBRAIN_AGENT_DEBUG_LOGS=1 npm run dev
-```
-
-This writes full agent prompts and raw responses under your data folder's `.debug/` directory. Keep it off for normal use.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor guide. Agent-facing project context lives in [AGENTS.md](AGENTS.md); `CLAUDE.md` is a symlink to the same file so Claude Code and Codex share one project context.
+</details>
 
 ## Status
 
-Second Brain is an early local-first product. The web app is the recommended open-source entrypoint. Extension distribution and richer first-run onboarding are still evolving.
+Early, local-first, and moving fast. The web app is the recommended entrypoint; extension store distribution and a desktop build are on the roadmap. If the problem resonates, ⭐ the repo and [open an issue](../../issues) — the roadmap is negotiable, the philosophy isn't.
 
 ## License
 
