@@ -60,6 +60,7 @@ Every verdict is advisory. Every analysis is editable. The reader stays human �
 ### Agentic to the core
 
 - **Your library is the agent's workspace** — plain local files mean the agent reads and organizes the exact same files you see. Hand it content anytime: reorganize the library, or draft a post from what you've been reading lately, straight into your Notebook.
+- **It learns from your behavior, not just your settings** — clicks, reading history, ratings, starred or dismissed highlights, Knew / Learned concepts, and For You actions become local feedback signals. The more you use it, the sharper the agent gets about what is worth your attention.
 - **Information comes to you** — the "For You" feed ranks RSS (and optional search) against your interests and reading history. It breaks the bottleneck of only knowing what you went looking for. Works out of the box, no API key.
 - **You control what it knows** — `USER.md` holds your explicit preferences; `MEMORY.md` is the agent's own evolving notes about you, visible and editable right in the app. Modern agent memory, without the black box.
 
@@ -120,6 +121,7 @@ Second Brain is built so your reading history does not become someone else's clo
 
 - **You choose where the data lives** — use the default local folder or point `SECONDBRAIN_ROOT` at any folder you control.
 - **Your captures remain your evidence** — original pages and files are preserved; AI analysis is editable workspace you can regenerate or delete.
+- **Your interaction history stays local too** — UI history, reading signals, feed actions, and agent conversations live in your data folder as part of the feedback loop.
 - **There is no Second Brain cloud** — content is analyzed through your authenticated local agent session, not through a hosted Second Brain backend.
 
 ### What gets stored
