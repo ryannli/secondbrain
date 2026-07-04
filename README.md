@@ -124,29 +124,19 @@ Second Brain is built so your reading history does not become someone else's clo
 
 ### What gets stored
 
-Every capture becomes a small local bundle with three layers:
-
-| Layer | What it means | Why it matters |
-| --- | --- | --- |
-| Original | The page, PDF, image, or text exactly as captured | Preserved evidence; never overwritten by reanalysis |
-| Readable copy | Clean content for reading, search, and Ask | Editable, portable, and easy to inspect |
-| AI workspace | Triage, digest, critique, claims, and connections | Yours to edit, delete, or regenerate |
-
-The exact files live under your chosen data folder, so the app can disappear and the work is still yours.
-
-<details>
-<summary><b>Exact local file layout</b></summary>
+Think of Second Brain as a folder you can open in Finder:
 
 ```text
-library/{id}/
-├── meta.json        # capture metadata, never modified
-├── original.*       # raw source, never modified
-├── content.md       # readable content, yours to edit
-├── analysis.json    # AI analysis, safe to regenerate
-└── README.md        # human-readable triage card
+Second Brain
+├── Library      things you captured
+│   ├── Saved article
+│   └── Research paper
+└── Notebook     things you or your agent wrote from those sources
+    ├── Weekly brief
+    └── Draft outline
 ```
 
-</details>
+Each Library item is a small folder of files. Each Notebook item is a small folder of files too. You can inspect them, back them up, sync them, move them, or delete them with normal file tools.
 
 ## Under the hood
 
