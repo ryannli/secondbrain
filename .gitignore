@@ -75,3 +75,9 @@ sample_data/.agent/
 sample_data/.cache/
 sample_data/.index/
 sample_data/.debug/
+
+# Video build artifacts (marketing compositions render output & runtime caches)
+marketing/*/renders/
+marketing/*/.hyperframes/
+marketing/*/.thumbnails/
+/demo_data2/
