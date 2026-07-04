@@ -5,6 +5,7 @@ import {
   Plus,
   Loader2,
   Sparkles,
+  Copy,
   X as XIcon,
   AlertCircle,
   Clock,
@@ -50,6 +51,7 @@ export interface DashboardProps {
   getScoreColor: (score: number) => string;
   feed?: FeedProps;
   onStarterPack?: () => void;
+  extensionPath?: string;
 }
 
 export const Dashboard = React.memo(function Dashboard({
@@ -66,6 +68,7 @@ export const Dashboard = React.memo(function Dashboard({
   getScoreColor,
   feed,
   onStarterPack,
+  extensionPath,
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
@@ -255,7 +258,7 @@ export const Dashboard = React.memo(function Dashboard({
         </p>
         <p className="text-xs mt-0.5 leading-relaxed" style={{ color: theme.textMuted }}>
           They show what an analyzed source looks like — safe to delete anytime. Start your real
-          library by capturing anything above{onStarterPack ? ", or let your agent fetch and analyze a starter pack of great reads on AI" : ""}.
+          library by capturing anything above{onStarterPack ? ", or let your agent fetch and analyze a small starter pack of public example reads" : ""}.
         </p>
         {starterStarted ? (
           <p className="text-xs mt-2 flex items-center gap-1.5" style={{ color: palette[600] }}>
@@ -298,18 +301,17 @@ export const Dashboard = React.memo(function Dashboard({
   const [extensionsUrlCopied, setExtensionsUrlCopied] = useState(false);
   const showExtensionBanner = extensionDetected === false && !extensionDismissed;
 
+  const isMac = typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac");
   const startExtensionInstall = () => {
     setExtensionInstallStarted(true);
-    // Reveal the unpacked extension folder so the user can drag it into Chrome
-    fetch("/api/reveal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target: "extension" }),
-    });
-    navigator.clipboard?.writeText("chrome://extensions").then(
-      () => setExtensionsUrlCopied(true),
-      () => setExtensionsUrlCopied(false)
-    );
+    // Put the folder path in the clipboard so the user can paste it straight
+    // into Chrome's Load-unpacked file picker
+    if (extensionPath) {
+      navigator.clipboard?.writeText(extensionPath).then(
+        () => setExtensionsUrlCopied(true),
+        () => setExtensionsUrlCopied(false)
+      );
+    }
   };
 
   const extensionBanner = showExtensionBanner ? (
@@ -327,17 +329,33 @@ export const Dashboard = React.memo(function Dashboard({
           about fifteen seconds — this banner disappears by itself once it&apos;s connected.
         </p>
         {extensionInstallStarted ? (
-          <ol className="text-xs mt-2 space-y-1 list-decimal list-inside" style={{ color: theme.textMuted }}>
-            <li>
-              The <code>extension</code> folder is selected in a file window ✓
-            </li>
-            <li>
-              Go to <code>chrome://extensions</code>
-              {extensionsUrlCopied ? " (already in your clipboard — paste into the address bar)" : ""} and turn on
-              Developer mode
-            </li>
-            <li>Drag the selected folder onto that page — done</li>
-          </ol>
+          <div className="mt-2">
+            <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: theme.textMuted }}>
+              <li>
+                Open <code>chrome://extensions</code> and turn on Developer mode (top right)
+              </li>
+              <li>Click &quot;Load unpacked&quot;</li>
+              <li>
+                {extensionsUrlCopied ? "The folder path is in your clipboard — " : ""}
+                {isMac ? (
+                  <>press <code>⌘⇧G</code> in the picker, paste, Enter, then Open</>
+                ) : (
+                  <>paste the path into the picker&apos;s location field, then Open</>
+                )}
+              </li>
+            </ol>
+            {extensionPath && (
+              <button
+                onClick={() => navigator.clipboard?.writeText(extensionPath)}
+                className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border hover:bg-black/5"
+                title="Copy path again"
+                style={{ borderColor: theme.border, color: theme.textMuted }}
+              >
+                <code className="truncate max-w-72">{extensionPath}</code>
+                <Copy className="w-3 h-3 flex-shrink-0" />
+              </button>
+            )}
+          </div>
         ) : (
           <div className="flex items-center gap-3 mt-2">
             <button
@@ -378,9 +396,7 @@ export const Dashboard = React.memo(function Dashboard({
   const taglines = [
     "You can't read everything. You don't have to.",
     "The art of knowing what to ignore.",
-    "Your cognitive throughput, amplified.",
     "Not storage. Sense-making.",
-    "Metabolize. Don't accumulate.",
     "From noise to signal.",
     "Information overwhelms. Your second brain evolves.",
     "Free your judgment from information triage.",

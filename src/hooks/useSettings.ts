@@ -30,6 +30,7 @@ export function useSettings() {
   const [libraryPath, setLibraryPath] = useState("");
   const [rssFeeds, setRssFeeds] = useState<RssFeedSource[]>(DEFAULT_RSS_FEEDS);
   const [searchConfigured, setSearchConfigured] = useState(false);
+  const [extensionPath, setExtensionPath] = useState("");
   const [searchSources, setSearchSources] = useState<string[]>(DEFAULT_SEARCH_SOURCES);
   const [feedInterests, setFeedInterests] = useState<string[]>([]);
   const [agentModeEnabled, setAgentModeEnabled] = useState(false);
@@ -67,6 +68,7 @@ export function useSettings() {
           setRssFeeds(data.config.rssFeeds);
         }
         setSearchConfigured(data.config.searchConfigured === true);
+        if (data.config.extensionPath) setExtensionPath(data.config.extensionPath);
         if (data.config.searchSources) {
           setSearchSources(data.config.searchSources);
         }
@@ -343,6 +345,7 @@ export function useSettings() {
     rssFeeds,
     saveRssFeeds,
     searchConfigured,
+    extensionPath,
     searchSources,
     saveSearchSources,
     feedInterests,

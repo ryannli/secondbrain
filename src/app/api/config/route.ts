@@ -27,6 +27,7 @@ export async function GET(): Promise<NextResponse> {
         rootPathLocked: isRootPathLocked(),
         libraryPath: path.join(rootPath, "library"),
         searchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
+        extensionPath: path.join(process.cwd(), "extension"),
         ...userConfig,
       },
     });

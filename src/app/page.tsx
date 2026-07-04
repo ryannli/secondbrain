@@ -113,6 +113,7 @@ function HomeContent() {
     rssFeeds,
     saveRssFeeds,
     searchConfigured,
+    extensionPath,
     searchSources,
     saveSearchSources,
     feedInterests,
@@ -558,7 +559,7 @@ function HomeContent() {
             },
             {
               label: "Notebook",
-              hint: "what your agent drafts",
+              hint: "what you write with your agent",
               rootLabel: "notebook",
               isOpen: studio.isOpen,
               onToggle: studio.toggle,
@@ -776,6 +777,7 @@ function HomeContent() {
                 theme={theme}
                 getScoreColor={getScoreColor}
                 onStarterPack={captureStarterPack}
+                extensionPath={extensionPath}
               />
             )}
           </div>
