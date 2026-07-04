@@ -36,6 +36,5 @@
     "arstechnica.com",
     "theguardian.com"
   ],
-  "agentProvider": "claude",
-  "agentModeEnabled": true
+  "agentProvider": "claude"
 }

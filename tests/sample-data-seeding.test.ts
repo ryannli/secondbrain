@@ -38,6 +38,8 @@ describe("sample data seeding", () => {
 
     expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "R/singularity", "R/ClaudeAI"]);
     expect(userProfile).toContain("I use Second Brain");
+    // The agent gate is an explicit consent step — the seed must never skip it
+    expect(config.agentModeEnabled).toBeUndefined();
     expect(agentInstructions).toContain("Second Brain data folder");
     expect(await fs.readFile(path.join(tmpRoot, "DataSchema.md"), "utf-8")).toContain("analysis.json");
     expect(claudeStat.isSymbolicLink()).toBe(true);
