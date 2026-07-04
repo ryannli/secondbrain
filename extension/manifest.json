@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Second Brain Capture",
-  "version": "1.6",
+  "version": "1.7",
   "description": "Capture any page to Second Brain",
   "permissions": [
     "activeTab",
@@ -48,5 +48,8 @@
       "run_at": "document_end"
     }
   ],
-  "options_page": "welcome.html"
+  "options_page": "welcome.html",
+  "host_permissions": [
+    "http://localhost/*"
+  ]
 }
