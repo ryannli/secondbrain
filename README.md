@@ -133,7 +133,18 @@ No extension? Paste links, text, PDFs, and images straight into the dashboard.
 
 ## Your data stays yours
 
-This is not a philosophy section — it's the architecture:
+Second Brain is built so your reading history does not become someone else's cloud dataset.
+
+- **You choose where the data lives** — use the default local folder or point `SECONDBRAIN_ROOT` at any folder you control.
+- **Your captures remain your evidence** — original pages and files are preserved; AI analysis is editable workspace you can regenerate or delete.
+- **There is no Second Brain cloud** — content is analyzed through your authenticated local agent session, not through a hosted Second Brain backend.
+
+## Under the hood
+
+<details>
+<summary><b>What gets stored</b></summary>
+
+Each captured source is stored as plain files:
 
 ```text
 library/{id}/
@@ -144,11 +155,7 @@ library/{id}/
 └── README.md        # human-readable triage card
 ```
 
-- Everything lives in a folder you choose (`./user_data` by default, or `SECONDBRAIN_ROOT=~/SecondBrain npm run dev`).
-- Originals are evidence and never overwritten; analysis is workspace and always regenerable.
-- Content is analyzed through **your** authenticated local agent session — it never touches a third-party server of ours. There isn't one.
-
-## Under the hood
+</details>
 
 <details>
 <summary><b>Feed & search configuration</b></summary>
