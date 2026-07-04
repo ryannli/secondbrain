@@ -1,0 +1,5 @@
+# Keep GitHub language stats focused on product/runtime source.
+marketing/** linguist-generated
+docs/assets/** linguist-generated
+sample_data/** linguist-documentation
+package-lock.json linguist-generated
