@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-import { getStudioPath } from "@/lib/storage";
+import { getNotebookPath } from "@/lib/storage";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const studioPath = getStudioPath();
+    const notebookPath = getNotebookPath();
 
-    // Ensure studio exists
+    // Ensure notebook exists
     try {
-      await fs.access(studioPath);
+      await fs.access(notebookPath);
     } catch {
-      await fs.mkdir(studioPath, { recursive: true });
+      await fs.mkdir(notebookPath, { recursive: true });
       return NextResponse.json({ success: true, folders: [] });
     }
 
@@ -37,10 +37,10 @@ export async function GET(): Promise<NextResponse> {
       }
     }
 
-    await scanDir(studioPath, "");
+    await scanDir(notebookPath, "");
     return NextResponse.json({ success: true, folders });
   } catch (error) {
-    console.error("Error listing studio folders:", error);
+    console.error("Error listing notebook folders:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -68,14 +68,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const studioPath = getStudioPath();
+    const notebookPath = getNotebookPath();
     const folderPath = parentPath ? `${parentPath}/${name}` : name;
-    const fullPath = path.join(studioPath, folderPath);
+    const fullPath = path.join(notebookPath, folderPath);
 
     // Security check
     const resolvedPath = path.resolve(fullPath);
-    const resolvedStudio = path.resolve(studioPath);
-    if (!resolvedPath.startsWith(resolvedStudio)) {
+    const resolvedNotebook = path.resolve(notebookPath);
+    if (!resolvedPath.startsWith(resolvedNotebook)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, path: folderPath });
   } catch (error) {
-    console.error("Error creating studio folder:", error);
+    console.error("Error creating notebook folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -106,13 +106,13 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const studioPath = getStudioPath();
-    const fullPath = path.join(studioPath, folderPath);
+    const notebookPath = getNotebookPath();
+    const fullPath = path.join(notebookPath, folderPath);
 
     // Security check
     const resolvedPath = path.resolve(fullPath);
-    const resolvedStudio = path.resolve(studioPath);
-    if (!resolvedPath.startsWith(resolvedStudio)) {
+    const resolvedNotebook = path.resolve(notebookPath);
+    if (!resolvedPath.startsWith(resolvedNotebook)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -123,7 +123,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting studio folder:", error);
+    console.error("Error deleting notebook folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -158,19 +158,19 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const studioPath = getStudioPath();
-    const fullOldPath = path.join(studioPath, folderPath);
+    const notebookPath = getNotebookPath();
+    const fullOldPath = path.join(notebookPath, folderPath);
 
     // Compute new path
     const parentDir = path.dirname(folderPath);
     const newPath = parentDir === "." ? newName : `${parentDir}/${newName}`;
-    const fullNewPath = path.join(studioPath, newPath);
+    const fullNewPath = path.join(notebookPath, newPath);
 
     // Security check
     const resolvedOld = path.resolve(fullOldPath);
     const resolvedNew = path.resolve(fullNewPath);
-    const resolvedStudio = path.resolve(studioPath);
-    if (!resolvedOld.startsWith(resolvedStudio) || !resolvedNew.startsWith(resolvedStudio)) {
+    const resolvedNotebook = path.resolve(notebookPath);
+    if (!resolvedOld.startsWith(resolvedNotebook) || !resolvedNew.startsWith(resolvedNotebook)) {
       return NextResponse.json(
         { success: false, error: "Invalid folder path" },
         { status: 400 }
@@ -181,7 +181,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, newPath });
   } catch (error) {
-    console.error("Error renaming studio folder:", error);
+    console.error("Error renaming notebook folder:", error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

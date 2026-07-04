@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
-import { getCurrentRootPath, getLibraryPath, getStudioPath } from "@/lib/storage";
+import { getCurrentRootPath, getLibraryPath, getNotebookPath } from "@/lib/storage";
 
 // Whitelisted targets only — never accept arbitrary paths from the client.
 // `select` reveals the item selected in its parent folder so it can be
@@ -9,7 +9,7 @@ import { getCurrentRootPath, getLibraryPath, getStudioPath } from "@/lib/storage
 const TARGETS: Record<string, { resolve: () => string; select?: boolean }> = {
   root: { resolve: getCurrentRootPath },
   library: { resolve: getLibraryPath },
-  studio: { resolve: getStudioPath },
+  notebook: { resolve: getNotebookPath },
   extension: { resolve: () => path.join(process.cwd(), "extension"), select: true },
 };
 

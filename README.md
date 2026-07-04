@@ -188,10 +188,6 @@ Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md). Agent-facing project cont
 
 </details>
 
-## Status
-
-Early, local-first, and moving fast. The web app is the recommended entrypoint; extension store distribution and a desktop build are on the roadmap. If the problem resonates, star the repo and [open an issue](../../issues) — the roadmap is negotiable, the philosophy isn't.
-
 ## License
 
 [MIT](LICENSE)

@@ -72,7 +72,7 @@ export interface SidebarProps {
   onNavigateToDashboard: () => void;
   onNavigateToForYou: () => void;
   onNavigateToHistory: () => void;
-  // Sections (Library, Studio, etc.)
+  // Sections (Library, Notebook, etc.)
   sections: SectionConfig[];
   // Profile documents
   selectedProfile: string | null;

@@ -136,9 +136,9 @@ function HomeContent() {
     saveHeadingStyle,
   } = useSettings();
 
-  // Entry collections (unified hooks for Library and Studio)
+  // Entry collections (unified hooks for Library and Notebook)
   const library = useEntryCollection({ type: "library", setError });
-  const studio = useEntryCollection({ type: "studio", setError });
+  const notebook = useEntryCollection({ type: "notebook", setError });
 
   // Feed
   const feed = useFeed();
@@ -209,7 +209,7 @@ function HomeContent() {
   // Navigate to document
   const navigateToDocument = async (docId: string) => {
     try {
-      const res = await fetch(`/api/studio/${docId}`);
+      const res = await fetch(`/api/notebook/${docId}`);
       const data = await res.json();
       if (data.success && data.document) {
         entry.setDocument(data.document);
@@ -285,7 +285,7 @@ function HomeContent() {
   // Load document from URL param
   useEffect(() => {
     if (docId) {
-      fetch(`/api/studio/${docId}`)
+      fetch(`/api/notebook/${docId}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.document) {
@@ -362,7 +362,7 @@ function HomeContent() {
 
   useEffect(() => {
     if (entry.document?.meta.folder) {
-      expandFolderPath(entry.document.meta.folder, studio.setExpandedFolders);
+      expandFolderPath(entry.document.meta.folder, notebook.setExpandedFolders);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.document?.meta.folder]);
@@ -405,16 +405,16 @@ function HomeContent() {
     closeContextMenu();
 
     if (entryType === "document") {
-      // Delete studio document
+      // Delete notebook document
       try {
-        const res = await fetch(`/api/studio/${entryId}`, { method: "DELETE" });
+        const res = await fetch(`/api/notebook/${entryId}`, { method: "DELETE" });
         const data = await res.json();
         if (data.success) {
           if (entry.document?.meta.id === entryId) {
             entry.setDocument(null);
             router.push("/");
           }
-          studio.refresh();
+          notebook.refresh();
         }
       } catch (err) {
         console.error("Failed to delete document:", err);
@@ -428,10 +428,10 @@ function HomeContent() {
   const onDeleteFolder = async () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath) {
       const folderPath = contextMenu.folderPath;
-      const isStudio = contextMenu.folderSection === "studio";
+      const isNotebook = contextMenu.folderSection === "notebook";
       closeContextMenu();
-      if (isStudio) {
-        await studio.deleteFolder(folderPath);
+      if (isNotebook) {
+        await notebook.deleteFolder(folderPath);
       } else {
         await library.deleteFolder(folderPath);
       }
@@ -440,9 +440,9 @@ function HomeContent() {
 
   const onStartRenameFolder = () => {
     if (contextMenu?.type === "folder" && contextMenu.folderPath && contextMenu.folderName) {
-      const isStudio = contextMenu.folderSection === "studio";
-      if (isStudio) {
-        studio.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
+      const isNotebook = contextMenu.folderSection === "notebook";
+      if (isNotebook) {
+        notebook.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
       } else {
         library.startRenameFolder(contextMenu.folderPath, contextMenu.folderName);
       }
@@ -450,9 +450,9 @@ function HomeContent() {
     }
   };
 
-  // Studio folder context menu handler
-  const handleStudioFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
-    handleFolderContextMenu(e, folderPath, folderName, "studio");
+  // Notebook folder context menu handler
+  const handleNotebookFolderContextMenu = (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    handleFolderContextMenu(e, folderPath, folderName, "notebook");
   };
 
   if (isOpeningWorkspace) {
@@ -561,21 +561,21 @@ function HomeContent() {
               label: "Notebook",
               hint: "what you write with your agent",
               rootLabel: "notebook",
-              isOpen: studio.isOpen,
-              onToggle: studio.toggle,
-              isEmpty: studio.isEmpty,
+              isOpen: notebook.isOpen,
+              onToggle: notebook.toggle,
+              isEmpty: notebook.isEmpty,
               emptyMessage: "Nothing here yet — ask the Agent to draft a brief from your sources",
               onAdd: () => prefillInput("Draft a brief connecting my recent sources"),
               addTitle: "New note — ask the Agent to draft one",
-              onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "studio" }) }),
-              treeNodes: studio.treeNodes,
-              expandedFolders: studio.expandedFolders,
-              onToggleFolder: studio.toggleFolder,
+              onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "notebook" }) }),
+              treeNodes: notebook.treeNodes,
+              expandedFolders: notebook.expandedFolders,
+              onToggleFolder: notebook.toggleFolder,
               selectedDocumentId: entry.document?.meta.id,
               onSelectDocument: navigateToDocument,
-              onFolderContextMenu: handleStudioFolderContextMenu,
-              dragDrop: studio.dragDrop,
-              folderManagement: studio.folderManagement,
+              onFolderContextMenu: handleNotebookFolderContextMenu,
+              dragDrop: notebook.dragDrop,
+              folderManagement: notebook.folderManagement,
             },
           ]}
         />
@@ -625,7 +625,7 @@ function HomeContent() {
                   type: entry.document.meta.output.endsWith(".pdf") ? "document" : "text",
                 }}
                 onSave={async (title, content) => {
-                  const res = await fetch(`/api/studio/${entry.document!.meta.id}`, {
+                  const res = await fetch(`/api/notebook/${entry.document!.meta.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ title, content }),
@@ -633,7 +633,7 @@ function HomeContent() {
                   const data = await res.json();
                   if (data.success && data.document) {
                     entry.setDocument(data.document);
-                    studio.refresh();
+                    notebook.refresh();
                   }
                 }}
                 onClose={() => { entry.setDocument(null); router.push("/"); }}
@@ -801,14 +801,14 @@ function HomeContent() {
           sourcePath={entry.source ? `./library/${entry.source.meta.folder ? entry.source.meta.folder + "/" : ""}${entry.source.meta.id}` : undefined}
           sourceId={entry.source?.meta.id}
           sourceTitle={entry.source?.meta.title}
-          documentPath={entry.document ? `./studio/${entry.document.meta.folder ? entry.document.meta.folder + "/" : ""}${entry.document.meta.id}` : undefined}
+          documentPath={entry.document ? `./notebook/${entry.document.meta.folder ? entry.document.meta.folder + "/" : ""}${entry.document.meta.id}` : undefined}
           documentId={entry.document?.meta.id}
           documentTitle={entry.document?.meta.title}
           onAgentComplete={async () => {
             // Reload whatever entry is currently selected
             await entry.refresh();
             library.refresh();
-            studio.refresh();
+            notebook.refresh();
           }}
         />
       </div>

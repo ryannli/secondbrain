@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findEntryPath, getStudioPath } from "@/lib/storage";
+import { findEntryPath, getNotebookPath } from "@/lib/storage";
 import { promises as fs } from "fs";
 import path from "path";
 import { UserHighlight } from "@/lib/types";
 
 /**
- * Find an entry directory by ID, searching both library and studio.
+ * Find an entry directory by ID, searching both library and notebook.
  */
 async function findEntryInAll(id: string): Promise<string | null> {
-  // Search library first (default), then studio
+  // Search library first (default), then notebook
   const libraryResult = await findEntryPath(id);
   if (libraryResult) return libraryResult;
-  return findEntryPath(id, getStudioPath());
+  return findEntryPath(id, getNotebookPath());
 }
 
 async function loadHighlights(entryDir: string): Promise<UserHighlight[]> {

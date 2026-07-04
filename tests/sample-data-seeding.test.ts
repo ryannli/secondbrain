@@ -4,8 +4,8 @@ import os from "os";
 import path from "path";
 import {
   clearUserDataInitializationCacheForTests,
+  listNotebookDocuments,
   listSourceSummaries,
-  listStudioDocuments,
   loadUserConfig,
 } from "@/lib/storage";
 import { GET as getProfile } from "@/app/api/profile/[name]/route";
@@ -30,7 +30,7 @@ describe("sample data seeding", () => {
   it("automatically seeds an empty user data root on first config load", async () => {
     const config = await loadUserConfig();
     const summaries = await listSourceSummaries();
-    const studioDocuments = await listStudioDocuments();
+    const notebookDocuments = await listNotebookDocuments();
     const userProfile = await fs.readFile(path.join(tmpRoot, "USER.md"), "utf-8");
     const agentInstructions = await fs.readFile(path.join(tmpRoot, "AGENTS.md"), "utf-8");
     const claudeStat = await fs.lstat(path.join(tmpRoot, "CLAUDE.md"));
@@ -43,7 +43,7 @@ describe("sample data seeding", () => {
     expect(claudeStat.isSymbolicLink()).toBe(true);
     expect(claudeTarget).toBe("AGENTS.md");
     expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
-    expect(studioDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
+    expect(notebookDocuments.map(document => document.id)).toEqual(["doc-demo-brief"]);
 
     // Seeded copies are re-stamped to recent dates so they don't read as months old
     for (const summary of summaries) {
@@ -54,10 +54,10 @@ describe("sample data seeding", () => {
   });
 
   it("still seeds when API routes created empty directories before the seeding check", async () => {
-    // Regression: routes can mkdir library/, studio/, .tracking/ before the
+    // Regression: routes can mkdir library/, notebook/, .tracking/ before the
     // first loadUserConfig runs; empty dirs must not count as user data.
     await fs.mkdir(path.join(tmpRoot, "library"), { recursive: true });
-    await fs.mkdir(path.join(tmpRoot, "studio"), { recursive: true });
+    await fs.mkdir(path.join(tmpRoot, "notebook"), { recursive: true });
     await fs.mkdir(path.join(tmpRoot, ".tracking", "events"), { recursive: true });
 
     const config = await loadUserConfig();
@@ -65,6 +65,25 @@ describe("sample data seeding", () => {
 
     expect(config.rssFeeds?.map(feed => feed.label)).toEqual(["Hacker News", "R/singularity", "R/ClaudeAI"]);
     expect(summaries.map(summary => summary.meta.id).sort()).toEqual(["demo001a", "demo002b"]);
+  });
+
+  it("migrates the legacy notebook directory name without overwriting data", async () => {
+    const legacyDocPath = path.join(tmpRoot, "studio", "doc-legacy");
+    await fs.mkdir(legacyDocPath, { recursive: true });
+    await fs.writeFile(path.join(legacyDocPath, "meta.json"), JSON.stringify({
+      id: "doc-legacy",
+      title: "Legacy Draft",
+      createdAt: "2026-01-15T09:30:00.000Z",
+      output: "content.md",
+    }), "utf-8");
+    await fs.writeFile(path.join(legacyDocPath, "content.md"), "# Legacy Draft\n", "utf-8");
+
+    await loadUserConfig();
+
+    const notebookDocuments = await listNotebookDocuments();
+    expect(notebookDocuments.map(document => document.id)).toEqual(["doc-legacy"]);
+    await expect(fs.access(path.join(tmpRoot, "notebook", "doc-legacy", "meta.json"))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(tmpRoot, "studio"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("does not inject sample data into a non-empty user data root", async () => {

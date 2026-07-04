@@ -163,14 +163,14 @@ export interface SourceSummary {
   action?: ActionType;
 }
 
-// Tree structure for folder view (used by both Library and Studio)
+// Tree structure for folder view (used by both Library and Notebook)
 export interface TreeNode {
   type: "folder" | "source" | "document";
   name: string;
-  path: string; // relative path within library/ or studio/
+  path: string; // relative path within library/ or notebook/
   children?: TreeNode[];
   source?: SourceSummary;
-  document?: StudioDocument;
+  document?: NotebookDocument;
 }
 
 // API types
@@ -246,14 +246,14 @@ export interface FeedCache {
   insights?: InsightItem[];      // AI-generated insights from user's reading behavior
 }
 
-// Studio types
-export interface StudioDocument {
+// Notebook types
+export interface NotebookDocument {
   id: string;                    // doc-abc123
   title: string;
   createdAt: string;             // ISO timestamp
   output: "content.pdf" | "content.md";
   sources?: string[];            // Related Library source IDs
-  folder?: string;               // Folder path within studio/
+  folder?: string;               // Folder path within notebook/
 }
 
 // History timeline event

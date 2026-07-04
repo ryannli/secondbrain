@@ -282,7 +282,7 @@ interface CoLearningPanelProps {
   sourcePath?: string;    // Full path to current source directory (e.g., ./library/folder/id)
   sourceId?: string;      // Current source ID (for explicit context display)
   sourceTitle?: string;   // Current source title (for explicit context display)
-  documentPath?: string;  // Full path to current studio document directory
+  documentPath?: string;  // Full path to current notebook document directory
   documentId?: string;    // Current document ID
   documentTitle?: string; // Current document title
   onAgentComplete?: () => void;

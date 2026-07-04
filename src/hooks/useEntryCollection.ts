@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { TreeNode, SourceSummary, StudioDocument } from "@/lib/types";
+import { TreeNode, SourceSummary, NotebookDocument } from "@/lib/types";
 import { buildTree } from "@/lib/tree";
 
-type CollectionType = "library" | "studio";
+type CollectionType = "library" | "notebook";
 
 export interface EntrySummary {
   id: string;
   name: string;
   folder?: string;
   createdAt: string;
-  data?: SourceSummary | StudioDocument;
+  data?: SourceSummary | NotebookDocument;
 }
 
 interface UseEntryCollectionProps {
@@ -27,9 +27,9 @@ const COLLECTION_CONFIG = {
     moveEndpoint: "/api/entries",
     entryType: "source" as const,
   },
-  studio: {
-    entriesEndpoint: "/api/studio",
-    foldersEndpoint: "/api/studio/folders",
+  notebook: {
+    entriesEndpoint: "/api/notebook",
+    foldersEndpoint: "/api/notebook/folders",
     moveEndpoint: "/api/entries",
     entryType: "document" as const,
   },
@@ -147,7 +147,7 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
       folder: e.folder,
       createdAt: e.createdAt,
       source: type === "library" ? (e.data as SourceSummary | undefined) : undefined,
-      document: type === "studio" ? (e.data as StudioDocument | undefined) : undefined,
+      document: type === "notebook" ? (e.data as NotebookDocument | undefined) : undefined,
     }));
 
     return buildTree(
@@ -342,7 +342,7 @@ export function useEntryCollection({ type, setError }: UseEntryCollectionProps) 
     [entries, type]
   );
   const documents = useMemo(() =>
-    type === "studio" ? entries.map((e) => e.data).filter(Boolean) as StudioDocument[] : [],
+    type === "notebook" ? entries.map((e) => e.data).filter(Boolean) as NotebookDocument[] : [],
     [entries, type]
   );
 

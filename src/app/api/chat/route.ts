@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
 
 Your environment:
 - \`./library/\` - The content library (read and write)
+- \`./notebook/\` - Documents, briefs, reports, and other agent-created outputs
 - \`./config.json\` - User settings (read only)
 - \`./MEMORY.md\` - Your memory about the user (you maintain this)
 - \`./AGENTS.md\` or \`./CLAUDE.md\` - Your detailed instructions if present

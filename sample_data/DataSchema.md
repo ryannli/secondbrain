@@ -106,10 +106,10 @@ Concept `status` is user-controlled by the UI. Agents should not set it by defau
 ]
 ```
 
-## Studio Document
+## Notebook Document
 
 ```text
-studio/{doc-id}/
+notebook/{doc-id}/
 ├── meta.json
 └── content.md
 ```

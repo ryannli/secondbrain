@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, ProcessingStage, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, StudioDocument, HistoryEvent } from "./types";
+import { Source, SourceMeta, SourceSummary, Analysis, ACTION_CONFIG, ActionType, ProcessingStatus, ProcessingStage, OriginalData, SourceType, Connection, FeedCache, AgentConversation, AgentConversationSummary, NotebookDocument, HistoryEvent } from "./types";
 import { AnalysisSchema, OriginalDataSchema } from "./schemas";
 import type { AgentProvider } from "./agentTypes";
 import { DEFAULT_RSS_FEEDS } from "./config";
@@ -208,7 +208,14 @@ async function refreshSeededTimestamps(rootPath: string): Promise<void> {
   };
 
   await restamp(path.join(rootPath, "library"), "created_at");
-  await restamp(path.join(rootPath, "studio"), "createdAt");
+  await restamp(path.join(rootPath, "notebook"), "createdAt");
+}
+
+async function migrateLegacyNotebookDirectory(rootPath: string): Promise<void> {
+  const legacyPath = path.join(rootPath, "studio");
+  const notebookPath = path.join(rootPath, "notebook");
+  if (await exists(notebookPath) || !(await exists(legacyPath))) return;
+  await fs.rename(legacyPath, notebookPath);
 }
 
 const initializationPromises = new Map<string, Promise<void>>();
@@ -232,6 +239,7 @@ export async function ensureUserDataInitialized(rootPath = getRootPath()): Promi
 
   const promise = (async () => {
     if (await rootHasUserData(resolvedRootPath)) {
+      await migrateLegacyNotebookDirectory(resolvedRootPath);
       return;
     }
 
@@ -239,10 +247,12 @@ export async function ensureUserDataInitialized(rootPath = getRootPath()): Promi
     if (await exists(samplePath)) {
       await copyMissingTree(samplePath, resolvedRootPath);
       await refreshSeededTimestamps(resolvedRootPath);
+      await migrateLegacyNotebookDirectory(resolvedRootPath);
       return;
     }
 
     await fs.mkdir(path.join(resolvedRootPath, "library"), { recursive: true });
+    await fs.mkdir(path.join(resolvedRootPath, "notebook"), { recursive: true });
   })();
 
   initializationPromises.set(resolvedRootPath, promise);
@@ -281,10 +291,10 @@ export function getLibraryPath(): string {
 }
 
 /**
- * Get studio path (inside root)
+ * Get notebook path (inside root)
  */
-export function getStudioPath(): string {
-  return path.join(getRootPath(), "studio");
+export function getNotebookPath(): string {
+  return path.join(getRootPath(), "notebook");
 }
 
 /**
@@ -2294,22 +2304,22 @@ export async function deleteConversation(id: string): Promise<boolean> {
 }
 
 // ============================================================================
-// Studio Storage Functions
+// Notebook Storage Functions
 // ============================================================================
 
 /**
- * Ensure studio directory exists
+ * Ensure notebook directory exists
  */
-export async function ensureStudioExists(studioPath = getStudioPath()): Promise<void> {
-  await fs.mkdir(studioPath, { recursive: true });
+export async function ensureNotebookExists(notebookPath = getNotebookPath()): Promise<void> {
+  await fs.mkdir(notebookPath, { recursive: true });
 }
 
 /**
- * List all documents in studio
+ * List all documents in notebook
  */
-export async function listStudioDocuments(studioPath = getStudioPath()): Promise<StudioDocument[]> {
-  await ensureStudioExists(studioPath);
-  const documents: StudioDocument[] = [];
+export async function listNotebookDocuments(notebookPath = getNotebookPath()): Promise<NotebookDocument[]> {
+  await ensureNotebookExists(notebookPath);
+  const documents: NotebookDocument[] = [];
 
   async function scanDir(dir: string, relativePath: string = "") {
     let entries;
@@ -2328,7 +2338,7 @@ export async function listStudioDocuments(studioPath = getStudioPath()): Promise
       try {
         const metaPath = path.join(fullPath, "meta.json");
         const metaContent = await fs.readFile(metaPath, "utf-8");
-        const meta = JSON.parse(metaContent) as StudioDocument;
+        const meta = JSON.parse(metaContent) as NotebookDocument;
         meta.folder = relativePath || undefined;
         documents.push(meta);
       } catch {
@@ -2339,15 +2349,15 @@ export async function listStudioDocuments(studioPath = getStudioPath()): Promise
     }
   }
 
-  await scanDir(studioPath);
+  await scanDir(notebookPath);
   return documents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 /**
- * List all folders in studio
+ * List all folders in notebook
  */
-export async function listStudioFolders(studioPath = getStudioPath()): Promise<string[]> {
-  await ensureStudioExists(studioPath);
+export async function listNotebookFolders(notebookPath = getNotebookPath()): Promise<string[]> {
+  await ensureNotebookExists(notebookPath);
   const folders: string[] = [];
 
   async function scanDir(dir: string, relativePath: string = "") {
@@ -2376,20 +2386,20 @@ export async function listStudioFolders(studioPath = getStudioPath()): Promise<s
     }
   }
 
-  await scanDir(studioPath);
+  await scanDir(notebookPath);
   return folders.sort();
 }
 
 /**
  * Load a document by ID
  */
-export async function loadStudioDocument(id: string): Promise<{ meta: StudioDocument; content: string } | null> {
-  const docPath = await findEntryPath(id, getStudioPath(), "meta.json");
+export async function loadNotebookDocument(id: string): Promise<{ meta: NotebookDocument; content: string } | null> {
+  const docPath = await findEntryPath(id, getNotebookPath(), "meta.json");
   if (!docPath) return null;
 
   try {
     const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
-    const meta = JSON.parse(metaContent) as StudioDocument;
+    const meta = JSON.parse(metaContent) as NotebookDocument;
     
     const outputPath = path.join(docPath, meta.output);
     let content = "";
@@ -2413,12 +2423,12 @@ export async function loadStudioDocument(id: string): Promise<{ meta: StudioDocu
  * Get the output file path for a document
  */
 export async function getDocumentOutputPath(id: string): Promise<string | null> {
-  const docPath = await findEntryPath(id, getStudioPath(), "meta.json");
+  const docPath = await findEntryPath(id, getNotebookPath(), "meta.json");
   if (!docPath) return null;
 
   try {
     const metaContent = await fs.readFile(path.join(docPath, "meta.json"), "utf-8");
-    const meta = JSON.parse(metaContent) as StudioDocument;
+    const meta = JSON.parse(metaContent) as NotebookDocument;
     return path.join(docPath, meta.output);
   } catch {
     return null;
@@ -2426,22 +2436,22 @@ export async function getDocumentOutputPath(id: string): Promise<string | null> 
 }
 
 /**
- * Update studio document content (title and/or body)
+ * Update notebook document content (title and/or body)
  */
-export async function updateStudioDocument(
+export async function updateNotebookDocument(
   id: string,
   updates: { title?: string; content?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const studioPath = getStudioPath();
-    const docPath = await findEntryPath(id, studioPath, "meta.json");
+    const notebookPath = getNotebookPath();
+    const docPath = await findEntryPath(id, notebookPath, "meta.json");
     if (!docPath) {
       return { success: false, error: "Document not found" };
     }
 
     const metaPath = path.join(docPath, "meta.json");
     const metaContent = await fs.readFile(metaPath, "utf-8");
-    const meta = JSON.parse(metaContent) as StudioDocument;
+    const meta = JSON.parse(metaContent) as NotebookDocument;
 
     // Update title in meta.json if provided
     if (updates.title !== undefined && updates.title !== meta.title) {

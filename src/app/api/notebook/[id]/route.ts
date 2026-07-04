@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadStudioDocument, deleteEntry, getStudioPath, updateStudioDocument } from "@/lib/storage";
+import { loadNotebookDocument, deleteEntry, getNotebookPath, updateNotebookDocument } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const { id } = await params;
-    const document = await loadStudioDocument(id);
+    const document = await loadNotebookDocument(id);
 
     if (!document) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function PUT(
     const body = await request.json();
     const { title, content } = body;
 
-    const result = await updateStudioDocument(id, { title, content });
+    const result = await updateNotebookDocument(id, { title, content });
 
     if (!result.success) {
       return NextResponse.json(
@@ -48,7 +48,7 @@ export async function PUT(
     }
 
     // Reload the document to return updated data
-    const document = await loadStudioDocument(id);
+    const document = await loadNotebookDocument(id);
     return NextResponse.json({ success: true, document });
   } catch (error) {
     console.error("Error updating document:", error);
@@ -68,7 +68,7 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const { id } = await params;
-    const success = await deleteEntry(id, getStudioPath(), "meta.json", false);
+    const success = await deleteEntry(id, getNotebookPath(), "meta.json", false);
 
     if (!success) {
       return NextResponse.json(
