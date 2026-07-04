@@ -2,6 +2,11 @@
 
 ## Open (web app / OSS launch)
 
+- [ ] Submit the extension to the Chrome Web Store ($5 one-time, ~1-3 day review).
+      This is the real fix for install friction — every unpacked-install flow in the
+      dashboard banner is interim. After listing, point the banner's Install button
+      straight at the store page (2 clicks total).
+
 - [x] Real demo GIF for the README hero (recorded from the live app; replaced the placeholder SVG)
 - [ ] Re-record the hero GIF as one single "Skip moment": paste link → triage card appears →
       verdict says Skip (45 min saved). One loop, no product tour — this is the acquisition hook.
