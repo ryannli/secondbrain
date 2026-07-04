@@ -147,7 +147,7 @@ Be concise but thorough. Use markdown formatting when helpful.
         }
       },
       start(controller) {
-        const chatCommand = getAgentChatCommand(provider, userDataPath);
+        const chatCommand = getAgentChatCommand(provider, userDataPath, model);
         proc = spawn(chatCommand.command, chatCommand.args, {
           stdio: ["pipe", "pipe", "pipe"],
           cwd: userDataPath,
