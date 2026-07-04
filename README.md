@@ -12,9 +12,9 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 **Information grows faster than any brain can follow. Second Brain is a local-first
-workspace with an agent inside: it triages and critiques what you capture, connects
-it to everything you've read, remembers what you know, and proactively recommends
-sources you'd actually want — so your fixed attention lands only where it counts.**
+workspace with an agent inside: it triages and critiques what you capture, finds
+meaningful connections across your library, remembers what you know, and
+proactively recommends sources you'd actually want.**
 
 The reading — and the judgment — stay yours.
 
@@ -28,13 +28,9 @@ The reading — and the judgment — stay yours.
 
 ## Your attention is a constant. Information isn't.
 
-AI made content exponential. It did nothing for the reader: you still have the same hours, the same one pair of eyes, no upgrade path. The gap between what gets published and what any human can absorb widens every single day — and reading faster won't close it.
+AI made content exponential. Your attention didn't move. Reading faster won't close that gap — **choosing better** will.
 
-The only lever left is **selection**: spending a fixed attention budget where it actually compounds. That's the problem Second Brain was built for. Not storing more — choosing better.
-
-Bookmark managers work the wrong end of it. Saving is easy; **deciding is the hard part**. So the list grows, the guilt grows, and the one article that would have changed your thinking is buried under forty that wouldn't.
-
-Second Brain flips the loop: **triage before you read.** Every capture gets flagged at the door — so the twenty-minute mistakes get easier to decline, and the piece that matters gets your full attention: actually read, not skimmed with guilt.
+Every "save for later" tool works the wrong end: saving is easy, deciding is hard. Second Brain moves the decision to the front — **triage before you read** — so the piece that matters gets your full attention, and the forty that don't never cost you a minute.
 
 ## Don't outsource your understanding — or your judgment
 
@@ -55,49 +51,51 @@ Every verdict is advisory. Every analysis is an editable file on your disk. The 
 
 ## What you get
 
-### 🔑 Runs on what's already yours
+### Runs on what's already yours
 
 - **No new subscription** — analysis runs through the coding agent you already pay for ([Claude Code](https://docs.claude.com/en/docs/claude-code/setup) or [Codex CLI](https://github.com/openai/codex)). No model API keys, no metered bill.
 - **All data on your disk** — every source is a folder of markdown and JSON. Grep it, git it, sync it, leave anytime. No database, no cloud, no lock-in.
 
-### 🎯 Capture fast, decide faster
+### Capture fast, decide faster
 
 - **Capture anything in seconds** — paste a link or text, drop a PDF or image, or one-click the Chrome extension (logged-in and JS-rendered pages included).
 - **A triage card on every source** — score, read-time estimate, and a straight verdict: deep read, skim, or skip. Judge in five seconds whether something deserves fifty minutes.
 - **Read with a critical companion** — when something is worth it, you read the original with digest and critique beside the text: concepts explained, hidden assumptions and shaky claims flagged. It sharpens your reading instead of replacing it.
-- **A library that argues with itself** — new captures are checked against everything you've read: what they support, repeat, or **contradict**.
+- **A library that argues with itself** — new captures are checked against the most relevant sources in your library: what they support, repeat, or **contradict**.
 
 <div align="center">
-<img src="docs/assets/dashboard.png" width="850" alt="Dashboard — every capture wears its verdict: Must Read, Worth Reading, or Skip" />
+<img src="docs/assets/analysis-modules.png" width="880" alt="The reading companion: starred highlights, key concepts with Knew/Learned tracking, and the Critique tab" />
 <br/>
-<em>Every capture wears its verdict before it gets a minute of your time.</em>
+<em>Beside every worthwhile read: the quotes worth keeping, the concepts worth learning (Knew / Learned), and a critique that keeps you honest.</em>
 </div>
 
-### 🤖 Agentic to the core
+### Agentic to the core
 
 - **Your library is the agent's workspace** — plain local files mean the agent reads and organizes the exact same files you see. Hand it content anytime: reorganize the library, or draft a post from what you've been reading lately, straight into your Notebook.
 - **Information comes to you** — the "For You" feed ranks RSS (and optional search) against your interests and reading history. It breaks the bottleneck of only knowing what you went looking for. Works out of the box, no API key.
 - **You control what it knows** — `USER.md` holds your explicit preferences; `MEMORY.md` is the agent's own evolving notes about you, visible and editable right in the app. Modern agent memory, without the black box.
 
+<div align="center">
+<img src="docs/assets/agent.png" width="880" alt="Agent panel beside the reading view — a real question answered from the whole library, with the tool operations it ran" />
+<br/>
+<em>Ask across your library — the agent works the same files you see, and shows its work.</em>
+</div>
+
+### Tune the radar, and the feed follows
+
+"For You" is not a generic news feed. Tune the radar topics, RSS feeds, and optional web search sources yourself; Second Brain ranks fresh stories against what you've already read, upvoted, and skipped. Start the morning with a briefing that speaks in terms of *your* library, not headlines.
+
 <table>
   <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/foryou.png" alt="For You — a personalized briefing that cross-references your own library" />
-      <br/><sub><b>For You</b> — a briefing that knows your library: "compare this against <i>your</i> augmented-LLM notes."</sub>
+    <td width="42%" align="center" valign="middle">
+      <h4>1. Tune what it watches</h4>
+      <img src="docs/assets/foryou-settings.png" alt="For You settings — radar topics, RSS feeds, and web search sources are user-configurable" />
+      <br/><sub><b>User-tunable by design</b> — generate topics from the library, edit them by hand, or change the source mix any time.</sub>
     </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/agent.png" alt="Agent panel beside the reading view, with the current source as context" />
-      <br/><sub><b>Agent at your side</b> — the current source becomes context; ask, verify, reorganize, draft.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/memory.png" alt="Memory page — the agent's evolving notes about you, editable in the app" />
-      <br/><sub><b>Memory, in the open</b> — what the agent has learned about you is a file you can read and edit.</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/notebook.png" alt="Notebook — an agent-drafted brief that cites the sources it connected" />
-      <br/><sub><b>Notebook</b> — agent-drafted syntheses that cite your sources, yours to rewrite.</sub>
+    <td width="58%" align="center" valign="top">
+      <h4>2. Get a library-aware briefing</h4>
+      <img src="docs/assets/foryou-briefing.png" alt="For You briefing — fresh stories explained against the user's reading history" />
+      <br/><sub><b>Start with the briefing</b> — fresh stories explained against your radar and what you've already read.</sub>
     </td>
   </tr>
 </table>
@@ -197,7 +195,7 @@ Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md). Agent-facing project cont
 
 ## Status
 
-Early, local-first, and moving fast. The web app is the recommended entrypoint; extension store distribution and a desktop build are on the roadmap. If the problem resonates, ⭐ the repo and [open an issue](../../issues) — the roadmap is negotiable, the philosophy isn't.
+Early, local-first, and moving fast. The web app is the recommended entrypoint; extension store distribution and a desktop build are on the roadmap. If the problem resonates, star the repo and [open an issue](../../issues) — the roadmap is negotiable, the philosophy isn't.
 
 ## License
 

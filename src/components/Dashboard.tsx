@@ -298,20 +298,16 @@ export const Dashboard = React.memo(function Dashboard({
     () => typeof window !== "undefined" && localStorage.getItem("extension-banner-dismissed") === "1"
   );
   const [extensionInstallStarted, setExtensionInstallStarted] = useState(false);
-  const [extensionsUrlCopied, setExtensionsUrlCopied] = useState(false);
   const showExtensionBanner = extensionDetected === false && !extensionDismissed;
 
-  const isMac = typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac");
-  const startExtensionInstall = () => {
-    setExtensionInstallStarted(true);
-    // Put the folder path in the clipboard so the user can paste it straight
-    // into Chrome's Load-unpacked file picker
-    if (extensionPath) {
-      navigator.clipboard?.writeText(extensionPath).then(
-        () => setExtensionsUrlCopied(true),
-        () => setExtensionsUrlCopied(false)
-      );
-    }
+  // Only ever open a window when the user explicitly asks for it (step 1's
+  // button) — surprise windows feel like a hijack.
+  const revealExtensionFolder = () => {
+    fetch("/api/reveal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: "extension" }),
+    });
   };
 
   const extensionBanner = showExtensionBanner ? (
@@ -330,36 +326,44 @@ export const Dashboard = React.memo(function Dashboard({
         </p>
         {extensionInstallStarted ? (
           <div className="mt-2">
-            <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: theme.textMuted }}>
+            <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: theme.textMuted }}>
+              <li>
+                <button
+                  onClick={revealExtensionFolder}
+                  className="underline hover:opacity-80"
+                  data-track="extension_banner.reveal"
+                  style={{ color: palette[600] }}
+                >
+                  Show the extension folder
+                </button>{" "}
+                — it opens selected, ready to drag
+              </li>
               <li>
                 Open <code>chrome://extensions</code> and turn on Developer mode (top right)
               </li>
-              <li>Click &quot;Load unpacked&quot;</li>
               <li>
-                {extensionsUrlCopied ? "The folder path is in your clipboard — " : ""}
-                {isMac ? (
-                  <>press <code>⌘⇧G</code> in the picker, paste, Enter, then Open</>
-                ) : (
-                  <>paste the path into the picker&apos;s location field, then Open</>
-                )}
+                <strong>Drag the selected folder anywhere onto that page</strong> — installed
               </li>
             </ol>
             {extensionPath && (
-              <button
-                onClick={() => navigator.clipboard?.writeText(extensionPath)}
-                className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border hover:bg-black/5"
-                title="Copy path again"
-                style={{ borderColor: theme.border, color: theme.textMuted }}
-              >
-                <code className="truncate max-w-72">{extensionPath}</code>
-                <Copy className="w-3 h-3 flex-shrink-0" />
-              </button>
+              <div className="mt-2 flex items-center gap-1.5 text-[11px]" style={{ color: theme.textLight }}>
+                <span>Prefer &quot;Load unpacked&quot;? It&apos;s this folder:</span>
+                <button
+                  onClick={() => navigator.clipboard?.writeText(extensionPath)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border hover:bg-black/5"
+                  title="Copy path"
+                  style={{ borderColor: theme.border, color: theme.textMuted }}
+                >
+                  <code className="truncate max-w-64">{extensionPath}</code>
+                  <Copy className="w-3 h-3 flex-shrink-0" />
+                </button>
+              </div>
             )}
           </div>
         ) : (
           <div className="flex items-center gap-3 mt-2">
             <button
-              onClick={startExtensionInstall}
+              onClick={() => setExtensionInstallStarted(true)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
               data-track="extension_banner.install"
               style={{ backgroundColor: palette[600] }}
