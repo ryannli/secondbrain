@@ -70,3 +70,8 @@ test-sample.pdf
 
 # Runtime state must not ship in the seed
 sample_data/.tracking/
+sample_data/.feed/
+sample_data/.agent/
+sample_data/.cache/
+sample_data/.index/
+sample_data/.debug/

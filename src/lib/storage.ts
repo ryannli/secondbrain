@@ -219,6 +219,14 @@ export function clearUserDataInitializationCacheForTests(): void {
 
 export async function ensureUserDataInitialized(rootPath = getRootPath()): Promise<void> {
   const resolvedRootPath = path.resolve(rootPath);
+  // sample_data is the seed template. Running the app against it writes
+  // runtime state (feed cache, read status, onboarding flags) into files
+  // that ship to every new user — refuse loudly instead.
+  if (resolvedRootPath === path.resolve(getSampleDataPath())) {
+    throw new Error(
+      "sample_data is the seed template and cannot be used as the data root. Point SECONDBRAIN_ROOT at any other folder (e.g. /tmp/preview) and it will be seeded from sample_data."
+    );
+  }
   const existingPromise = initializationPromises.get(resolvedRootPath);
   if (existingPromise) return existingPromise;
 
