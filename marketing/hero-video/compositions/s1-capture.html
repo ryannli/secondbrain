@@ -27,7 +27,8 @@
         background: #3b6044; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 3; }
       .pill svg { display: block; width: 19px; height: 19px; }
       .pill.done { background: #22c55e; opacity: 0; }
-      .cursor { opacity: 0; }
+      .clickfx { position: absolute; right: 76px; bottom: 46px; width: 36px; height: 36px; z-index: 6;
+        border: 3px solid rgba(59,96,68,0.85); border-radius: 50%; opacity: 0; pointer-events: none; }
   </style>
   <div id="root" data-composition-id="s1" data-width="1280" data-height="800">
     <div class="ghost">CAPTURE &times; 3</div>
@@ -37,8 +38,8 @@
           <img class="fill" src="assets/cap-news.png" alt="" data-layout-allow-overflow />
           <div class="srcbadge">TECHCRUNCH — NEWS</div>
           <div class="pill" id="b1-pill"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Capture</span></div>
-          <div class="pill done" id="b1-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span id="b1-done-label">Captured!</span></div>
-          <svg class="cursor" id="b1-cursor" style="left: 940px; top: 500px;" viewBox="0 0 24 24"><path d="M5 2 L5 20 L9.5 16 L12.5 22 L15 21 L12 15 L18 15 Z" fill="#1f2937" stroke="#fff" stroke-width="1.4"/></svg>
+          <div class="pill done" id="b1-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Captured!</span></div>
+          <div class="clickfx" id="b1-fx"></div>
         </div>
       </div>
     </div>
@@ -48,8 +49,8 @@
           <img class="fill" src="assets/cap-tweet.png" alt="" data-layout-allow-overflow />
           <div class="srcbadge">X — A THREAD YOU SAVED</div>
           <div class="pill" id="b2-pill"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Capture</span></div>
-          <div class="pill done" id="b2-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span id="b2-done-label">Captured!</span></div>
-          <svg class="cursor" id="b2-cursor" style="left: 940px; top: 500px;" viewBox="0 0 24 24"><path d="M5 2 L5 20 L9.5 16 L12.5 22 L15 21 L12 15 L18 15 Z" fill="#1f2937" stroke="#fff" stroke-width="1.4"/></svg>
+          <div class="pill done" id="b2-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Captured!</span></div>
+          <div class="clickfx" id="b2-fx"></div>
         </div>
       </div>
     </div>
@@ -59,8 +60,8 @@
           <img class="fill" src="assets/cap-anthropic.png" alt="" data-layout-allow-overflow />
           <div class="srcbadge">ANTHROPIC — ENGINEERING</div>
           <div class="pill" id="b3-pill"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Capture</span></div>
-          <div class="pill done" id="b3-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span id="b3-done-label">Captured!</span></div>
-          <svg class="cursor" id="b3-cursor" style="left: 940px; top: 500px;" viewBox="0 0 24 24"><path d="M5 2 L5 20 L9.5 16 L12.5 22 L15 21 L12 15 L18 15 Z" fill="#1f2937" stroke="#fff" stroke-width="1.4"/></svg>
+          <div class="pill done" id="b3-done"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#fff" opacity="0.25"/><circle cx="32" cy="32" r="20" fill="#fff" opacity="0.4"/><circle cx="32" cy="32" r="12" fill="#fff" opacity="0.6"/><circle cx="32" cy="32" r="5" fill="#fff"/></svg><span>Captured! Open &rarr;</span></div>
+          <div class="clickfx" id="b3-fx"></div>
         </div>
       </div>
     </div>
@@ -74,31 +75,25 @@
     (() => {
       const tl = gsap.timeline({ paused: true });
       const S = sel => '[data-composition-id="s1"] ' + sel;
-      tl.fromTo(S(".caption"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4 }, 0.15);
-      tl.fromTo(S(".ghost"), { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 }, 0);
+      tl.fromTo(S(".caption"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35 }, 0.1);
+      tl.fromTo(S(".ghost"), { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, 0);
       const beats = [
-        { id: "#b1", t0: 0.0, dur: 2.9, zoom: 1.24, done: "Captured!" },
-        { id: "#b2", t0: 2.9, dur: 2.7, zoom: 1.34, done: "Captured!" },
-        { id: "#b3", t0: 5.6, dur: 2.6, zoom: 1.46, done: "Captured! Open \u2192" },
+        { id: "#b1", t0: 0.00, dur: 1.15, zoom: 1.22 },
+        { id: "#b2", t0: 1.15, dur: 1.15, zoom: 1.34 },
+        { id: "#b3", t0: 2.30, dur: 1.90, zoom: 1.48 },
       ];
       beats.forEach((b, i) => {
         const last = i === beats.length - 1;
         tl.set(S(b.id), { autoAlpha: 1 }, b.t0);
         if (!last) tl.set(S(b.id), { autoAlpha: 0 }, b.t0 + b.dur);
-        tl.fromTo(S(b.id + "-stage"), { scale: 0.99 }, { scale: 1, duration: 0.25, ease: "power2.out" }, b.t0);
-        /* cursor flies in and clicks */
-        tl.fromTo(S(b.id + "-cursor"), { x: 0, y: 0 }, { opacity: 1, duration: 0.12 }, b.t0 + 0.15);
-        tl.to(S(b.id + "-cursor"), { x: 92, y: 108, duration: 0.42, ease: "power2.inOut" }, b.t0 + 0.2);
-        tl.to(S(b.id + "-cursor"), { scale: 0.82, duration: 0.07, yoyo: true, repeat: 1 }, b.t0 + 0.7);
-        tl.to(S(b.id + "-pill"),   { scale: 1.15, duration: 0.08, yoyo: true, repeat: 1, transformOrigin: "50% 50%" }, b.t0 + 0.7);
-        /* punch-in — one notch harder every beat */
-        tl.to(S(b.id + "-stage"), { scale: b.zoom, duration: 0.4, ease: "back.out(1.3)" }, b.t0 + 0.74);
-        /* flash to captured */
-        tl.set(S(b.id + "-done-label"), {}, 0); /* keep node referenced */
-        tl.to(S(b.id + "-pill"), { opacity: 0, duration: 0.1 }, b.t0 + 1.15);
+        /* click: pill press + ripple ring bursting from the button */
+        tl.to(S(b.id + "-pill"), { scale: 1.18, duration: 0.09, yoyo: true, repeat: 1, transformOrigin: "50% 50%" }, b.t0 + 0.18);
+        tl.fromTo(S(b.id + "-fx"), { opacity: 0.95, scale: 0.35 },
+                  { opacity: 0, scale: 2.4, duration: 0.45, ease: "power2.out", transformOrigin: "50% 50%" }, b.t0 + 0.18);
+        tl.to(S(b.id + "-stage"), { scale: b.zoom, duration: 0.32, ease: "back.out(1.4)" }, b.t0 + 0.22);
+        tl.to(S(b.id + "-pill"), { opacity: 0, duration: 0.08 }, b.t0 + 0.5);
         tl.fromTo(S(b.id + "-done"), { opacity: 0, scale: 0.75 },
-                  { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)", transformOrigin: "50% 50%" }, b.t0 + 1.15);
-        tl.to(S(b.id + "-cursor"), { opacity: 0, duration: 0.15 }, b.t0 + 1.5);
+                  { opacity: 1, scale: 1, duration: 0.2, ease: "back.out(2)", transformOrigin: "50% 50%" }, b.t0 + 0.5);
       });
       window.__timelines["s1"] = tl;
     })();

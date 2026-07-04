@@ -1,0 +1,68 @@
+<!doctype html>
+<html><head><meta charset="UTF-8" /></head><body>
+<template>
+  <style>
+      #root { position: absolute; inset: 0; font-family: "Outfit", sans-serif; color: #27272a; background: #faf9f6; overflow: hidden; }
+      #s0-grain { position: absolute; inset: 0; opacity: 0.05; pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E"); }
+      .frag { position: absolute; border-radius: 8px; background: #d8d4cb; opacity: 0; }
+      .frag.ln { height: 10px; }
+      .frag.card { border: 2px solid #d8d4cb; background: #f1eee7; }
+      .wrap { position: absolute; left: 120px; right: 120px; top: 0; bottom: 0;
+        display: flex; flex-direction: column; justify-content: center; gap: 26px; z-index: 3; }
+      .l1 { font-size: 66px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.12; }
+      .l1 .w { display: inline-block; margin-right: 0.24em; }
+      .l2 { font-size: 66px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.12; color: #27272a; }
+      .l2 .accent { color: #3b6044; }
+      .rule2 { width: 84px; height: 4px; background: rgba(59,96,68,0.55); border-radius: 2px; }
+  </style>
+  <div id="root" data-composition-id="s0" data-width="1280" data-height="800">
+    <div id="s0-grain"></div>
+    <!-- noise: content fragments piling up -->
+    <div class="frag card" style="left:70px;  top:84px;  width:230px; height:120px;"></div>
+    <div class="frag card" style="left:1010px; top:96px;  width:200px; height:104px;"></div>
+    <div class="frag card" style="left:880px; top:560px; width:250px; height:130px;"></div>
+    <div class="frag card" style="left:120px; top:590px; width:210px; height:110px;"></div>
+    <div class="frag card" style="left:560px; top:60px;  width:190px; height:96px;"></div>
+    <div class="frag ln" style="left:84px;  top:230px; width:200px;"></div>
+    <div class="frag ln" style="left:84px;  top:252px; width:150px;"></div>
+    <div class="frag ln" style="left:1030px; top:230px; width:160px;"></div>
+    <div class="frag ln" style="left:1030px; top:252px; width:120px;"></div>
+    <div class="frag ln" style="left:900px; top:716px; width:200px;"></div>
+    <div class="frag ln" style="left:140px; top:726px; width:170px;"></div>
+    <div class="frag ln" style="left:580px; top:180px; width:150px;"></div>
+    <div class="frag card" style="left:330px; top:110px; width:180px; height:92px;"></div>
+    <div class="frag card" style="left:760px; top:640px; width:170px; height:88px;"></div>
+    <div class="wrap">
+      <div class="l1" id="s0-l1">
+        <span class="w">AI</span><span class="w">content</span><span class="w">got</span><span class="w">louder.</span>
+      </div>
+      <div class="rule2" id="s0-rule"></div>
+      <div class="l2" id="s0-l2">Your brain <span class="accent">didn&rsquo;t get bigger.</span></div>
+    </div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      const S = sel => '[data-composition-id="s0"] ' + sel;
+      /* the noise piles up, faster and faster */
+      tl.fromTo(S(".frag"), { opacity: 0, y: 26, rotation: -1.5 },
+        { opacity: 0.5, y: 0, rotation: 0, duration: 0.4, ease: "power2.out",
+          stagger: { each: 0.11, from: "random" } }, 0.15);
+      /* line 1 slams in word by word over the rising noise */
+      tl.fromTo(S(".l1 .w"), { opacity: 0, y: 46, scale: 1.22 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.34, ease: "back.out(1.9)", stagger: 0.13 }, 0.35);
+      /* beat of stillness: the noise dims, the second line lands calm */
+      tl.to(S(".frag"), { opacity: 0.12, duration: 0.6, ease: "power2.inOut" }, 1.9);
+      tl.fromTo(S("#s0-rule"), { scaleX: 0, transformOrigin: "left center" },
+        { scaleX: 1, duration: 0.45, ease: "power2.out" }, 1.95);
+      tl.fromTo(S("#s0-l2"), { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 2.15);
+      /* gentle settle-hold */
+      tl.to(S(".frag"), { y: -6, duration: 1.4, ease: "none" }, 2.6);
+      window.__timelines["s0"] = tl;
+    })();
+  </script>
+</template>
+</body></html>

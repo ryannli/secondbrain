@@ -16,100 +16,51 @@
       .caption .rule { width: 34px; height: 2px; background: rgba(59,96,68,0.4); }
       .cursor { position: absolute; width: 26px; z-index: 9; }
 
-      .backdrop { position: absolute; inset: 0; }
-      .backdrop img { display: block; width: 100%; filter: blur(2px) saturate(0.9); opacity: 0.5; }
-      .panel { position: absolute; right: 84px; top: 84px; width: 640px; height: 620px; z-index: 3;
-        background: #fff; border: 2px solid #e4e1db; border-radius: 18px;
-        box-shadow: 0 28px 70px rgba(59,96,68,0.20); display: flex; flex-direction: column; overflow: hidden; }
-      .p-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 2px solid #f0ede7; }
-      .p-head .dot { width: 10px; height: 10px; border-radius: 50%; background: #3b6044; }
-      .p-head .name { font-weight: 700; font-size: 17px; }
-      .p-head .status { margin-left: auto; font-family: "Space Mono", monospace; font-size: 11px; color: #3b6044; letter-spacing: 0.1em; }
-      .p-body { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
-      .bubble-u { align-self: flex-end; max-width: 86%; background: #3b6044; color: #fff;
-        border-radius: 16px 16px 4px 16px; padding: 12px 16px; font-size: 16.5px; line-height: 1.45; }
-      .ctx-chip { align-self: flex-end; font-family: "Space Mono", monospace; font-size: 11px; color: #63615a;
-        border: 1.5px solid #e4e1db; border-radius: 8px; padding: 4px 8px; }
-      .ops { align-self: flex-start; display: flex; align-items: center; gap: 8px;
-        border: 2px solid #e9e6df; background: #faf9f5; border-radius: 10px; padding: 8px 12px;
-        font-family: "Space Mono", monospace; font-size: 12.5px; color: #63615a; }
-      .ops b { color: #3b6044; }
-      .reply { align-self: flex-start; max-width: 94%; background: #f4f2ec; border-radius: 16px 16px 16px 4px;
-        padding: 14px 16px; font-size: 15.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 9px; }
-      .reply .lead { font-weight: 700; }
-      .reply .li { display: flex; gap: 8px; }
-      .reply .li .b { color: #3b6044; font-weight: 700; }
-      .reply .li code { font-family: "Space Mono", monospace; font-size: 12.5px; background: #e9efe9; color: #3b6044;
-        border-radius: 5px; padding: 1px 5px; }
-      .p-input { display: flex; align-items: center; gap: 10px; margin: 0 20px 18px; border: 2px solid #e4e1db;
-        border-radius: 12px; padding: 12px 14px; }
-      .p-input .q { font-size: 15px; white-space: nowrap; overflow: hidden; width: 0; }
-      .p-input .caret { width: 2px; height: 20px; background: #3b6044; }
-      .p-input .send { margin-left: auto; width: 34px; height: 34px; border-radius: 9px; background: #3b6044; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
-      #s5-stage2 { position: absolute; inset: 0; transform-origin: 78% 92%; }
-</style>
+      
+      #s5-stage { position: absolute; left: 64px; top: 76px; width: 1152px; height: 664px; z-index: 1; }
+      .shotc { position: absolute; inset: 0; overflow: hidden; background: #fff;
+        border: 2px solid #e4e1db; border-radius: 16px; box-shadow: 0 24px 64px rgba(59,96,68,0.16); }
+      .base { position: absolute; left: 0; top: 0; width: 1152px; }
+      .base img { display: block; width: 100%; }
+      /* panel window: only this strip scrolls */
+      #s5-panelwin { position: absolute; left: 756px; top: 0; width: 396px; height: 664px; overflow: hidden; }
+      #s5-panelwin .lay { position: absolute; left: -756px; top: 0; width: 1152px; }
+      #s5-panelwin .lay img { display: block; width: 100%; }
+      #s5-reply-lay { opacity: 0; }
+  </style>
   <div id="root" data-composition-id="s5" data-width="1280" data-height="800">
     <div class="ghost">ASK</div>
-    <div id="s5-stage2">
-      <div class="backdrop"><img src="assets/agent.png" alt="" data-layout-allow-overflow /></div>
-      <div class="panel">
-        <div class="p-head"><div class="dot"></div><div class="name">Agent</div><div class="status">CLAUDE CONNECTED</div></div>
-        <div class="p-body">
-          <div class="ctx-chip" id="s5-ctx">CONTEXT: Building Effective AI Agents</div>
-          <div class="bubble-u" id="s5-bubble">Do my sources agree that most applications don't need agents?</div>
-          <div class="ops" id="s5-ops"><b>&#9881;</b> 4 operations &mdash; surveying your library&hellip;</div>
-          <div class="reply" id="s5-reply">
-            <div class="lead">Broad agreement &mdash; with three real disagreements.</div>
-            <div class="li"><span class="b">&bull;</span><span><b>Anthropic</b> <code>9e287f61</code> is the origin: simple, composable patterns beat frameworks.</span></div>
-            <div class="li"><span class="b">&bull;</span><span><b>Willison</b> <code>bb6bb985</code> goes further &mdash; "agents still haven't really happened" as of 2024.</span></div>
-            <div class="li"><span class="b">&bull;</span><span><b>ReAct</b> <code>82df9d49</code> is the implicit dissenter &mdash; it treats the agentic loop as the general solution.</span></div>
-          </div>
-        </div>
-        <div class="p-input">
-          <div class="q" id="s5-q">Do my sources agree that most applications don't need agents?</div>
-          <div class="caret" id="s5-caret"></div>
-          <div class="send" id="s5-send">&#10148;</div>
+    <div id="s5-stage">
+      <div class="shotc">
+        <div class="base" data-layout-allow-overflow><img src="assets/agent-sent.png" alt="" data-layout-allow-overflow /></div>
+        <div id="s5-panelwin" data-layout-allow-overflow>
+          <div class="lay" id="s5-sent-lay" data-layout-allow-overflow><img src="assets/agent-sent.png" alt="" data-layout-allow-overflow /></div>
+          <div class="lay" id="s5-reply-lay" data-layout-allow-overflow><img src="assets/agent-reply.png" alt="" data-layout-allow-overflow /></div>
         </div>
       </div>
-      <svg class="cursor" id="s5-cursor" style="left: 700px; top: 500px;" viewBox="0 0 24 24"><path d="M5 2 L5 20 L9.5 16 L12.5 22 L15 21 L12 15 L18 15 Z" fill="#1f2937" stroke="#fff" stroke-width="1.4"/></svg>
     </div>
     <div class="caption">
       <span class="idx">05</span><span class="rule"></span>
-      <span class="txt">Ask across everything you've read</span>
+      <span class="txt">Ask across everything you've read &mdash; it shows its work</span>
     </div>
   </div>
   <script>
     window.__timelines = window.__timelines || {};
     (() => {
       const tl = gsap.timeline({ paused: true });
-      const S = sel => "[data-composition-id=\"s5\"] " + sel;
-      /* layout ground truth = full conversation; rewind pieces then reveal in order */
-      tl.fromTo(S(".panel"), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+      const S = sel => '[data-composition-id="s5"] ' + sel;
+      tl.fromTo(S("#s5-stage"), { opacity: 0, scale: 0.985 }, { opacity: 1, scale: 1, duration: 0.3 }, 0);
       tl.fromTo(S(".caption"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4 }, 0.15);
-      tl.fromTo(S(".ghost"), { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 }, 0.05);
-      tl.set(S("#s5-bubble"), { opacity: 0 }, 0);
-      tl.set(S("#s5-ops"),    { opacity: 0 }, 0);
-      tl.set(S("#s5-reply"),  { opacity: 0 }, 0);
-      /* zoom IN on the input while the question types out */
-      tl.to(S("#s5-stage2"), { scale: 1.45, duration: 0.7, ease: "power2.inOut" }, 0.5);
-      tl.fromTo(S("#s5-q"), { width: 0 }, { width: 502, duration: 1.1, ease: "steps(38)" }, 0.7);
-      tl.fromTo(S("#s5-caret"), { opacity: 1 }, { opacity: 0.2, duration: 0.25, repeat: 7, yoyo: true }, 0.5);
-      /* send: cursor clicks the send button */
-      tl.fromTo(S("#s5-cursor"), { opacity: 0, x: 0, y: 0 }, { opacity: 1, duration: 0.15 }, 1.5);
-      tl.to(S("#s5-cursor"), { x: -105, y: 105, duration: 0.35, ease: "power2.inOut" }, 1.55);
-      tl.to(S("#s5-cursor"), { scale: 0.82, duration: 0.07, yoyo: true, repeat: 1 }, 1.95);
-      tl.to(S("#s5-send"), { scale: 0.85, duration: 0.07, yoyo: true, repeat: 1 }, 1.95);
-      /* input empties into the bubble; zoom back OUT */
-      tl.to(S("#s5-q"), { width: 0, duration: 0.18 }, 2.05);
-      tl.to(S("#s5-cursor"), { opacity: 0, duration: 0.15 }, 2.1);
-      tl.fromTo(S("#s5-bubble"), { opacity: 0, y: 10, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: "back.out(1.6)" }, 2.15);
-      tl.to(S("#s5-stage2"), { scale: 1, duration: 0.6, ease: "power2.inOut" }, 2.35);
-      /* work, then the reply streams in */
-      tl.fromTo(S("#s5-ops"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 2.75);
-      tl.fromTo(S("#s5-reply"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 3.35);
-      tl.fromTo(S(".reply .lead"), { opacity: 0 }, { opacity: 1, duration: 0.3 }, 3.45);
-      tl.fromTo(S(".reply .li"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.32, stagger: 0.38, ease: "power2.out" }, 3.75);
+      tl.fromTo(S(".ghost"), { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 }, 0);
+      /* zoom IN on the just-sent question (real render) */
+      tl.set(S("#s5-stage"), { transformOrigin: "86% 18%" }, 0);
+      tl.to(S("#s5-stage"), { scale: 1.95, duration: 0.7, ease: "power2.inOut" }, 0.5);
+      /* the reply lands; zoom back out to read it */
+      tl.to(S("#s5-reply-lay"), { opacity: 1, duration: 0.3 }, 1.9);
+      tl.set(S("#s5-stage"), { transformOrigin: "88% 40%" }, 2.24);
+      tl.to(S("#s5-stage"), { scale: 1.35, duration: 0.65, ease: "power2.inOut" }, 2.25);
+      /* scroll ONLY the agent column down the answer */
+      tl.to(S("#s5-panelwin .lay"), { y: -620, duration: 1.7, ease: "power2.inOut" }, 3.3);
       window.__timelines["s5"] = tl;
     })();
   </script>

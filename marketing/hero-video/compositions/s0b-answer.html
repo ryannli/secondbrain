@@ -1,0 +1,95 @@
+<!doctype html>
+<html><head><meta charset="UTF-8" /></head><body>
+<template>
+  <style>
+      #root { position: absolute; inset: 0; font-family: "Outfit", sans-serif; color: #27272a; background: #faf9f6; overflow: hidden; }
+      #s0b-grain { position: absolute; inset: 0; opacity: 0.05; pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E"); }
+      .frag { position: absolute; border-radius: 8px; background: #d8d4cb; opacity: 0.12; }
+      .frag.ln { height: 10px; }
+      .frag.card { border: 2px solid #d8d4cb; background: #f1eee7; }
+      /* replica of the hook's final text, exits immediately */
+      .oldwrap { position: absolute; left: 120px; right: 120px; top: 0; bottom: 0;
+        display: flex; flex-direction: column; justify-content: center; gap: 26px; z-index: 3; }
+      .oldwrap .l1, .oldwrap .l2 { font-size: 66px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.12; }
+      .oldwrap .l2 .accent { color: #3b6044; }
+      .oldwrap .rule2 { width: 84px; height: 4px; background: rgba(59,96,68,0.55); border-radius: 2px; }
+      /* the answer */
+      .brand { position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 22px; z-index: 4; }
+      .brand svg.mark { width: 116px; height: 116px; color: #3b6044; }
+      .brand .name { font-size: 72px; font-weight: 700; letter-spacing: -0.01em; }
+      .brand .sub { font-size: 26px; font-weight: 400; color: #55534c; }
+      .brand .sub b { color: #3b6044; font-weight: 700; }
+      #s0b-ripple { position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
+        border: 3px solid rgba(59,96,68,0.5); border-radius: 50%; opacity: 0; z-index: 2; }
+  </style>
+  <div id="root" data-composition-id="s0b" data-width="1280" data-height="800">
+    <div id="s0b-grain"></div>
+    <div class="frag card" style="left:70px;  top:84px;  width:230px; height:120px;"></div>
+    <div class="frag card" style="left:1010px; top:96px;  width:200px; height:104px;"></div>
+    <div class="frag card" style="left:880px; top:560px; width:250px; height:130px;"></div>
+    <div class="frag card" style="left:120px; top:590px; width:210px; height:110px;"></div>
+    <div class="frag card" style="left:560px; top:60px;  width:190px; height:96px;"></div>
+    <div class="frag ln" style="left:84px;  top:230px; width:200px;"></div>
+    <div class="frag ln" style="left:84px;  top:252px; width:150px;"></div>
+    <div class="frag ln" style="left:1030px; top:230px; width:160px;"></div>
+    <div class="frag ln" style="left:1030px; top:252px; width:120px;"></div>
+    <div class="frag ln" style="left:900px; top:716px; width:200px;"></div>
+    <div class="frag ln" style="left:140px; top:726px; width:170px;"></div>
+    <div class="frag ln" style="left:580px; top:180px; width:150px;"></div>
+    <div class="frag card" style="left:330px; top:110px; width:180px; height:92px;"></div>
+    <div class="frag card" style="left:760px; top:640px; width:170px; height:88px;"></div>
+    <div class="oldwrap" id="s0b-old">
+      <div class="l1">AI content got louder.</div>
+      <div class="rule2"></div>
+      <div class="l2">Your brain <span class="accent">didn&rsquo;t get bigger.</span></div>
+    </div>
+    <div id="s0b-ripple"></div>
+    <div class="brand" id="s0b-brand">
+      <svg class="mark" viewBox="0 0 64 64" fill="currentColor">
+        <circle cx="32" cy="32" r="28" opacity="0.22"/><circle cx="32" cy="32" r="20" opacity="0.38"/>
+        <circle cx="32" cy="32" r="12" opacity="0.6"/><circle id="s0b-core" cx="32" cy="32" r="5"/>
+      </svg>
+      <div class="name">Second Brain</div>
+      <div class="sub">A local-first personal knowledge base &mdash; <b>with an agent inside.</b></div>
+    </div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      const S = sel => '[data-composition-id="s0b"] ' + sel;
+      /* seamless start = hook's final frame; old text exits upward */
+      tl.set(S("#s0b-brand"), { opacity: 0 }, 0);
+      tl.to(S("#s0b-old"), { opacity: 0, y: -46, duration: 0.4, ease: "power2.in" }, 0.12);
+      /* every fragment gets pulled into the center — capture the chaos */
+      document.querySelectorAll('[data-composition-id="s0b"] .frag').forEach((el) => {
+        const r = el.getBoundingClientRect ? null : null;
+      });
+      tl.to(S(".frag"), {
+        left: 616, top: 376, width: 26, height: 26, borderRadius: 13,
+        opacity: 0.55, duration: 0.62, ease: "power3.in",
+        stagger: { each: 0.035, from: "random" }
+      }, 0.28);
+      tl.to(S(".frag"), { opacity: 0, duration: 0.12 }, 1.0);
+      /* the mark blooms out of the convergence */
+      tl.fromTo(S("#s0b-ripple"), { opacity: 0.9, scale: 0.3 },
+        { opacity: 0, scale: 2.6, duration: 0.7, ease: "power2.out", transformOrigin: "50% 50%" }, 1.05);
+      tl.fromTo(S("#s0b-brand"), { opacity: 0 }, { opacity: 1, duration: 0.01 }, 1.05);
+      tl.fromTo(S(".brand svg.mark"), { scale: 0.25, opacity: 0, transformOrigin: "50% 50%" },
+        { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.7)" }, 1.05);
+      tl.fromTo(S(".brand .name"), { opacity: 0, y: 26 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 1.4);
+      tl.fromTo(S(".brand .sub"), { opacity: 0, y: 18 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 1.62);
+      /* the agent heartbeat: the innermost core pulses */
+      tl.fromTo(S("#s0b-core"), { scale: 1, transformOrigin: "50% 50%" },
+        { scale: 1.9, duration: 0.24, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.25);
+      tl.fromTo(S("#s0b-core"), { scale: 1, transformOrigin: "50% 50%" },
+        { scale: 1.9, duration: 0.24, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.8);
+      window.__timelines["s0b"] = tl;
+    })();
+  </script>
+</template>
+</body></html>
