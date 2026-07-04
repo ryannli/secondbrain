@@ -22,6 +22,8 @@ The reading — and the judgment — stay yours.
 
 ![Second Brain demo — capture a link, read the triage, browse your curated feed](docs/assets/second-brain-demo.gif)
 
+**[▶ Watch the full video](https://x.com/ranli_thinker/status/2073458125391425759)**
+
 </div>
 
 ---
