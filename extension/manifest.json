@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Second Brain Capture",
-  "version": "1.5",
+  "version": "1.6",
   "description": "Capture any page to Second Brain",
   "permissions": [
     "activeTab",

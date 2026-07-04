@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
+import path from "path";
 import { getCurrentRootPath, getLibraryPath, getStudioPath } from "@/lib/storage";
 
 // Whitelisted targets only — never accept arbitrary paths from the client.
@@ -7,6 +8,8 @@ const TARGETS: Record<string, () => string> = {
   root: getCurrentRootPath,
   library: getLibraryPath,
   studio: getStudioPath,
+  // The unpacked Chrome extension that ships with the repo
+  extension: () => path.join(process.cwd(), "extension"),
 };
 
 function openerFor(dirPath: string): [string, string[]] {

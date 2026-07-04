@@ -1,6 +1,16 @@
 // Second Brain floating capture button
 const POSITION_KEY = "secondbrain-button-position";
 
+// On Second Brain's own pages, announce that the extension is installed so
+// the app can stop nudging the user to set it up. The attribute is the only
+// thing injected there — no capture UI on localhost.
+if (window.location.hostname === "localhost") {
+  document.documentElement.setAttribute(
+    "data-secondbrain-extension",
+    chrome.runtime.getManifest().version
+  );
+}
+
 // Create floating button
 function createFloatingButton() {
   // Don't inject on localhost (Second Brain itself)

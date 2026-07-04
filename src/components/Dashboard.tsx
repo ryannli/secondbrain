@@ -21,6 +21,7 @@ import { getSourceIcon } from "@/lib/sourceIcon";
 import { formatRelativeTime } from "@/lib/utils";
 import { FeedSection } from "@/components/FeedSection";
 import { STARTER_PACK } from "@/lib/config";
+import { useExtensionDetected } from "@/hooks/useExtensionDetected";
 
 interface FeedProps {
   items: FeedItem[];
@@ -288,6 +289,91 @@ export const Dashboard = React.memo(function Dashboard({
     </div>
   ) : null;
 
+  // Nudge one-click capture until the extension announces itself
+  const extensionDetected = useExtensionDetected();
+  const [extensionDismissed, setExtensionDismissed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("extension-banner-dismissed") === "1"
+  );
+  const [extensionInstallStarted, setExtensionInstallStarted] = useState(false);
+  const [extensionsUrlCopied, setExtensionsUrlCopied] = useState(false);
+  const showExtensionBanner = extensionDetected === false && !extensionDismissed;
+
+  const startExtensionInstall = () => {
+    setExtensionInstallStarted(true);
+    // Reveal the unpacked extension folder so the user can drag it into Chrome
+    fetch("/api/reveal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: "extension" }),
+    });
+    navigator.clipboard?.writeText("chrome://extensions").then(
+      () => setExtensionsUrlCopied(true),
+      () => setExtensionsUrlCopied(false)
+    );
+  };
+
+  const extensionBanner = showExtensionBanner ? (
+    <div
+      className="w-full max-w-2xl mx-auto mb-6 px-4 py-3 rounded-xl border flex items-start gap-3"
+      style={{ borderColor: theme.border, backgroundColor: `${palette[500]}08` }}
+    >
+      <Puzzle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: palette[600] }} />
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-sm font-medium" style={{ color: theme.text }}>
+          Capture in one click — install the browser extension
+        </p>
+        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: theme.textMuted }}>
+          It captures pages exactly as you see them, including logged-in pages and tweets. Takes
+          about fifteen seconds — this banner disappears by itself once it&apos;s connected.
+        </p>
+        {extensionInstallStarted ? (
+          <ol className="text-xs mt-2 space-y-1 list-decimal list-inside" style={{ color: theme.textMuted }}>
+            <li>
+              The <code>extension</code> folder just opened in a window ✓
+            </li>
+            <li>
+              Go to <code>chrome://extensions</code>
+              {extensionsUrlCopied ? " (already in your clipboard — paste into the address bar)" : ""} and turn on
+              Developer mode
+            </li>
+            <li>Drag the folder onto that page — done</li>
+          </ol>
+        ) : (
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              onClick={startExtensionInstall}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              data-track="extension_banner.install"
+              style={{ backgroundColor: palette[600] }}
+            >
+              Install now
+            </button>
+            <a
+              href="https://github.com/ryannli/secondbrain#chrome-extension"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs hover:underline"
+              data-track="extension_banner.setup"
+              style={{ color: theme.textMuted }}
+            >
+              or read the guide
+            </a>
+          </div>
+        )}
+      </div>
+      <button
+        onClick={() => {
+          setExtensionDismissed(true);
+          localStorage.setItem("extension-banner-dismissed", "1");
+        }}
+        className="p-1 rounded hover:bg-black/5 flex-shrink-0"
+        title="Dismiss"
+      >
+        <XIcon className="w-3.5 h-3.5" style={{ color: theme.textMuted }} />
+      </button>
+    </div>
+  ) : null;
+
   // Rotating taglines
   const taglines = [
     "You can't read everything. You don't have to.",
@@ -323,7 +409,12 @@ export const Dashboard = React.memo(function Dashboard({
           </p>
         </div>
         {captureInputElement}
-        {starterBanner && <div className="w-full mt-6">{starterBanner}</div>}
+        {(starterBanner || extensionBanner) && (
+          <div className="w-full mt-6">
+            {starterBanner}
+            {extensionBanner}
+          </div>
+        )}
       </div>
     );
   }
@@ -459,6 +550,7 @@ export const Dashboard = React.memo(function Dashboard({
       </div>
       {captureInputElement}
       {starterBanner}
+      {extensionBanner}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 mt-6 mb-4">
