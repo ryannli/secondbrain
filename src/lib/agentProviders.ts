@@ -31,6 +31,7 @@ export interface AgentStatusResultInput {
 export interface AgentCliProviderDefinition {
   id: AgentProvider;
   statusArgs: string[];
+  listModelsArgs?: string[]; // Optional CLI command that enumerates available models
   chatEventFormat: AgentChatEventFormat;
   chatTransport: AgentChatTransport;
   buildTextArgs: (context: AgentCommandContext) => string[];
@@ -185,6 +186,7 @@ export const AGENT_CLI_PROVIDERS: Record<AgentProvider, AgentCliProviderDefiniti
   codex: {
     id: "codex",
     statusArgs: ["--version"],
+    listModelsArgs: ["debug", "models"],
     chatEventFormat: "codex-jsonl",
     chatTransport: "codex-app-server",
     buildTextArgs: ({ rootPath, outputPath, model }) => [

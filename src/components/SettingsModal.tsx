@@ -130,16 +130,38 @@ export function SettingsModal({
   const [newInterest, setNewInterest] = useState("");
   const [modelDraft, setModelDraft] = useState("");
   const [modelCustomOpen, setModelCustomOpen] = useState(false);
+  const [providerModels, setProviderModels] = useState<{ id: string; label: string; desc?: string }[] | null>(null);
   const [modelTest, setModelTest] = useState<{ state: "idle" | "testing" | "ok" | "error"; message?: string }>({ state: "idle" });
+
+  // Pull the live model list from the CLI whenever the modal opens —
+  // queried fresh each time so there is never a stale list to maintain
+  useEffect(() => {
+    if (!isOpen) return;
+    setProviderModels(null);
+    let cancelled = false;
+    fetch(`/api/agent/models?provider=${agentProvider}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setProviderModels(Array.isArray(data.models) ? data.models : []);
+      })
+      .catch(() => {
+        if (!cancelled) setProviderModels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, agentProvider]);
 
   // Keep the model input in sync with the selected provider's saved value
   useEffect(() => {
     const saved = agentModels[agentProvider] ?? "";
     setModelDraft(saved);
     setModelTest({ state: "idle" });
-    const isAlias = agentProvider === "claude" && CLAUDE_MODEL_OPTIONS.some((o) => o.id === saved);
-    setModelCustomOpen(Boolean(saved) && !isAlias);
-  }, [agentProvider, agentModels]);
+    const isKnown =
+      (agentProvider === "claude" && CLAUDE_MODEL_OPTIONS.some((o) => o.id === saved)) ||
+      (providerModels ?? []).some((o) => o.id === saved);
+    setModelCustomOpen(Boolean(saved) && !isKnown);
+  }, [agentProvider, agentModels, providerModels]);
 
   const saveModelDraft = (value: string) => {
     setModelDraft(value);
@@ -793,7 +815,7 @@ export function SettingsModal({
                   How much horsepower analysis and chat get. Applies only to {selectedAgentDetails.label}.
                 </p>
 
-                <div className={`grid gap-2 ${agentProvider === "claude" ? "grid-cols-4" : "grid-cols-2"}`}>
+                <div className={`grid gap-2 ${agentProvider === "claude" ? "grid-cols-4" : (providerModels?.length ?? 0) > 0 ? "grid-cols-3" : "grid-cols-2"}`}>
                   <button
                     onClick={() => {
                       saveModelDraft("");
@@ -837,7 +859,41 @@ export function SettingsModal({
                       );
                     })}
 
-                  {agentProvider === "codex" && (
+                  {agentProvider !== "claude" &&
+                    (providerModels ?? []).map((option) => {
+                      const isSelected = modelDraft === option.id && !modelCustomOpen;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            saveModelDraft(option.id);
+                            setModelCustomOpen(false);
+                          }}
+                          className="text-center rounded-lg border px-2 py-3 transition-all min-w-0"
+                          data-track="settings.model_listed"
+                          style={{
+                            borderColor: isSelected ? palette[500] : theme.border,
+                            backgroundColor: isSelected ? `${palette[500]}10` : "transparent",
+                          }}
+                          title={option.desc}
+                        >
+                          <div className="text-sm font-medium truncate" style={{ color: isSelected ? palette[600] : theme.text }}>
+                            {option.label}
+                          </div>
+                          {option.desc && (
+                            <div className="text-[10px] mt-0.5 line-clamp-2" style={{ color: theme.textMuted }}>{option.desc}</div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                  {agentProvider !== "claude" && providerModels === null && (
+                    <div className="rounded-lg border px-2 py-3 text-center text-xs" style={{ borderColor: theme.border, color: theme.textMuted }}>
+                      Loading models…
+                    </div>
+                  )}
+
+                  {agentProvider !== "claude" && providerModels?.length === 0 && (
                     <button
                       onClick={() => setModelCustomOpen(true)}
                       className="text-center rounded-lg border px-2 py-3 transition-all"
@@ -855,7 +911,7 @@ export function SettingsModal({
                   )}
                 </div>
 
-                {agentProvider === "claude" && !modelCustomOpen && (
+                {!modelCustomOpen && (agentProvider === "claude" || (providerModels?.length ?? 0) > 0) && (
                   <button
                     onClick={() => setModelCustomOpen(true)}
                     className="mt-2 text-xs hover:underline"
