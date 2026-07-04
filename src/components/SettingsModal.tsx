@@ -86,11 +86,7 @@ function normalizeRssInputUrl(rawUrl: string): string {
 }
 
 // Stable Claude Code aliases — the CLI maps them to the current generation
-const CLAUDE_MODEL_OPTIONS = [
-  { id: "haiku", desc: "fastest" },
-  { id: "sonnet", desc: "balanced" },
-  { id: "opus", desc: "deepest" },
-];
+const CLAUDE_MODEL_OPTIONS = [{ id: "haiku" }, { id: "sonnet" }, { id: "opus" }];
 
 export function SettingsModal({
   isOpen,
@@ -844,7 +840,7 @@ export function SettingsModal({
                             saveModelDraft(option.id);
                             setModelCustomOpen(false);
                           }}
-                          className="text-center rounded-lg border px-2 py-3 transition-all"
+                          className="text-center rounded-lg border px-2 py-3 transition-all flex flex-col items-center justify-center"
                           data-track="settings.model_alias"
                           style={{
                             borderColor: isSelected ? palette[500] : theme.border,
@@ -854,7 +850,6 @@ export function SettingsModal({
                           <div className="text-sm font-medium" style={{ color: isSelected ? palette[600] : theme.text }}>
                             {option.id}
                           </div>
-                          <div className="text-xs mt-0.5" style={{ color: theme.textMuted }}>{option.desc}</div>
                         </button>
                       );
                     })}
@@ -869,7 +864,7 @@ export function SettingsModal({
                             saveModelDraft(option.id);
                             setModelCustomOpen(false);
                           }}
-                          className="text-center rounded-lg border px-2 py-3 transition-all min-w-0"
+                          className="text-center rounded-lg border px-2 py-3 transition-all min-w-0 flex flex-col items-center justify-center"
                           data-track="settings.model_listed"
                           style={{
                             borderColor: isSelected ? palette[500] : theme.border,
@@ -880,9 +875,6 @@ export function SettingsModal({
                           <div className="text-sm font-medium truncate" style={{ color: isSelected ? palette[600] : theme.text }}>
                             {option.label}
                           </div>
-                          {option.desc && (
-                            <div className="text-[10px] mt-0.5 line-clamp-2" style={{ color: theme.textMuted }}>{option.desc}</div>
-                          )}
                         </button>
                       );
                     })}
