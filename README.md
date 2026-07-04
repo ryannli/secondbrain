@@ -26,11 +26,13 @@ The reading — and the judgment — stay yours.
 
 ---
 
-## Your attention is a constant. Information isn't.
+## AI content got louder. Your brain didn't get bigger.
 
-AI made content exponential. Your attention didn't move. Reading faster won't close that gap — **choosing better** will.
+The problem isn't too much to read. It's too much that looks worth reading.
 
-Every "save for later" tool works the wrong end: saving is easy, deciding is hard. Second Brain moves the decision to the front — **triage before you read** — so the piece that matters gets your full attention, and the forty that don't never cost you a minute.
+Every feed is now full of polished, plausible essays, threads, reports, recaps, and hot takes. You open too many, trust too few, forget most of them, and still end the day unsure what deserved your attention.
+
+Second Brain is a local-first **personal knowledge base** with an agent inside. It helps you judge what matters, digest what is worth keeping, connect it to what you already know, and turn your reading back into your own work.
 
 ## What you get
 
@@ -126,10 +128,10 @@ Second Brain is built so your reading history does not become someone else's clo
 
 ### What gets stored
 
-Think of Second Brain as a folder you can open in Finder:
+Think of your user data as a folder you can open in Finder:
 
 ```text
-Second Brain
+User Data
 ├── Library      things you captured
 │   ├── Saved article
 │   └── Research paper
