@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Inter, DM_Sans, Space_Grotesk, Outfit, Sora, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -59,15 +58,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* next/script beforeInteractive keeps this out of React's head
-            reconciliation — browser extensions that inject scripts into
-            <head> otherwise shift positions and trigger hydration errors */}
-        <Script id="theme-mode-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
+      {/* No app-rendered children in <head>: browser extensions inject
+          scripts there and shift React's position-based hydration matching.
+          The theme script runs as the first element of <body> instead —
+          still before any content paints, so no theme flash. */}
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${outfit.variable} ${sora.variable} ${plusJakarta.variable} antialiased`}
       >
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
       </body>
     </html>
