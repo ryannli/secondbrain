@@ -4,22 +4,25 @@ import path from "path";
 import { getCurrentRootPath, getLibraryPath, getStudioPath } from "@/lib/storage";
 
 // Whitelisted targets only — never accept arbitrary paths from the client.
-const TARGETS: Record<string, () => string> = {
-  root: getCurrentRootPath,
-  library: getLibraryPath,
-  studio: getStudioPath,
+// `select` reveals the item selected in its parent folder (so it can be
+// dragged as a unit, e.g. onto chrome://extensions) instead of opening it.
+const TARGETS: Record<string, { resolve: () => string; select?: boolean }> = {
+  root: { resolve: getCurrentRootPath },
+  library: { resolve: getLibraryPath },
+  studio: { resolve: getStudioPath },
   // The unpacked Chrome extension that ships with the repo
-  extension: () => path.join(process.cwd(), "extension"),
+  extension: { resolve: () => path.join(process.cwd(), "extension"), select: true },
 };
 
-function openerFor(dirPath: string): [string, string[]] {
+function openerFor(targetPath: string, select?: boolean): [string, string[]] {
   switch (process.platform) {
     case "darwin":
-      return ["open", [dirPath]];
+      return select ? ["open", ["-R", targetPath]] : ["open", [targetPath]];
     case "win32":
-      return ["explorer", [dirPath]];
+      return select ? ["explorer", [`/select,${targetPath}`]] : ["explorer", [targetPath]];
     default:
-      return ["xdg-open", [dirPath]];
+      // xdg-open has no select semantics; open the parent so the item is draggable
+      return ["xdg-open", [select ? path.dirname(targetPath) : targetPath]];
   }
 }
 
@@ -27,12 +30,12 @@ function openerFor(dirPath: string): [string, string[]] {
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const { target } = await request.json();
-    const resolve = TARGETS[target as string];
-    if (!resolve) {
+    const spec = TARGETS[target as string];
+    if (!spec) {
       return NextResponse.json({ success: false, error: "Unknown target" }, { status: 400 });
     }
 
-    const [cmd, args] = openerFor(resolve());
+    const [cmd, args] = openerFor(spec.resolve(), spec.select);
     spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
     return NextResponse.json({ success: true });
   } catch (error) {

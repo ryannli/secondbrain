@@ -329,14 +329,14 @@ export const Dashboard = React.memo(function Dashboard({
         {extensionInstallStarted ? (
           <ol className="text-xs mt-2 space-y-1 list-decimal list-inside" style={{ color: theme.textMuted }}>
             <li>
-              The <code>extension</code> folder just opened in a window ✓
+              The <code>extension</code> folder is selected in a file window ✓
             </li>
             <li>
               Go to <code>chrome://extensions</code>
               {extensionsUrlCopied ? " (already in your clipboard — paste into the address bar)" : ""} and turn on
               Developer mode
             </li>
-            <li>Drag the folder onto that page — done</li>
+            <li>Drag the selected folder onto that page — done</li>
           </ol>
         ) : (
           <div className="flex items-center gap-3 mt-2">
