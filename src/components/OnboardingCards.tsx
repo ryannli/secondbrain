@@ -34,7 +34,7 @@ function FolderVisual({ palette }: { palette: Record<number, string> }) {
       <div className={row} style={{ color: theme.text }}>
         <FolderOpen className="w-3.5 h-3.5" style={{ color: palette[500] }} />
         <span className="font-medium">notebook/</span>
-        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>what your agent drafts</span>
+        <span className="ml-auto text-[10px]" style={{ color: theme.textLight }}>what you write with your agent</span>
       </div>
       <div className={`${row} pl-5`} style={{ color: theme.textMuted }}>
         <FileText className="w-3.5 h-3.5" />
