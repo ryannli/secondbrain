@@ -1,8 +1,12 @@
+import { promises as fs } from "fs";
+import path from "path";
 import { debugLog } from "./log";
 import { AGENT_CONTEXT_CONFIG } from "@/lib/config";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { analyzeContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections, formatTextContent, generateTitle } from "@/lib/claude";
-import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource } from "@/lib/storage";
+import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource, getLibraryPath } from "@/lib/storage";
+import { extractEpub, sampleLongText } from "@/lib/epub";
+import { extractPdfText } from "@/lib/pdf";
 import { Connection, SourceType } from "@/lib/types";
 
 interface ProcessInput {
@@ -86,7 +90,22 @@ export async function processFileInBackground(
     let extractedTitle: string;
 
     // Step 1: Extract content from file
-    if (sourceType === "image" || sourceType === "document") {
+    const lowerName = originalFileName.toLowerCase();
+    const isEpub = lowerName.endsWith(".epub");
+    const isPdf = lowerName.endsWith(".pdf");
+    if (isEpub) {
+      debugLog(`[${id}] Extracting EPUB text...`);
+      const filePath = path.join(getLibraryPath(), id, originalFileName);
+      const extracted = await extractEpub(await fs.readFile(filePath));
+      content = extracted.content;
+      extractedTitle = extracted.title || displayName.replace(/\.[^.]+$/, "");
+    } else if (isPdf) {
+      debugLog(`[${id}] Extracting PDF text...`);
+      const filePath = path.join(getLibraryPath(), id, originalFileName);
+      const extracted = await extractPdfText(await fs.readFile(filePath));
+      content = extracted.content;
+      extractedTitle = extracted.title || displayName.replace(/\.[^.]+$/, "");
+    } else if (sourceType === "image" || sourceType === "document") {
       debugLog(`[${id}] Analyzing ${sourceType} with agent...`);
       const fileResult = await analyzeFile(id, originalFileName);
       content = fileResult.content;
@@ -103,7 +122,8 @@ export async function processFileInBackground(
 
     // Step 2: Analyze with the configured agent
     debugLog(`[${id}] Analyzing content: ${extractedTitle}`);
-    const analysis = await analyzeContent(extractedTitle, content, undefined, id);
+    const analysisInput = isEpub || isPdf ? sampleLongText(content) : content;
+    const analysis = await analyzeContent(extractedTitle, analysisInput, undefined, id);
 
     // Progressive save: analysis is now visible to user
     debugLog(`[${id}] Saving analysis (progressive step 2)...`);

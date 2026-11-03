@@ -5,6 +5,7 @@ import { BraveSearchResult } from "./search";
 import { FEED_CONFIG } from "./config";
 import path from "path";
 import { getLibraryPath, listSourcesForConnections, findEntryPath } from "./storage";
+import { jsonrepair } from "jsonrepair";
 import { callAgent, callAgentWithFileAccess, invalidateAgentProfileCache } from "./agent";
 import {
   promptGenerateTitle,
@@ -32,7 +33,7 @@ export function invalidateProfileCache(): void {
  * Parse JSON from agent response
  * Strips markdown code blocks if present
  */
-function parseJsonResponse(response: string, context: string): Record<string, unknown> | null {
+export function parseJsonResponse(response: string, context: string): Record<string, unknown> | null {
   // Strip tool call/result XML blocks (some agents use tools before answering)
   let jsonText = response
     .replace(/<tool_calls>[\s\S]*?<\/tool_calls>/g, "")
@@ -63,8 +64,12 @@ function parseJsonResponse(response: string, context: string): Record<string, un
         return JSON.parse(jsonMatch[0].slice(0, parseInt(posMatch[1])));
       } catch { /* fall through */ }
     }
-    console.error(`[${context}] JSON parse error:`, err.message);
-    return null;
+    try {
+      return JSON.parse(jsonrepair(jsonMatch[0]));
+    } catch {
+      console.error(`[${context}] JSON parse error:`, err.message);
+      return null;
+    }
   }
 }
 

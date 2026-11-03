@@ -5,6 +5,11 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    server: {
+      deps: {
+        external: ["unpdf"],
+      },
+    },
   },
   resolve: {
     alias: {

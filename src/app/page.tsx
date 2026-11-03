@@ -190,6 +190,7 @@ function HomeContent() {
     handleFileUpload,
     handleSelectSource,
     handleDeleteSource,
+    handleReplaceSource,
     handleReanalyze,
     handleReaction,
     handleRating,
@@ -655,6 +656,7 @@ function HomeContent() {
                   createdAt: entry.source.meta.createdAt,
                   type: entry.source.meta.type,
                   processingStatus: entry.source.meta.processingStatus,
+                  processingError: entry.source.meta.processingError,
                   analysisError: entry.source.meta.analysisError,
                   analysis: entry.source.analysis,
                   saved: entry.source.meta.saved,
@@ -701,6 +703,8 @@ function HomeContent() {
                   }
                 }}
                 onClose={() => entry.setSource(null)}
+                onDelete={() => handleDeleteSource(entry.source!.meta.id)}
+                onReplace={(file) => handleReplaceSource(entry.source!.meta.id, file)}
                 onReanalyze={() => handleReanalyze(entry.source!.meta.id)}
                 onReaction={(type, itemId, reaction) => handleReaction(entry.source!.meta.id, type, itemId, reaction)}
                 onRating={(rating) => handleRating(entry.source!.meta.id, rating)}
@@ -771,6 +775,8 @@ function HomeContent() {
                 setCaptureInput={setCaptureInput}
                 onCapture={handleCapture}
                 onFileUpload={handleFileUpload}
+                onDeleteSource={handleDeleteSource}
+                onReplaceSource={handleReplaceSource}
                 pendingCaptures={pendingCaptures}
                 error={error}
                 palette={palette}

@@ -48,6 +48,7 @@ export interface EntryData {
   createdAt?: string; // ISO timestamp
   type?: string; // "article", "image", etc.
   processingStatus?: "processing" | "ready" | "failed";
+  processingError?: string;
   analysisError?: string;
   saved?: boolean;
   totalReadTimeSeconds?: number; // Active reading time tracked by client
@@ -83,6 +84,8 @@ export interface EntryViewProps {
   // Save handler - called with updated title and content
   onSave: (title: string, content: string) => Promise<void>;
   onClose?: () => void;
+  onDelete?: () => void;
+  onReplace?: (file: File) => void;
   // Bookmark/save toggle
   onToggleSaved?: (saved: boolean) => void;
   // Source-specific handlers (optional)
@@ -110,6 +113,8 @@ export const EntryView = React.memo(function EntryView({
   entry,
   onSave,
   onClose,
+  onDelete,
+  onReplace,
   onToggleSaved,
   onMarkUnread,
   onReanalyze,
@@ -214,7 +219,11 @@ export const EntryView = React.memo(function EntryView({
           sourceUrl: entry.sourceUrl,
           createdAt: entry.createdAt ?? "",
           processingStatus: "failed",
+          processingError: entry.processingError,
         }}
+        onDelete={onDelete}
+        onReplace={onReplace}
+        onClose={onClose}
       />
     );
   }
