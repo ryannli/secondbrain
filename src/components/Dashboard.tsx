@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Loader2,
@@ -14,6 +14,10 @@ import {
   Bookmark,
   Flame,
   Puzzle,
+  Book,
+  Trash2,
+  Upload,
+  Check,
 } from "lucide-react";
 import { SourceSummary, ACTION_CONFIG, FeedItem, ProcessingStage } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
@@ -44,6 +48,8 @@ export interface DashboardProps {
   setCaptureInput: (value: string) => void;
   onCapture: () => void;
   onFileUpload: (file: File) => void;
+  onDeleteSource: (id: string) => void;
+  onReplaceSource: (id: string, file: File) => void;
   pendingCaptures: string[];
   error: string | null;
   palette: Record<number, string>;
@@ -61,6 +67,8 @@ export const Dashboard = React.memo(function Dashboard({
   setCaptureInput,
   onCapture,
   onFileUpload,
+  onDeleteSource,
+  onReplaceSource,
   pendingCaptures,
   error,
   palette,
@@ -71,8 +79,36 @@ export const Dashboard = React.memo(function Dashboard({
   extensionPath,
 }: DashboardProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; isImage: boolean } | null>(null);
+  const [stagedFile, setStagedFile] = useState<{ file: File; preview: string | null; kind: "image" | "pdf" | "epub" } | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "saved" | "recommended">("all");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const replaceTargetRef = useRef<string | null>(null);
+
+  const stageFile = (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const isImage = file.type.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext);
+    const isPdf = file.type === "application/pdf" || ext === "pdf";
+    const isEpub = file.type === "application/epub+zip" || ext === "epub";
+
+    if (stagedFile?.preview) URL.revokeObjectURL(stagedFile.preview);
+
+    if (isImage) {
+      setFileError(null);
+      setStagedFile({ file, preview: URL.createObjectURL(file), kind: "image" });
+    } else if (isPdf) {
+      setFileError(null);
+      setStagedFile({ file, preview: null, kind: "pdf" });
+    } else if (isEpub) {
+      setFileError(null);
+      setStagedFile({ file, preview: null, kind: "epub" });
+    } else {
+      setStagedFile(null);
+      setFileError("Images, PDFs, and EPUBs can be added");
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -91,19 +127,8 @@ export const Dashboard = React.memo(function Dashboard({
     e.stopPropagation();
     setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      // Accept images and PDFs
-      const imageFile = files.find(f => f.type.startsWith("image/"));
-      const pdfFile = files.find(f => f.type === "application/pdf");
-
-      if (imageFile) {
-        const preview = URL.createObjectURL(imageFile);
-        setStagedFile({ file: imageFile, preview, isImage: true });
-      } else if (pdfFile) {
-        setStagedFile({ file: pdfFile, preview: null, isImage: false });
-      }
-    }
+    const file = e.dataTransfer.files?.[0];
+    if (file) stageFile(file);
   };
 
   const handleClearStagedFile = () => {
@@ -151,12 +176,14 @@ export const Dashboard = React.memo(function Dashboard({
               className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-lg"
               style={{ backgroundColor: `${palette[500]}10` }}
             >
-              {stagedFile.isImage && stagedFile.preview ? (
+              {stagedFile.kind === "image" && stagedFile.preview ? (
                 <img
                   src={stagedFile.preview}
                   alt="Preview"
                   className="w-8 h-8 object-cover rounded"
                 />
+              ) : stagedFile.kind === "epub" ? (
+                <Book className="w-8 h-8" style={{ color: palette[600] }} />
               ) : (
                 <PDFIcon className="w-8 h-8" />
               )}
@@ -176,13 +203,32 @@ export const Dashboard = React.memo(function Dashboard({
 
         {/* Input row */}
         <div className="flex items-center gap-3 px-4 py-3.5">
-          <Plus className="w-5 h-5 flex-shrink-0" style={{ color: theme.textLight }} />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-0.5 rounded hover:bg-black/5 transition-colors flex-shrink-0"
+            title="Choose file"
+            aria-label="Choose file"
+          >
+            <Plus className="w-5 h-5" style={{ color: theme.textLight }} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf,.epub,application/pdf,application/epub+zip"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) stageFile(file);
+              e.target.value = "";
+            }}
+          />
           <input
             type="text"
             value={captureInput}
             onChange={(e) => setCaptureInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && canCapture && handleCaptureWithFile()}
-            placeholder={isDragging ? "Drop file here..." : stagedFile ? "Add a note (optional)..." : "Paste a link, text, or drop a file..."}
+            placeholder={isDragging ? "Drop file here..." : stagedFile ? "Add a note (optional)..." : "Paste a link, text, or choose a file..."}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: theme.text }}
           />
@@ -227,6 +273,9 @@ export const Dashboard = React.memo(function Dashboard({
       )}
 
       {/* Error */}
+      {fileError && (
+        <p className="mt-2 text-center text-xs" style={{ color: "#ef4444" }}>{fileError}</p>
+      )}
       {error && (
         <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
@@ -510,22 +559,94 @@ export const Dashboard = React.memo(function Dashboard({
     ) : null;
 
     return (
-      <button
+      <div
         key={source.meta.id}
+        role="button"
+        tabIndex={isExtracting ? -1 : 0}
         onClick={() => !isExtracting && onSelect(source.meta.id)}
-        className={`p-4 min-h-[160px] border rounded-xl transition-all text-left overflow-hidden bg-white dark:bg-zinc-900 flex flex-col ${isExtracting ? "opacity-70" : "hover:shadow-md"}`}
+        onKeyDown={(e) => {
+          if (isExtracting) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(source.meta.id);
+          }
+        }}
+        className={`group p-4 min-h-[160px] border rounded-xl transition-all text-left overflow-hidden bg-white dark:bg-zinc-900 flex flex-col ${isExtracting ? "opacity-70" : "hover:shadow-md cursor-pointer"}`}
         data-track="source.card_select"
         style={{ borderColor: theme.border }}
-        disabled={isExtracting}
       >
         {/* Source marker + status */}
-        <div className="flex items-center justify-between gap-3 mb-3 min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
           {isExtracting ? (
             <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: palette[500] }} />
           ) : (
             <SourceIcon className="w-5 h-5 flex-shrink-0" style={{ color: iconColor }} />
           )}
-          <span className="min-w-0 flex-shrink">{badge}</span>
+          <div className="flex items-center gap-0.5 min-w-0">
+            {pendingDeleteId === source.meta.id ? (
+              <div className="flex items-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                <span className="text-xs mr-1" style={{ color: theme.textMuted }}>Delete?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingDeleteId(null);
+                    onDeleteSource(source.meta.id);
+                  }}
+                  className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                  style={{ color: "#ef4444" }}
+                  title="Confirm delete"
+                  aria-label={`Confirm delete ${source.meta.title}`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteId(null)}
+                  className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                  style={{ color: theme.textLight }}
+                  title="Cancel"
+                  aria-label="Cancel delete"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="min-w-0 flex-shrink">{badge}</span>
+                <div
+                  className={isFailed ? "flex items-center flex-shrink-0" : "hidden group-hover:flex focus-within:flex items-center flex-shrink-0"}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  {isFailed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        replaceTargetRef.current = source.meta.id;
+                        replaceInputRef.current?.click();
+                      }}
+                      className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                      style={{ color: theme.textLight }}
+                      title="Upload again"
+                      aria-label={`Upload again ${source.meta.title}`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(source.meta.id)}
+                    className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                    style={{ color: theme.textLight }}
+                    title="Delete"
+                    aria-label={`Delete ${source.meta.title}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Title */}
@@ -552,7 +673,7 @@ export const Dashboard = React.memo(function Dashboard({
             {source.reason}
           </p>
         )}
-      </button>
+      </div>
     );
   };
 
@@ -569,6 +690,19 @@ export const Dashboard = React.memo(function Dashboard({
         </p>
       </div>
       {captureInputElement}
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="image/*,.pdf,.epub,application/pdf,application/epub+zip"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const sourceId = replaceTargetRef.current;
+          if (file && sourceId) onReplaceSource(sourceId, file);
+          replaceTargetRef.current = null;
+          e.target.value = "";
+        }}
+      />
       {starterBanner}
       {extensionBanner}
 

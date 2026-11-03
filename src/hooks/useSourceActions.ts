@@ -184,7 +184,7 @@ export function useSourceActions({
     }
   }, [setSelectedSource, pollSourceUntilReady]);
 
-  const handleDeleteSource = async (sourceId: string) => {
+  const handleDeleteSource = async (sourceId: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/sources/${sourceId}`, { method: "DELETE" });
       const data = await res.json();
@@ -193,12 +193,19 @@ export function useSourceActions({
         if (selectedSource?.meta.id === sourceId) {
           router.push("/");
         }
-      } else {
-        setError(data.error || "Failed to delete source");
+        return true;
       }
+      setError(data.error || "Failed to delete source");
+      return false;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
+      return false;
     }
+  };
+
+  const handleReplaceSource = async (sourceId: string, file: File) => {
+    const deleted = await handleDeleteSource(sourceId);
+    if (deleted) handleFileUpload(file);
   };
 
   const handleReanalyze = async (id: string) => {
@@ -308,6 +315,7 @@ export function useSourceActions({
     handleFileUpload,
     handleSelectSource,
     handleDeleteSource,
+    handleReplaceSource,
     handleReanalyze,
     handleReaction,
     handleRating,

@@ -36,7 +36,7 @@ export function getTypeFromExtension(filename: string): SourceType {
   }
 
   // Documents
-  if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "rtf"].includes(ext)) {
+  if (["pdf", "epub", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "rtf"].includes(ext)) {
     return "document";
   }
 
