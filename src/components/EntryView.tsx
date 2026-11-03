@@ -24,6 +24,7 @@ import { useResizable } from "@/hooks/useResizable";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { formatRelativeTime } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 /** Format seconds as M:SS or H:MM:SS */
 function formatTimer(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -48,6 +49,7 @@ export interface EntryData {
   createdAt?: string; // ISO timestamp
   type?: string; // "article", "image", etc.
   processingStatus?: "processing" | "ready" | "failed";
+  processingError?: string;
   analysisError?: string;
   saved?: boolean;
   totalReadTimeSeconds?: number; // Active reading time tracked by client
@@ -83,6 +85,8 @@ export interface EntryViewProps {
   // Save handler - called with updated title and content
   onSave: (title: string, content: string) => Promise<void>;
   onClose?: () => void;
+  onDelete?: () => void;
+  onReplace?: (file: File) => void;
   // Bookmark/save toggle
   onToggleSaved?: (saved: boolean) => void;
   // Source-specific handlers (optional)
@@ -110,6 +114,8 @@ export const EntryView = React.memo(function EntryView({
   entry,
   onSave,
   onClose,
+  onDelete,
+  onReplace,
   onToggleSaved,
   onMarkUnread,
   onReanalyze,
@@ -214,7 +220,11 @@ export const EntryView = React.memo(function EntryView({
           sourceUrl: entry.sourceUrl,
           createdAt: entry.createdAt ?? "",
           processingStatus: "failed",
+          processingError: entry.processingError,
         }}
+        onDelete={onDelete}
+        onReplace={onReplace}
+        onClose={onClose}
       />
     );
   }
@@ -294,7 +304,7 @@ export const EntryView = React.memo(function EntryView({
               )}
               {entry.sourceUrl && entry.createdAt && <span>·</span>}
               {entry.createdAt && (
-                <span>Added {formatRelativeTime(entry.createdAt)}</span>
+                <span>{t("entry.added")} {formatRelativeTime(entry.createdAt)}</span>
               )}
               {entry.content && (() => {
                 const text = entry.content.trim();

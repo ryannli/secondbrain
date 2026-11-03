@@ -6,6 +6,7 @@ import { Bot, Settings } from "lucide-react";
 import { theme } from "@/lib/theme";
 import { Logo } from "@/components/Icons";
 import { AGENT_PROVIDER_DETAILS, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
+import { t } from "@/lib/i18n";
 
 interface HeaderProps {
   palette: Record<number, string>;
@@ -21,10 +22,10 @@ export function Header({ palette, onOpenSettings, agentProvider, agentStatus, ag
   const isReady = agentStatus?.state === "ready";
   const isChecking = agentStatusLoading || !agentStatus;
   const statusText = isChecking
-    ? "Checking"
+    ? t("header.checking")
     : isReady
-      ? `${agentDetails.shortLabel} connected`
-      : `${agentDetails.shortLabel} not connected`;
+      ? `${agentDetails.shortLabel} ${t("header.connected")}`
+      : `${agentDetails.shortLabel} ${t("header.disconnected")}`;
 
   return (
     <header
@@ -55,7 +56,7 @@ export function Header({ palette, onOpenSettings, agentProvider, agentStatus, ag
         <button
           onClick={onOpenSettings}
           className="p-2 rounded-lg hover:bg-black/5 transition-colors cursor-pointer"
-          title="Settings"
+          title={t("header.settings")}
         >
           <Settings className="w-4 h-4" style={{ color: theme.textMuted }} />
         </button>

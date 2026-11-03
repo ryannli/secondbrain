@@ -3,6 +3,7 @@
 import React from "react";
 import { Trash2, Pencil } from "lucide-react";
 import { theme } from "@/lib/theme";
+import { t } from "@/lib/i18n";
 
 export interface ContextMenuState {
   visible: boolean;
@@ -46,7 +47,7 @@ export function ContextMenu({
           className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
         >
           <Trash2 className="w-4 h-4" />
-          Delete
+          {t("menu.delete")}
         </button>
       )}
       {menu.type === "folder" && (
@@ -56,14 +57,14 @@ export function ContextMenu({
             className="w-full px-4 py-2 text-sm text-left hover:bg-black/5 flex items-center gap-2"
           >
             <Pencil className="w-4 h-4" style={{ color: theme.textMuted }} />
-            Rename
+            {t("menu.rename")}
           </button>
           <button
             onClick={onDeleteFolder}
             className="w-full px-4 py-2 text-sm text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
           >
             <Trash2 className="w-4 h-4" />
-            Delete
+            {t("menu.delete")}
           </button>
         </>
       )}

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Rss, RefreshCw, ChevronDown, ChevronUp, X, ExternalLink, Plus, Filter, Check, Star } from "lucide-react";
 import { FeedItem, FeedSignals, InsightItem, StructuredBriefing as StructuredBriefingType } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 interface FeedSectionProps {
   items: FeedItem[];
@@ -78,7 +79,7 @@ export const FeedSection = React.memo(function FeedSection({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Rss className="w-5 h-5" style={{ color: palette[500] }} />
-          <h2 className="text-lg font-semibold">For You</h2>
+          <h2 className="text-lg font-semibold">{t("nav.today")}</h2>
         </div>
 
         <div className="flex items-center gap-3">

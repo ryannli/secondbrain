@@ -5,6 +5,7 @@ import { generatePalette } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 import { DEFAULT_RSS_FEEDS, DEFAULT_SEARCH_SOURCES } from "@/lib/config";
 import { DEFAULT_AGENT_PROVIDER, isAgentProvider, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
+import { normalizeLocale, setActiveLocale } from "@/lib/i18n";
 
 // Apply theme class to <html> element
 function applyTheme(mode: ThemeMode) {
@@ -42,6 +43,7 @@ export function useSettings() {
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [fontSize, setFontSize] = useState("sm");
   const [headingStyle, setHeadingStyle] = useState("clean");
+  const [locale, setLocale] = useState<"en" | "zh">("en");
 
   const palette = useMemo(() => generatePalette(accentColor), [accentColor]);
 
@@ -89,6 +91,12 @@ export function useSettings() {
         }
         if (data.config.fontSize) setFontSize(data.config.fontSize);
         if (data.config.headingStyle) setHeadingStyle(data.config.headingStyle);
+        const nextLocale = normalizeLocale(data.config.locale);
+        setLocale(nextLocale);
+        setActiveLocale(nextLocale);
+        if (typeof document !== "undefined") {
+          document.documentElement.lang = nextLocale === "zh" ? "zh-CN" : "en";
+        }
       }
     } catch (err) {
       console.error("Failed to load config:", err);
@@ -236,6 +244,23 @@ export function useSettings() {
     }
   };
 
+  const saveLocale = async (next: "en" | "zh") => {
+    setLocale(next);
+    setActiveLocale(next);
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+    }
+    try {
+      await fetch("/api/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale: next }),
+      });
+    } catch (err) {
+      console.error("Failed to save locale:", err);
+    }
+  };
+
   const saveReadingSetting = async (key: string, value: string, setter: (v: string) => void) => {
     setter(value);
     try {
@@ -366,5 +391,7 @@ export function useSettings() {
     saveFontSize: (v: string) => saveReadingSetting("fontSize", v, setFontSize),
     headingStyle,
     saveHeadingStyle: (v: string) => saveReadingSetting("headingStyle", v, setHeadingStyle),
+    locale,
+    saveLocale,
   };
 }

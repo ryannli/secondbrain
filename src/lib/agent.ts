@@ -6,6 +6,7 @@ import path from "path";
 import { AGENT_PROVIDER_DETAILS, DEFAULT_AGENT_PROVIDER, AgentProvider, AgentStatus, isAgentProvider } from "./agentTypes";
 import { AGENT_CLI_PROVIDERS, buildAgentCommandSpec } from "./agentProviders";
 import { getCurrentRootPath, loadProfileDoc, loadUserConfig } from "./storage";
+import { AGENT_ZH_RULE, normalizeLocale } from "./i18n";
 
 const AGENT_TIMEOUT_MS = 10 * 60 * 1000;
 const STATUS_TIMEOUT_MS = 8 * 1000;
@@ -40,7 +41,14 @@ export async function getConfiguredAgentProvider(): Promise<AgentProvider> {
   return isAgentProvider(config.agentProvider) ? config.agentProvider : DEFAULT_AGENT_PROVIDER;
 }
 
+async function applyOutputLanguage(prompt: string): Promise<string> {
+  const locale = normalizeLocale((await loadUserConfig()).locale);
+  if (locale !== "zh") return prompt;
+  return `${AGENT_ZH_RULE}\n\n${prompt}`;
+}
+
 async function buildPromptWithProfiles(prompt: string): Promise<string> {
+  prompt = await applyOutputLanguage(prompt);
   const { userProfile } = await loadUserProfiles();
   // Memory is agent-written during chats, so read it fresh instead of caching
   const memory = (await loadProfileDoc("MEMORY").catch(() => "")).trim();
@@ -123,6 +131,7 @@ export async function callAgent(prompt: string, debugLabel?: string): Promise<st
 export async function callAgentWithFileAccess(prompt: string, filePath: string): Promise<string> {
   const provider = await getConfiguredAgentProvider();
   const rootPath = getCurrentRootPath();
+  prompt = await applyOutputLanguage(prompt);
   const runId = Math.random().toString(36).slice(2, 8);
   const debugDir = shouldWriteAgentDebugLogs() ? path.join(rootPath, ".debug") : undefined;
   const debugFile = debugDir ? path.join(debugDir, `${provider}-file-${runId}.txt`) : undefined;

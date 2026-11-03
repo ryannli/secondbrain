@@ -33,6 +33,7 @@ export interface UserConfig {
   agentModels?: Partial<Record<AgentProvider, string>>; // Optional model per provider; empty inherits the CLI default
   fontSize?: string;      // "sm" | "base" | "lg"
   headingStyle?: string;  // "clean" | "colored" | "accented"
+  locale?: "en" | "zh";   // Interface and agent-facing language. Default is English.
 }
 
 export type RootPathSource = "env" | "local" | "default";
@@ -1088,7 +1089,7 @@ interface ContentMdFrontmatter {
  * Parse content.md frontmatter to extract title and read status
  */
 function parseContentMd(fileContent: string): ContentMdFrontmatter {
-  const frontmatterMatch = fileContent.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const frontmatterMatch = fileContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
 
   if (!frontmatterMatch) {
     return { title: "Untitled", content: fileContent.trim() };
@@ -1349,7 +1350,7 @@ export async function listSourcesForConnections(
           }
           try {
             const contentMd = await fs.readFile(path.join(fullPath, "content.md"), "utf-8");
-            const titleMatch = contentMd.match(/^---\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\n---/);
+            const titleMatch = contentMd.match(/^---\r?\n[\s\S]*?title:\s*"([^"]+)"[\s\S]*?\r?\n---/);
             if (titleMatch) title = titleMatch[1];
           } catch {
             // Keep meta.json/entry.name title

@@ -51,6 +51,9 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
     const currentConfig = await loadUserConfig();
     const { rootPath, ...configUpdates } = updates;
+    if (configUpdates.locale !== undefined) {
+      configUpdates.locale = configUpdates.locale === "zh" ? "zh" : "en";
+    }
 
     if (rootPath !== undefined) {
       if (isRootPathLocked()) {
