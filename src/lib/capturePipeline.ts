@@ -4,7 +4,8 @@ import { debugLog } from "./log";
 import { AGENT_CONTEXT_CONFIG } from "@/lib/config";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { analyzeContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections, formatTextContent, generateTitle } from "@/lib/claude";
-import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource, getLibraryPath } from "@/lib/storage";
+import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource, getLibraryPath, loadUserConfig } from "@/lib/storage";
+import { localizeError, normalizeLocale, translate } from "@/lib/i18n";
 import { extractEpub, sampleLongText } from "@/lib/epub";
 import { extractPdfText } from "@/lib/pdf";
 import { Connection, SourceType } from "@/lib/types";
@@ -85,6 +86,7 @@ export async function processFileInBackground(
   sourceType: SourceType,
   displayName: string // original filename for display
 ): Promise<void> {
+  const locale = normalizeLocale((await loadUserConfig()).locale);
   try {
     let content: string;
     let extractedTitle: string;
@@ -122,7 +124,12 @@ export async function processFileInBackground(
 
     // Step 2: Analyze with the configured agent
     debugLog(`[${id}] Analyzing content: ${extractedTitle}`);
-    const analysisInput = isEpub || isPdf ? sampleLongText(content) : content;
+    const analysisInput = isEpub || isPdf
+      ? sampleLongText(content, 18000, {
+          middle: translate(locale, "sample.middle"),
+          end: translate(locale, "sample.end"),
+        })
+      : content;
     const analysis = await analyzeContent(extractedTitle, analysisInput, undefined, id);
 
     // Progressive save: analysis is now visible to user
@@ -135,7 +142,8 @@ export async function processFileInBackground(
     debugLog(`[${id}] File processing complete`);
   } catch (error) {
     console.error(`[${id}] File processing failed:`, error);
-    await failSource(id, error instanceof Error ? error.message : "Unknown error");
+    const raw = error instanceof Error ? error.message : "Unknown error";
+    await failSource(id, localizeError(locale, raw));
     throw error;
   }
 }

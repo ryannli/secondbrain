@@ -68,7 +68,11 @@ function xhtmlToMarkdown(html: string): string {
  * A long book cannot fit in one analysis prompt. Keep the opening, a middle
  * slice, and the ending so the verdict is not based only on the preface.
  */
-export function sampleLongText(text: string, limit = 18000): string {
+export function sampleLongText(
+  text: string,
+  limit = 18000,
+  markers?: { middle: string; end: string }
+): string {
   if (text.length <= limit) return text;
   const head = Math.floor(limit * 0.5);
   const mid = Math.floor(limit * 0.25);
@@ -76,9 +80,9 @@ export function sampleLongText(text: string, limit = 18000): string {
   const midStart = Math.max(head, Math.floor(text.length / 2) - Math.floor(mid / 2));
   return [
     text.slice(0, head),
-    "\n\n[...middle omitted. Excerpt from the middle...]\n\n",
+    markers?.middle ?? "\n\n[...middle omitted. Excerpt from the middle...]\n\n",
     text.slice(midStart, midStart + mid),
-    "\n\n[...excerpt from the end...]\n\n",
+    markers?.end ?? "\n\n[...excerpt from the end...]\n\n",
     text.slice(-tail),
   ].join("");
 }

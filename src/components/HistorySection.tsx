@@ -12,6 +12,7 @@ import {
   Plus,
 } from "lucide-react";
 import { HistoryEvent } from "@/lib/types";
+import { t } from "@/lib/i18n";
 import { ReadingHeatmap } from "./ReadingHeatmap";
 
 interface HistorySectionProps {
@@ -159,14 +160,14 @@ export const HistorySection = React.memo(function HistorySection({
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
-          History
+          {t("nav.history")}
         </h2>
       </div>
 
       {/* Reading Heatmap */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold mb-3" style={{ color: theme.textMuted }}>
-          Daily Activity
+          {t("view.activity")}
         </h3>
         <ReadingHeatmap events={events} palette={palette} theme={theme} />
       </div>

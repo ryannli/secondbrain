@@ -19,7 +19,7 @@ import {
   Upload,
   Check,
 } from "lucide-react";
-import { SourceSummary, ACTION_CONFIG, FeedItem, ProcessingStage } from "@/lib/types";
+import { SourceSummary, FeedItem, ProcessingStage } from "@/lib/types";
 import { Logo, PDFIcon } from "@/components/Icons";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { getSourceIcon } from "@/lib/sourceIcon";
@@ -27,6 +27,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { FeedSection } from "@/components/FeedSection";
 import { STARTER_PACK } from "@/lib/config";
 import { useExtensionDetected } from "@/hooks/useExtensionDetected";
+import { actionText, t } from "@/lib/i18n";
 
 interface FeedProps {
   items: FeedItem[];
@@ -106,7 +107,7 @@ export const Dashboard = React.memo(function Dashboard({
       setStagedFile({ file, preview: null, kind: "epub" });
     } else {
       setStagedFile(null);
-      setFileError("Images, PDFs, and EPUBs can be added");
+      setFileError(t("capture.unsupported"));
     }
   };
 
@@ -207,8 +208,8 @@ export const Dashboard = React.memo(function Dashboard({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="p-0.5 rounded hover:bg-black/5 transition-colors flex-shrink-0"
-            title="Choose file"
-            aria-label="Choose file"
+            title={t("capture.chooseFile")}
+            aria-label={t("capture.chooseFile")}
           >
             <Plus className="w-5 h-5" style={{ color: theme.textLight }} />
           </button>
@@ -228,7 +229,7 @@ export const Dashboard = React.memo(function Dashboard({
             value={captureInput}
             onChange={(e) => setCaptureInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && canCapture && handleCaptureWithFile()}
-            placeholder={isDragging ? "Drop file here..." : stagedFile ? "Add a note (optional)..." : "Paste a link, text, or choose a file..."}
+            placeholder={isDragging ? t("capture.drop") : stagedFile ? t("capture.note") : t("capture.idle")}
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: theme.text }}
           />
@@ -267,7 +268,7 @@ export const Dashboard = React.memo(function Dashboard({
         >
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: palette[500] }} />
           <span style={{ color: theme.textMuted }}>
-            Processing: {pendingCaptures.join(", ")}
+            {t("capture.processing")}: {pendingCaptures.join(", ")}
           </span>
         </div>
       )}
@@ -447,12 +448,12 @@ export const Dashboard = React.memo(function Dashboard({
 
   // Rotating taglines
   const taglines = [
-    "You can't read everything. You don't have to.",
-    "The art of knowing what to ignore.",
-    "Not storage. Sense-making.",
-    "From noise to signal.",
-    "Information overwhelms. Your second brain evolves.",
-    "Free your judgment from information triage.",
+    t("tagline.1"),
+    t("tagline.2"),
+    t("tagline.3"),
+    t("tagline.4"),
+    t("tagline.5"),
+    t("tagline.6"),
   ];
   const [taglineIndex, setTaglineIndex] = useState(0);
 
@@ -467,7 +468,7 @@ export const Dashboard = React.memo(function Dashboard({
     return (
       <div className="h-full flex flex-col items-center justify-center">
         <Logo className="w-12 h-12 mb-4" color={theme.textLight} />
-        <h2 className="text-lg font-medium mb-2">Welcome to Second Brain</h2>
+        <h2 className="text-lg font-medium mb-2">{t("view.welcome")}</h2>
         <div className="mb-6 h-6">
           <p
             key={`tagline-${taglineIndex}`}
@@ -554,7 +555,7 @@ export const Dashboard = React.memo(function Dashboard({
               }
         }
       >
-        {ACTION_CONFIG[source.action]?.label ?? source.action}
+        {actionText(source.action)}
       </span>
     ) : null;
 
@@ -585,7 +586,7 @@ export const Dashboard = React.memo(function Dashboard({
           <div className="flex items-center gap-0.5 min-w-0">
             {pendingDeleteId === source.meta.id ? (
               <div className="flex items-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                <span className="text-xs mr-1" style={{ color: theme.textMuted }}>Delete?</span>
+                <span className="text-xs mr-1" style={{ color: theme.textMuted }}>{t("capture.deleteAsk")}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -594,8 +595,8 @@ export const Dashboard = React.memo(function Dashboard({
                   }}
                   className="p-1 rounded-md hover:bg-black/5 transition-colors"
                   style={{ color: "#ef4444" }}
-                  title="Confirm delete"
-                  aria-label={`Confirm delete ${source.meta.title}`}
+                  title={t("capture.confirmDelete")}
+                  aria-label={`${t("capture.confirmDelete")} ${source.meta.title}`}
                 >
                   <Check className="w-3.5 h-3.5" />
                 </button>
@@ -604,8 +605,8 @@ export const Dashboard = React.memo(function Dashboard({
                   onClick={() => setPendingDeleteId(null)}
                   className="p-1 rounded-md hover:bg-black/5 transition-colors"
                   style={{ color: theme.textLight }}
-                  title="Cancel"
-                  aria-label="Cancel delete"
+                  title={t("capture.cancel")}
+                  aria-label={t("capture.cancel")}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -627,8 +628,8 @@ export const Dashboard = React.memo(function Dashboard({
                       }}
                       className="p-1 rounded-md hover:bg-black/5 transition-colors"
                       style={{ color: theme.textLight }}
-                      title="Upload again"
-                      aria-label={`Upload again ${source.meta.title}`}
+                      title={t("capture.uploadAgain")}
+                      aria-label={`${t("capture.uploadAgain")} ${source.meta.title}`}
                     >
                       <Upload className="w-3.5 h-3.5" />
                     </button>
@@ -638,8 +639,8 @@ export const Dashboard = React.memo(function Dashboard({
                     onClick={() => setPendingDeleteId(source.meta.id)}
                     className="p-1 rounded-md hover:bg-black/5 transition-colors"
                     style={{ color: theme.textLight }}
-                    title="Delete"
-                    aria-label={`Delete ${source.meta.title}`}
+                    title={t("capture.delete")}
+                    aria-label={`${t("capture.delete")} ${source.meta.title}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -717,7 +718,7 @@ export const Dashboard = React.memo(function Dashboard({
             color: filter === "all" ? "white" : theme.textMuted,
           }}
         >
-          All
+          {t("filter.all")}
           {sources.length > 0 && (
             <span
               className="px-1.5 py-0.5 text-xs rounded-full"
@@ -740,7 +741,7 @@ export const Dashboard = React.memo(function Dashboard({
           }}
         >
           <Bookmark className="w-4 h-4" />
-          Saved
+          {t("filter.saved")}
           {savedCount > 0 && (
             <span
               className="px-1.5 py-0.5 text-xs rounded-full"
@@ -763,7 +764,7 @@ export const Dashboard = React.memo(function Dashboard({
           }}
         >
           <Flame className="w-4 h-4" />
-          Recommended
+          {t("filter.recommended")}
           {recommendedCount > 0 && (
             <span
               className="px-1.5 py-0.5 text-xs rounded-full"
@@ -801,7 +802,7 @@ export const Dashboard = React.memo(function Dashboard({
         <>
           <div className="flex items-center gap-2 mb-4">
             <Inbox className="w-5 h-5" style={{ color: palette[500] }} />
-            <h2 className="font-medium">Inbox</h2>
+            <h2 className="font-medium">{t("list.inbox")}</h2>
             <span
               className="px-2 py-0.5 text-xs font-medium rounded-full"
               style={{ backgroundColor: `${palette[500]}15`, color: palette[500] }}
@@ -820,7 +821,7 @@ export const Dashboard = React.memo(function Dashboard({
         <>
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5" style={{ color: theme.textMuted }} />
-            <h2 className="font-medium">Recent</h2>
+            <h2 className="font-medium">{t("list.recent")}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {recentSources.map(renderSourceCard)}

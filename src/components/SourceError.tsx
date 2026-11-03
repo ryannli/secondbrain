@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Check, ExternalLink, Trash2, Upload, X } from "lucide-react";
 import { SourceMeta } from "@/lib/types";
 import { theme } from "@/lib/theme";
+import { t } from "@/lib/i18n";
 
 interface SourceErrorProps {
   meta: SourceMeta;
@@ -54,28 +55,28 @@ export function SourceError({ meta, onDelete, onReplace, onClose }: SourceErrorP
             <div className="flex items-center gap-1 flex-shrink-0">
               {confirmingDelete ? (
                 <>
-                  <span className="text-sm mr-1" style={{ color: theme.textMuted }}>Delete this card?</span>
-                  <IconButton onClick={() => onDelete?.()} title="Confirm delete" label="Confirm delete" color="#ef4444">
+                  <span className="text-sm mr-1" style={{ color: theme.textMuted }}>{t("capture.deleteCard")}</span>
+                  <IconButton onClick={() => onDelete?.()} title={t("capture.confirmDelete")} label={t("capture.confirmDelete")} color="#ef4444">
                     <Check className="w-4 h-4" />
                   </IconButton>
-                  <IconButton onClick={() => setConfirmingDelete(false)} title="Cancel" label="Cancel delete">
+                  <IconButton onClick={() => setConfirmingDelete(false)} title={t("capture.cancel")} label={t("capture.cancel")}>
                     <X className="w-4 h-4" />
                   </IconButton>
                 </>
               ) : (
                 <>
                   {onReplace && (
-                    <IconButton onClick={() => inputRef.current?.click()} title="Upload again" label="Upload again">
+                    <IconButton onClick={() => inputRef.current?.click()} title={t("capture.uploadAgain")} label={t("capture.uploadAgain")}>
                       <Upload className="w-4 h-4" />
                     </IconButton>
                   )}
                   {onDelete && (
-                    <IconButton onClick={() => setConfirmingDelete(true)} title="Delete" label="Delete">
+                    <IconButton onClick={() => setConfirmingDelete(true)} title={t("capture.delete")} label={t("capture.delete")}>
                       <Trash2 className="w-4 h-4" />
                     </IconButton>
                   )}
                   {onClose && (
-                    <IconButton onClick={onClose} title="Close" label="Close">
+                    <IconButton onClick={onClose} title={t("capture.close")} label={t("capture.close")}>
                       <X className="w-4 h-4" />
                     </IconButton>
                   )}
@@ -109,8 +110,8 @@ export function SourceError({ meta, onDelete, onReplace, onClose }: SourceErrorP
             </a>
           )}
           <div className="mt-6 p-4 rounded-lg bg-red-50 border border-red-200">
-            <p className="font-medium text-red-700 mb-2">Capture Failed</p>
-            <p className="text-sm text-red-600">{meta.processingError || "Unknown error occurred"}</p>
+            <p className="font-medium text-red-700 mb-2">{t("capture.failedTitle")}</p>
+            <p className="text-sm text-red-600">{meta.processingError || t("capture.failedUnknown")}</p>
           </div>
         </div>
       </div>

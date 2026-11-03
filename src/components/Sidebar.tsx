@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Source, TreeNode } from "@/lib/types";
 import { theme } from "@/lib/theme";
+import { t } from "@/lib/i18n";
 import { SectionTree } from "@/components/SectionTree";
 
 // Folder management interface - exported for reuse
@@ -114,7 +115,7 @@ export const Sidebar = React.memo(function Sidebar({
           onClick={onToggleSidebar}
           className="p-1 rounded hover:bg-black/5 transition-colors"
           data-track="sidebar.toggle"
-          title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          title={isSidebarOpen ? t("nav.collapse") : t("nav.expand")}
         >
           {isSidebarOpen ? (
             <PanelLeftClose className="w-4 h-4" style={{ color: theme.textMuted }} />
@@ -144,7 +145,7 @@ export const Sidebar = React.memo(function Sidebar({
               className="text-sm font-medium"
               style={{ color: !selectedSource && !selectedProfile && currentView === "dashboard" ? palette[600] : theme.text }}
             >
-              Dashboard
+              {t("nav.home")}
             </span>
           </button>
 
@@ -165,7 +166,7 @@ export const Sidebar = React.memo(function Sidebar({
               className="text-sm font-medium"
               style={{ color: !selectedSource && !selectedProfile && currentView === "foryou" ? palette[600] : theme.text }}
             >
-              For You
+              {t("nav.today")}
             </span>
           </button>
 
@@ -186,7 +187,7 @@ export const Sidebar = React.memo(function Sidebar({
               className="text-sm font-medium"
               style={{ color: !selectedSource && !selectedProfile && currentView === "history" ? palette[600] : theme.text }}
             >
-              History
+              {t("nav.history")}
             </span>
           </button>
 
@@ -210,7 +211,7 @@ export const Sidebar = React.memo(function Sidebar({
               className="text-sm font-medium"
               style={{ color: selectedProfile === "User" ? palette[600] : theme.text }}
             >
-              User
+              {t("nav.user")}
             </span>
           </button>
 
@@ -230,7 +231,7 @@ export const Sidebar = React.memo(function Sidebar({
               className="text-sm font-medium"
               style={{ color: selectedProfile === "Memory" ? palette[600] : theme.text }}
             >
-              Memory
+              {t("nav.memory")}
             </span>
           </button>
 

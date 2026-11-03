@@ -30,6 +30,7 @@ import { ResizeHandle } from "@/components/ResizeHandle";
 import { useReadingTimer } from "@/hooks/useReadingTimer";
 import { TrackingProvider } from "@/components/TrackingProvider";
 import { STARTER_PACK, STARTER_PACK_STAGGER_SECONDS } from "@/lib/config";
+import { actionText, t } from "@/lib/i18n";
 
 // Shown when an agent-maintained profile page has no content yet, so a
 // first visit explains itself instead of rendering a blank document.
@@ -134,6 +135,8 @@ function HomeContent() {
     saveFontSize,
     headingStyle,
     saveHeadingStyle,
+    locale,
+    saveLocale,
   } = useSettings();
 
   // Entry collections (unified hooks for Library and Notebook)
@@ -391,8 +394,8 @@ function HomeContent() {
     const ui = actionUI[action];
     return {
       icon: ui?.icon ?? <Target className="w-3.5 h-3.5" />,
-      label: config?.label ?? action,
-      description: config?.description ?? "",
+      label: actionText(action),
+      description: actionText(action, "desc") || config?.description || "",
       color: ui?.color ?? theme.textMuted,
     };
   }, [actionUI]);
@@ -518,6 +521,8 @@ function HomeContent() {
         onFontSizeChange={saveFontSize}
         headingStyle={headingStyle}
         onHeadingStyleChange={saveHeadingStyle}
+        locale={locale}
+        onLocaleChange={saveLocale}
       />
 
       {/* One-time expectation-setting cards after the gate, before the dashboard */}
@@ -541,13 +546,13 @@ function HomeContent() {
           width={sidebarResize.width}
           sections={[
             {
-              label: "Library",
-              hint: "what you capture",
+              label: t("nav.library"),
+              hint: t("nav.libraryHint"),
               rootLabel: libraryPath.split("/").pop() || "library",
               isOpen: library.isOpen,
               onToggle: library.toggle,
               isEmpty: library.isEmpty,
-              emptyMessage: "No sources yet — paste a link above to start",
+              emptyMessage: t("nav.libraryEmpty"),
               onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "library" }) }),
               treeNodes: library.treeNodes,
               expandedFolders: library.expandedFolders,
@@ -559,13 +564,13 @@ function HomeContent() {
               folderManagement: library.folderManagement,
             },
             {
-              label: "Notebook",
-              hint: "what you write with your agent",
+              label: t("nav.notebook"),
+              hint: t("nav.notebookHint"),
               rootLabel: "notebook",
               isOpen: notebook.isOpen,
               onToggle: notebook.toggle,
               isEmpty: notebook.isEmpty,
-              emptyMessage: "Nothing here yet — ask the Agent to draft a brief from your sources",
+              emptyMessage: t("nav.notebookEmpty"),
               onAdd: () => prefillInput("Draft a brief connecting my recent sources"),
               addTitle: "New note — ask the Agent to draft one",
               onReveal: () => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: "notebook" }) }),

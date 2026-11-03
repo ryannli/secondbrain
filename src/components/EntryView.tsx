@@ -24,6 +24,7 @@ import { useResizable } from "@/hooks/useResizable";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { formatRelativeTime } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 /** Format seconds as M:SS or H:MM:SS */
 function formatTimer(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -303,7 +304,7 @@ export const EntryView = React.memo(function EntryView({
               )}
               {entry.sourceUrl && entry.createdAt && <span>·</span>}
               {entry.createdAt && (
-                <span>Added {formatRelativeTime(entry.createdAt)}</span>
+                <span>{t("entry.added")} {formatRelativeTime(entry.createdAt)}</span>
               )}
               {entry.content && (() => {
                 const text = entry.content.trim();

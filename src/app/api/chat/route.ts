@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
-import { getCurrentRootPath, loadProfileDoc } from "@/lib/storage";
+import { getCurrentRootPath, loadProfileDoc, loadUserConfig } from "@/lib/storage";
+import { AGENT_ZH_RULE, normalizeLocale } from "@/lib/i18n";
 import { getAgentChatCommand, getConfiguredAgentModel, getConfiguredAgentProvider } from "@/lib/agent";
 import { AGENT_PROVIDER_DETAILS } from "@/lib/agentTypes";
 import { AGENT_CLI_PROVIDERS } from "@/lib/agentProviders";
@@ -47,8 +48,9 @@ export async function POST(request: NextRequest) {
     const providerDefinition = AGENT_CLI_PROVIDERS[provider];
     const chatEventFormat = providerDefinition.chatEventFormat;
 
+    const locale = normalizeLocale((await loadUserConfig()).locale);
     // Build the prompt - detailed instructions are in user_data/AGENTS.md or user_data/CLAUDE.md
-    let prompt = `You are an Agent in a knowledge management app called "Second Brain".
+    let prompt = `${locale === "zh" ? `${AGENT_ZH_RULE}\n\n` : ""}You are an Agent in a knowledge management app called "Second Brain".
 
 Your environment:
 - \`./library/\` - The content library (read and write)

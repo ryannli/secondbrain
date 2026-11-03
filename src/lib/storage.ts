@@ -33,6 +33,7 @@ export interface UserConfig {
   agentModels?: Partial<Record<AgentProvider, string>>; // Optional model per provider; empty inherits the CLI default
   fontSize?: string;      // "sm" | "base" | "lg"
   headingStyle?: string;  // "clean" | "colored" | "accented"
+  locale?: "en" | "zh";   // Interface and agent-facing language. Default is English.
 }
 
 export type RootPathSource = "env" | "local" | "default";

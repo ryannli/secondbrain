@@ -6,6 +6,7 @@ import { theme } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 import { DEFAULT_RSS_FEEDS, SUGGESTED_SEARCH_SOURCES } from "@/lib/config";
 import { AGENT_PROVIDER_DETAILS, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
+import { t } from "@/lib/i18n";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -38,6 +39,8 @@ export interface SettingsModalProps {
   onFontSizeChange?: (size: string) => void;
   headingStyle?: string;
   onHeadingStyleChange?: (style: string) => void;
+  locale?: "en" | "zh";
+  onLocaleChange?: (locale: "en" | "zh") => void;
 }
 
 const THEME_OPTIONS = [
@@ -118,6 +121,8 @@ export function SettingsModal({
   onFontSizeChange,
   headingStyle = "clean",
   onHeadingStyleChange,
+  locale = "en",
+  onLocaleChange,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("appearance");
   const [newRssUrl, setNewRssUrl] = useState("");
@@ -296,12 +301,12 @@ export function SettingsModal({
       >
         {/* Header with tabs */}
         <div className="px-6 pt-6 pb-0 border-b" style={{ borderColor: theme.border }}>
-          <h2 className="text-lg font-semibold mb-4">Settings</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("settings.title")}</h2>
           <div className="flex gap-6">
             {([
-              { id: "appearance" as Tab, label: "Appearance" },
-              { id: "feed" as Tab, label: "Feed" },
-              { id: "agent" as Tab, label: "Agent" },
+              { id: "appearance" as Tab, label: t("settings.appearance") },
+              { id: "feed" as Tab, label: t("settings.feed") },
+              { id: "agent" as Tab, label: t("settings.agent") },
             ]).map((tab) => (
               <button
                 key={tab.id}
@@ -328,9 +333,32 @@ export function SettingsModal({
 
         {activeTab === "appearance" && (
           <>
+            <div className="mb-5">
+              <label className="block text-sm font-medium mb-2">{t("settings.language")}</label>
+              <div className="flex gap-2">
+                {([
+                  { id: "en" as const, label: "English" },
+                  { id: "zh" as const, label: "中文" },
+                ]).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onLocaleChange?.(option.id)}
+                    className="flex-1 px-3 py-2 rounded-lg border text-sm transition-all"
+                    style={{
+                      borderColor: locale === option.id ? palette[500] : theme.border,
+                      backgroundColor: locale === option.id ? `${palette[500]}10` : "transparent",
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Theme */}
             <div className="mb-5">
-              <label className="block text-sm font-medium mb-2">Theme</label>
+              <label className="block text-sm font-medium mb-2">{t("settings.theme")}</label>
               <div className="flex gap-2">
                 {THEME_OPTIONS.map((option) => {
                   const Icon = option.icon;
@@ -346,7 +374,7 @@ export function SettingsModal({
                       }}
                     >
                       <Icon className="w-4 h-4" />
-                      <span className="text-sm">{option.label}</span>
+                      <span className="text-sm">{t(`settings.${option.id}` as "settings.light")}</span>
                     </button>
                   );
                 })}
@@ -355,7 +383,7 @@ export function SettingsModal({
 
             {/* Font Family */}
             <div className="mb-5">
-              <label className="block text-sm font-medium mb-2">Font</label>
+              <label className="block text-sm font-medium mb-2">{t("settings.font")}</label>
               <div className="grid grid-cols-3 gap-2">
                 {FONT_OPTIONS.map((option) => (
                   <button
