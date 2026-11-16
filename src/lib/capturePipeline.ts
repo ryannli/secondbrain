@@ -1,9 +1,13 @@
+import { promises as fs } from "fs";
+import path from "path";
 import { debugLog } from "./log";
 import { AGENT_CONTEXT_CONFIG } from "@/lib/config";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
 import { analyzeContent, analyzeFile, findRelatedSources, analyzeConnections, mergeSourceIntoConnections, formatTextContent, generateTitle } from "@/lib/claude";
-import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource } from "@/lib/storage";
+import { saveSourceContent, saveSourceAnalysis, setSourceConnections, saveConnectionError, listSourcesForConnections, loadSource, failSource, getLibraryPath } from "@/lib/storage";
 import { Connection, SourceType } from "@/lib/types";
+import { isBilibiliInput, sampleTranscript } from "@/lib/bilibili";
+import { captureBilibiliVideo } from "@/lib/videoCapture";
 
 interface ProcessInput {
   url?: string;
@@ -25,9 +29,17 @@ export async function processSourceInBackground(
   try {
     let extractedTitle: string;
     let content: string;
+    let analysisUrl = url;
 
     // Step 1: Extract content
-    if (html) {
+    if (url && isBilibiliInput(url)) {
+      debugLog(`[${id}] Capturing Bilibili transcript`);
+      const transcript = await captureBilibiliVideo(id, url);
+      extractedTitle = transcript.title;
+      content = transcript.markdown;
+      analysisUrl = transcript.url;
+      await fs.writeFile(path.join(getLibraryPath(), id, "transcript.srt"), transcript.srt, "utf-8");
+    } else if (html) {
       debugLog(`[${id}] Extracting content from HTML (${html.length} chars)...`);
       const extracted = await extractFromHtml(html, url, undefined, id);
       extractedTitle = extracted.title;
@@ -55,7 +67,12 @@ export async function processSourceInBackground(
 
     // Step 2: Analyze with the configured agent
     debugLog(`[${id}] Analyzing content: ${extractedTitle}`);
-    const analysis = await analyzeContent(extractedTitle, content, url, id);
+    const analysis = await analyzeContent(
+      extractedTitle,
+      url && isBilibiliInput(url) ? sampleTranscript(content) : content,
+      analysisUrl,
+      id
+    );
 
     // Progressive save: analysis is now visible to user
     debugLog(`[${id}] Saving analysis (progressive step 2)...`);

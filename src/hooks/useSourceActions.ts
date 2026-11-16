@@ -59,16 +59,14 @@ export function useSourceActions({
 
         if (data.success && data.source) {
           const source = data.source;
-          // Check if analysis is complete (has triage data)
-          if (source.analysis?.triage) {
-            // Update sources list with complete data
-            onUpsertSourceSummary(toSummary(source));
-            // If this source is currently selected, update it (use ref to avoid stale closure)
-            if (selectedSourceIdRef.current === sourceId) {
-              setSelectedSource(source);
-            }
+          onUpsertSourceSummary(toSummary(source));
+          if (selectedSourceIdRef.current === sourceId && source.analysis) {
+            setSelectedSource(source);
+          }
+          const failed = source.meta.processingStatus === "failed" || Boolean(source.meta.processingError);
+          if (source.analysis?.triage || failed) {
             pollingSourcesRef.current.delete(sourceId);
-            return; // Done polling
+            return;
           }
         }
 

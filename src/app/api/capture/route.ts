@@ -1,6 +1,7 @@
 import { debugLog } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { getSourceType, getTypeFromExtension } from "@/lib/content";
+import { canonicalBilibiliUrl } from "@/lib/bilibili";
 import { createPendingSource, ensureLibraryExists } from "@/lib/storage";
 import { SourceType } from "@/lib/types";
 import { processSourceInBackground, processFileInBackground } from "@/lib/capturePipeline";
@@ -27,7 +28,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { url, text, title, html } = body;
+    let { url, text, title, html } = body;
+    const bilibiliUrl = !html ? canonicalBilibiliUrl(url || text || "") : null;
+    if (bilibiliUrl) {
+      url = bilibiliUrl;
+      text = undefined;
+    }
 
     // Get user's User-Agent for forwarding to target sites
     const userAgent = request.headers.get("user-agent") || undefined;

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadSource, findEntryPath, listSourcesForConnections, setSourceConnections } from "@/lib/storage";
 import { analyzeContent, formatTextContent, findRelatedSources, analyzeConnections, mergeSourceIntoConnections } from "@/lib/claude";
 import { extractFromUrl, extractFromHtml } from "@/lib/content";
+import { isBilibiliInput, sampleTranscript } from "@/lib/bilibili";
 import { Connection } from "@/lib/types";
 import { promises as fs } from "fs";
 import path from "path";
@@ -52,6 +53,10 @@ export async function POST(
       const extracted = await extractFromHtml(source.originalContent, source.meta.sourceUrl, undefined, id);
       newContent = extracted.content;
       newTitle = extracted.title;
+    } else if (source.meta.sourceUrl && isBilibiliInput(source.meta.sourceUrl) && source.content) {
+      debugLog("Re-analyzing the saved Bilibili transcript...");
+      newContent = source.content;
+      newTitle = source.meta.title;
     } else if (source.meta.sourceUrl) {
       // URL without usable stored HTML: re-fetch
       debugLog(`Re-fetching content from: ${source.meta.sourceUrl}`);
@@ -72,9 +77,12 @@ export async function POST(
 
     // Re-analyze the content with new title
     debugLog("Re-analyzing content...");
+    const analysisInput = source.meta.sourceUrl && isBilibiliInput(source.meta.sourceUrl)
+      ? sampleTranscript(newContent)
+      : newContent;
     const analysis = await analyzeContent(
       newTitle,
-      newContent,
+      analysisInput,
       source.meta.sourceUrl,
       id
     );

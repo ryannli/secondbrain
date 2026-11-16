@@ -542,7 +542,7 @@ export const Dashboard = React.memo(function Dashboard({
 
         {/* Progress bar or status text */}
         {isInProgress ? (
-          <ProcessingProgressBar stage={source.meta.processingStage!} color={palette[500]} mutedColor={theme.textMuted} />
+          <ProcessingProgressBar stage={source.meta.processingStage!} detail={source.meta.progressLabel} color={palette[500]} mutedColor={theme.textMuted} />
         ) : isFailed ? (
           <p className="text-xs" style={{ color: "#ef4444" }}>
             <LinkifiedText text={source.meta.processingError || "Processing failed"} />
@@ -733,7 +733,7 @@ const STAGE_CONFIG: Record<ProcessingStage, { base: number; max: number; label: 
   complete: { base: 100, max: 100, label: "" },
 };
 
-function ProcessingProgressBar({ stage, color, mutedColor }: { stage: ProcessingStage; color: string; mutedColor: string }) {
+function ProcessingProgressBar({ stage, detail, color, mutedColor }: { stage: ProcessingStage; detail?: string; color: string; mutedColor: string }) {
   const [progress, setProgress] = useState(STAGE_CONFIG[stage].base);
 
   // Reset to the new stage's base progress (render-phase adjustment)
@@ -760,7 +760,7 @@ function ProcessingProgressBar({ stage, color, mutedColor }: { stage: Processing
   return (
     <div className="ml-8 mt-1">
       <p className="text-xs mb-1.5" style={{ color: mutedColor }}>
-        {STAGE_CONFIG[stage].label}
+        {detail || STAGE_CONFIG[stage].label}
       </p>
       <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: `${color}15` }}>
         <div

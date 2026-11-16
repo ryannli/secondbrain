@@ -52,6 +52,7 @@ export interface SourceMeta {
   processingStatus?: ProcessingStatus;
   processingStage?: ProcessingStage; // More granular than processingStatus
   processingError?: string;
+  progressLabel?: string;
   analysisError?: string; // Error if analysis.json exists but is malformed
   // Reading tracking
   readStatus?: "unread" | "reading" | "read";
