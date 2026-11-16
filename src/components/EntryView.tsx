@@ -48,6 +48,7 @@ export interface EntryData {
   createdAt?: string; // ISO timestamp
   type?: string; // "article", "image", etc.
   processingStatus?: "processing" | "ready" | "failed";
+  processingError?: string;
   analysisError?: string;
   saved?: boolean;
   totalReadTimeSeconds?: number; // Active reading time tracked by client
@@ -214,6 +215,7 @@ export const EntryView = React.memo(function EntryView({
           sourceUrl: entry.sourceUrl,
           createdAt: entry.createdAt ?? "",
           processingStatus: "failed",
+          processingError: entry.processingError,
         }}
       />
     );

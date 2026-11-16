@@ -6,6 +6,7 @@ import { theme } from "@/lib/theme";
 import type { ThemeMode, RssFeedSource } from "@/lib/storage";
 import { DEFAULT_RSS_FEEDS, SUGGESTED_SEARCH_SOURCES } from "@/lib/config";
 import { AGENT_PROVIDER_DETAILS, type AgentProvider, type AgentStatus } from "@/lib/agentTypes";
+import { VideoSettings } from "@/components/VideoSettings";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -1016,6 +1017,7 @@ export function SettingsModal({
                 )}
               </p>
             </div>
+            <VideoSettings palette={palette} />
           </>
         )}
 

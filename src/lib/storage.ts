@@ -33,6 +33,29 @@ export interface UserConfig {
   agentModels?: Partial<Record<AgentProvider, string>>; // Optional model per provider; empty inherits the CLI default
   fontSize?: string;      // "sm" | "base" | "lg"
   headingStyle?: string;  // "clean" | "colored" | "accented"
+  video?: {
+    whisperModel?: string;
+    whisperLanguage?: string;
+    deleteAudioAfter?: boolean;
+  };
+}
+
+export interface VideoSettings {
+  whisperModel: string;
+  whisperLanguage: string;
+  deleteAudioAfter: boolean;
+}
+
+export function normalizeVideoSettings(config: UserConfig): VideoSettings {
+  return {
+    whisperModel: config.video?.whisperModel?.trim() || "large-v3",
+    whisperLanguage: config.video?.whisperLanguage?.trim() || "zh",
+    deleteAudioAfter: config.video?.deleteAudioAfter !== false,
+  };
+}
+
+export function getBilibiliCookiePath(): string {
+  return path.join(getRootPath(), "bilibili.cookies.txt");
 }
 
 export type RootPathSource = "env" | "local" | "default";
@@ -288,6 +311,32 @@ export async function saveLocalRootPath(rootPath: string): Promise<string> {
  */
 export function getLibraryPath(): string {
   return process.env.SECONDBRAIN_LIBRARY || path.join(getRootPath(), "library");
+}
+
+export async function writeSourceProgress(id: string, label: string, libraryPath = getLibraryPath()): Promise<void> {
+  await fs.writeFile(path.join(libraryPath, id, "progress.txt"), label, "utf-8");
+}
+
+export async function clearSourceProgress(id: string, libraryPath = getLibraryPath()): Promise<void> {
+  await fs.unlink(path.join(libraryPath, id, "progress.txt")).catch(() => undefined);
+}
+
+async function readProgressLabel(sourceDir: string): Promise<string | undefined> {
+  try {
+    const text = (await fs.readFile(path.join(sourceDir, "progress.txt"), "utf-8")).trim();
+    return text || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function analysisAgeMs(sourceDir: string): Promise<number | null> {
+  try {
+    const stat = await fs.stat(path.join(sourceDir, "analysis.json"));
+    return Date.now() - stat.mtimeMs;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -643,6 +692,7 @@ title: "${title.replace(/"/g, '\\"')}"
 ${content}
 `;
   await fs.writeFile(path.join(sourceDir, "content.md"), contentMd, "utf-8");
+  await clearSourceProgress(id, libraryPath);
 }
 
 /**
@@ -843,6 +893,7 @@ export async function failSource(
 ): Promise<void> {
   const sourceDir = path.join(libraryPath, id);
   await fs.writeFile(path.join(sourceDir, "error.txt"), error, "utf-8");
+  await clearSourceProgress(id, libraryPath);
 }
 
 /**
@@ -1256,8 +1307,8 @@ async function loadSourceSummaryFromPath(
     } else if (!hasAnalysis && !analysisError) {
       processingStage = "analyzing";
     } else if (hasAnalysis && !hasConnections && !hasConnectionError) {
-      const ageMs = Date.now() - new Date(originalData.created_at).getTime();
-      processingStage = ageMs > 10 * 60 * 1000 ? "complete" : "connecting";
+      const ageMs = await analysisAgeMs(sourceDir);
+      processingStage = ageMs !== null && ageMs > 10 * 60 * 1000 ? "complete" : "connecting";
     } else {
       processingStage = "complete";
     }
@@ -1273,6 +1324,7 @@ async function loadSourceSummaryFromPath(
         processingStatus: status,
         processingStage,
         processingError: error,
+        progressLabel: await readProgressLabel(sourceDir),
         analysisError,
         readStatus,
         lastReadAt,
@@ -1483,8 +1535,8 @@ async function loadSourceFromPath(
     } else if (!analysis && !analysisError) {
       processingStage = "analyzing";
     } else if (analysis && analysis.connections === undefined && !analysis.connectionError) {
-      const ageMs = Date.now() - new Date(originalData.created_at).getTime();
-      if (ageMs > 10 * 60 * 1000) {
+      const ageMs = await analysisAgeMs(sourceDir);
+      if (ageMs !== null && ageMs > 10 * 60 * 1000) {
         analysis.connectionError = "Connection analysis interrupted";
         processingStage = "complete";
       } else {
@@ -1503,6 +1555,7 @@ async function loadSourceFromPath(
       processingStatus: status,
       processingStage,
       processingError: error,
+      progressLabel: await readProgressLabel(sourceDir),
       analysisError,
       readStatus,
       lastReadAt,
