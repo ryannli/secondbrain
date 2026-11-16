@@ -655,6 +655,7 @@ function HomeContent() {
                   createdAt: entry.source.meta.createdAt,
                   type: entry.source.meta.type,
                   processingStatus: entry.source.meta.processingStatus,
+                  processingError: entry.source.meta.processingError,
                   analysisError: entry.source.meta.analysisError,
                   analysis: entry.source.analysis,
                   saved: entry.source.meta.saved,
